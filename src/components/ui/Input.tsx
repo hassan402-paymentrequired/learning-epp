@@ -29,11 +29,16 @@ export function Input({
   onRightIconPress,
   ...props
 }: InputProps) {
+  // All hooks must be called unconditionally
   const backgroundColor = useThemeColor({}, 'inputBackground');
   const textColor = useThemeColor({}, 'text');
   const placeholderColor = useThemeColor({}, 'placeholder');
-  const borderColor = error ? useThemeColor({}, 'error') : useThemeColor({}, 'border');
+  const errorColor = useThemeColor({}, 'error');
+  const borderColorValue = useThemeColor({}, 'border');
   const iconColor = useThemeColor({}, 'icon');
+  
+  // Use conditional logic only for values, not hooks
+  const borderColor = error ? errorColor : borderColorValue;
 
   return (
     <View style={[styles.container, containerStyle]}>
@@ -78,7 +83,7 @@ export function Input({
           </TouchableOpacity>
         )}
       </View>
-      {error && <Text style={[styles.error, { color: useThemeColor({}, 'error') }]}>{error}</Text>}
+      {error && <Text style={[styles.error, { color: errorColor }]}>{error}</Text>}
     </View>
   );
 }
