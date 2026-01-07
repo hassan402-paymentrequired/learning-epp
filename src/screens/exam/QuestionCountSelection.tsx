@@ -173,8 +173,17 @@ export function QuestionCountSelection() {
         return;
       }
 
-      // Start exam attempt (use first exam ID for now - API will need to support multi-subject)
-      const attemptResponse = await api.post(`/exams/${firstExamId}/start`);
+      // Prepare subjects data
+      const subjectsData = selection.subjects.map((subject) => ({
+        subject: subject,
+        question_count: parseInt(questionCounts[subject]) || 0,
+      }));
+
+      // Start exam attempt with subjects and duration
+      const attemptResponse = await api.post(`/exams/${firstExamId}/start`, {
+        subjects: subjectsData,
+        duration_minutes: selection.timeMinutes,
+      });
 
       if (!attemptResponse.data.success) {
         Alert.alert('Error', 'Failed to start exam. Please try again.');

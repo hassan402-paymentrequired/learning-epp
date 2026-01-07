@@ -215,8 +215,17 @@ export function ExamScreen() {
           });
         }
 
-        // Complete the exam
-        await api.post(`/exam-attempts/${params.attemptId}/complete`);
+        // Prepare subjects data for multi-subject exams
+        const subjectsData = selection.subjects.map((subject) => ({
+          subject: subject,
+          question_count: selection.questionCounts[subject] || 0,
+        }));
+
+        // Complete the exam with subjects and duration
+        await api.post(`/exam-attempts/${params.attemptId}/complete`, {
+          subjects: subjectsData,
+          duration_minutes: selection.timeMinutes,
+        });
       }
       
       // Increment practice session if it was a practice exam
@@ -226,20 +235,11 @@ export function ExamScreen() {
         });
       }
 
-      // Navigate back to home for now (results screen can be added later)
-      Alert.alert(
-        'Exam Submitted',
-        `You answered ${totalAnswered} out of ${totalQuestions} questions across ${selection.subjects.length} ${selection.subjects.length === 1 ? 'subject' : 'subjects'}. Results will be available soon.`,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // @ts-ignore
-              navigation.navigate('Home');
-            },
-          },
-        ]
-      );
+      // Navigate to results screen
+      // @ts-ignore
+      navigation.navigate('ExamResults', {
+        attemptId: params.attemptId,
+      });
     } catch (error: any) {
       console.error('Error submitting exam:', error);
       Alert.alert('Error', 'Failed to submit exam. Please try again.');
