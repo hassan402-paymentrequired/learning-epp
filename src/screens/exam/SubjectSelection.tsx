@@ -173,9 +173,16 @@ export function SubjectSelection() {
       setQuestionCount(subject, count);
     }
 
-    // Navigate to time selection
-    // @ts-ignore
-    navigation.navigate('TimeSelection');
+    // Navigate based on question mode
+    // For past questions, go to year selection first
+    // For practice, go directly to time selection
+    if (selection.questionMode === 'past_question') {
+      // @ts-ignore
+      navigation.navigate('YearSelection');
+    } else {
+      // @ts-ignore
+      navigation.navigate('TimeSelection');
+    }
   };
 
   if (loading) {

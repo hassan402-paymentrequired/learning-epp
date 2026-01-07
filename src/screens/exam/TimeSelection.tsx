@@ -135,49 +135,109 @@ export function TimeSelection() {
 
       for (const subject of selection.subjects) {
         try {
-          const examResponse = await api.get('/exams', {
-            params: {
-              exam_type: selection.examType,
-              type: selection.questionMode,
+          const questionCount = selection.questionCounts[subject] || 0;
+
+          if (selection.questionMode === 'practice') {
+            // For practice: Get random questions from questions table
+            const questionsResponse = await api.get('/questions/practice', {
+              params: {
+                exam_type: selection.examType,
+                subject: subject,
+                count: questionCount,
+              },
+            });
+
+            if (!questionsResponse.data.success) {
+              Alert.alert('Error', `Failed to load questions for ${subject}. Please try again.`);
+              return;
+            }
+
+            const allQuestions = questionsResponse.data.data || [];
+
+            if (allQuestions.length === 0) {
+              Alert.alert(
+                'No Questions Found',
+                `No practice questions available for ${subject}. Please try a different subject.`
+              );
+              return;
+            }
+
+            if (allQuestions.length < questionCount) {
+              Alert.alert(
+                'Limited Questions',
+                `Only ${allQuestions.length} questions available for ${subject} (requested ${questionCount}).`
+              );
+            }
+
+            // Add subject identifier to questions
+            const questionsWithSubject = allQuestions.map((q: any) => ({
+              ...q,
               subject: subject,
-            },
-          });
+            }));
 
-          if (!examResponse.data.success || examResponse.data.data.length === 0) {
-            Alert.alert(
-              'No Exam Found',
-              `No exam found for ${subject}. Please try different options.`
-            );
-            return;
+            subjectsQuestions[subject] = questionsWithSubject;
+
+            // For practice, we still need an exam_id for the attempt
+            // Create a dummy exam or use the first available exam
+            if (!firstExamId) {
+              const examResponse = await api.get('/exams', {
+                params: {
+                  exam_type: selection.examType,
+                  type: 'practice',
+                  subject: subject,
+                },
+              });
+
+              if (examResponse.data.success && examResponse.data.data.length > 0) {
+                firstExamId = examResponse.data.data[0].id;
+              }
+            }
+          } else {
+            // For past questions: Get questions from specific exam with year
+            const examResponse = await api.get('/exams', {
+              params: {
+                exam_type: selection.examType,
+                type: 'past_question',
+                subject: subject,
+                year: selection.selectedYear,
+              },
+            });
+
+            if (!examResponse.data.success || examResponse.data.data.length === 0) {
+              Alert.alert(
+                'No Exam Found',
+                `No past questions found for ${subject} in ${selection.selectedYear}. Please try a different year.`
+              );
+              return;
+            }
+
+            const exam = examResponse.data.data[0];
+            if (!firstExamId) {
+              firstExamId = exam.id;
+            }
+
+            // Get questions for this subject's exam
+            const questionsResponse = await api.get(`/exams/${exam.id}/questions`);
+
+            if (!questionsResponse.data.success) {
+              Alert.alert('Error', `Failed to load questions for ${subject}. Please try again.`);
+              return;
+            }
+
+            const questionsData = questionsResponse.data.data;
+            const allQuestions = questionsData.questions || [];
+
+            // Limit questions to selected count for this subject
+            const limitedQuestions = allQuestions.slice(0, questionCount);
+
+            // Add subject identifier to questions
+            const questionsWithSubject = limitedQuestions.map((q: any) => ({
+              ...q,
+              subject: subject,
+            }));
+
+            subjectsQuestions[subject] = questionsWithSubject;
           }
-
-          const exam = examResponse.data.data[0];
-          if (!firstExamId) {
-            firstExamId = exam.id;
-          }
-
-          // Get questions for this subject's exam
-          const questionsResponse = await api.get(`/exams/${exam.id}/questions`);
-
-          if (!questionsResponse.data.success) {
-            Alert.alert('Error', `Failed to load questions for ${subject}. Please try again.`);
-            return;
-          }
-
-          const questionsData = questionsResponse.data.data;
-          const allQuestions = questionsData.questions || [];
-
-          // Limit questions to selected count for this subject
-          const questionCount = selection.questionCounts[subject] || allQuestions.length;
-          const limitedQuestions = allQuestions.slice(0, questionCount);
-
-          // Add subject identifier to questions
-          const questionsWithSubject = limitedQuestions.map((q: any) => ({
-            ...q,
-            subject: subject,
-          }));
-
-          subjectsQuestions[subject] = questionsWithSubject;
         } catch (error: any) {
           console.error(`Error loading questions for ${subject}:`, error);
           Alert.alert('Error', `Failed to load questions for ${subject}. Please try again.`);
@@ -223,7 +283,9 @@ export function TimeSelection() {
         subjectsQuestions: subjectsQuestions, // Pass all subjects' questions
         exam: {
           id: firstExamId,
-          title: `${selection.examType} ${selection.subjects.join(', ')} Practice`,
+          title: `${selection.examType} ${selection.subjects.join(', ')} ${
+            selection.questionMode === 'practice' ? 'Practice' : `${selection.selectedYear} Past Questions`
+          }`,
           duration: numMinutes,
           total_questions: totalQuestions,
         },

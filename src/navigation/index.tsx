@@ -11,6 +11,7 @@ import { Signup } from "@/screens/auth/Signup";
 import { Profile } from "@/screens/Profile";
 import { SubjectSelection } from "@/screens/exam/SubjectSelection";
 import { QuestionModeSelection } from "@/screens/exam/QuestionModeSelection";
+import { YearSelection } from "@/screens/exam/YearSelection";
 import { TimeSelection } from "@/screens/exam/TimeSelection";
 import { ExamScreen } from "@/screens/exam/ExamScreen";
 import { ExamResults } from "@/screens/exam/ExamResults";
@@ -47,12 +48,13 @@ function AppNavigator() {
     <AppStack.Navigator screenOptions={{ headerShown: false }}>
       <AppStack.Screen name="Home" component={Home} />
       <AppStack.Screen name="Profile" component={Profile} />
-      {/* Updated flow order: Question Mode → Subjects (with question count) → Time → Exam */}
+      {/* Updated flow order: Question Mode → Subjects (with question count) → Year (for past questions) → Time → Exam */}
       <AppStack.Screen
         name="QuestionModeSelection"
         component={QuestionModeSelection}
       />
       <AppStack.Screen name="SubjectSelection" component={SubjectSelection} />
+      <AppStack.Screen name="YearSelection" component={YearSelection} />
       <AppStack.Screen name="TimeSelection" component={TimeSelection} />
       <AppStack.Screen name="ExamScreen" component={ExamScreen} />
       <AppStack.Screen name="ExamResults" component={ExamResults} />

@@ -13,6 +13,7 @@ export interface ExamSelectionState {
   subjects: string[]; // Array of selected subjects (max 4 for JAMB)
   questionMode: QuestionMode;
   questionCounts: Record<string, number>; // Map of subject -> question count
+  selectedYear: number | null; // For past questions
   timeMinutes: number | null;
 }
 
@@ -24,6 +25,7 @@ interface ExamSelectionContextType {
   removeSubject: (subject: string) => void;
   setQuestionMode: (mode: QuestionMode) => void;
   setQuestionCount: (subject: string, count: number) => void;
+  setSelectedYear: (year: number | null) => void;
   setTimeMinutes: (minutes: number | null) => void;
   resetSelection: () => void;
   // Practice session tracking
@@ -39,6 +41,7 @@ const initialState: ExamSelectionState = {
   subjects: [],
   questionMode: null,
   questionCounts: {},
+  selectedYear: null,
   timeMinutes: null,
 };
 
@@ -126,6 +129,10 @@ export function ExamSelectionProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  const setSelectedYear = (year: number | null) => {
+    setSelection((prev) => ({ ...prev, selectedYear: year }));
+  };
+
   const setTimeMinutes = (minutes: number | null) => {
     setSelection((prev) => ({ ...prev, timeMinutes: minutes }));
   };
@@ -164,6 +171,7 @@ export function ExamSelectionProvider({ children }: { children: ReactNode }) {
         removeSubject,
         setQuestionMode,
         setQuestionCount,
+        setSelectedYear,
         setTimeMinutes,
         resetSelection,
         getPracticeSessionCount,
