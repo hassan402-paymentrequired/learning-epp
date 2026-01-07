@@ -1,14 +1,11 @@
-import React from 'react';
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-} from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { useAuth } from '@/contexts/AuthContext';
-import { ThemedText } from '@/components/ThemedText';
-import { useThemeColor } from '@/hooks/useThemeColor';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import React from "react";
+import { View, StyleSheet, TouchableOpacity, Platform } from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { useAuth } from "@/contexts/AuthContext";
+import { ThemedText } from "@/components/ThemedText";
+import { useThemeColor } from "@/hooks/useThemeColor";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { Fonts } from "@/constants/Fonts";
 
 interface AppHeaderProps {
   showBackButton?: boolean;
@@ -18,18 +15,23 @@ interface AppHeaderProps {
 export function AppHeader({ showBackButton = false, title }: AppHeaderProps) {
   const navigation = useNavigation();
   const { user } = useAuth();
-  const backgroundColor = useThemeColor({}, 'background');
-  const textColor = useThemeColor({}, 'text');
-  const tintColor = useThemeColor({}, 'tint');
-  const borderColor = useThemeColor({}, 'border');
+  const backgroundColor = useThemeColor({}, "background");
+  const textColor = useThemeColor({}, "text");
+  const tintColor = useThemeColor({}, "tint");
+  const borderColor = useThemeColor({}, "border");
 
   const handleProfilePress = () => {
     // @ts-ignore
-    navigation.navigate('Profile');
+    navigation.navigate("Profile");
   };
 
   return (
-    <View style={[styles.header, { backgroundColor, borderBottomColor: borderColor }]}>
+    <View
+      style={[
+        styles.header,
+        { backgroundColor, borderBottomColor: borderColor },
+      ]}
+    >
       <View style={styles.leftSection}>
         {showBackButton ? (
           <TouchableOpacity
@@ -45,7 +47,7 @@ export function AppHeader({ showBackButton = false, title }: AppHeaderProps) {
           >
             <View style={[styles.avatar, { backgroundColor: tintColor }]}>
               <ThemedText style={styles.avatarText}>
-                {user?.name?.charAt(0).toUpperCase() || 'U'}
+                {user?.name?.charAt(0).toUpperCase() || "U"}
               </ThemedText>
             </View>
           </TouchableOpacity>
@@ -71,9 +73,9 @@ export function AppHeader({ showBackButton = false, title }: AppHeaderProps) {
 
 const styles = StyleSheet.create({
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
@@ -81,15 +83,15 @@ const styles = StyleSheet.create({
   },
   leftSection: {
     width: 80,
-    alignItems: 'flex-start',
+    alignItems: "flex-start",
   },
   centerSection: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
   },
   rightSection: {
     width: 80,
-    alignItems: 'flex-end',
+    alignItems: "flex-end",
   },
   iconButton: {
     padding: 4,
@@ -98,21 +100,45 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   avatarText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: Platform.select({
+      ios: Fonts.primary.semiBold,
+      android: Fonts.primary.semiBold,
+      default: undefined,
+    }),
+    fontWeight: Platform.select({
+      web: "600",
+      default: "normal",
+    }),
   },
   title: {
     fontSize: 18,
-    fontWeight: '600',
+    fontFamily: Platform.select({
+      ios: Fonts.primary.semiBold,
+      android: Fonts.primary.semiBold,
+      default: undefined,
+    }),
+    fontWeight: Platform.select({
+      web: "600",
+      default: "normal",
+    }),
   },
   appName: {
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: Platform.select({
+      ios: Fonts.primary.bold,
+      android: Fonts.primary.bold,
+      default: undefined,
+    }),
+    fontWeight: Platform.select({
+      web: "700",
+      default: "normal",
+    }),
     opacity: 0.9,
   },
 });

@@ -1,6 +1,7 @@
-import { StyleSheet, Text, type TextProps } from 'react-native';
+import { StyleSheet, Text, type TextProps, Platform } from 'react-native';
 
 import { useThemeColor } from '@/hooks/useThemeColor';
+import { Fonts, DEFAULT_FONT_FAMILY } from '@/constants/Fonts';
 
 export type ThemedTextProps = TextProps & {
   lightColor?: string;
@@ -37,24 +38,58 @@ const styles = StyleSheet.create({
   default: {
     fontSize: 16,
     lineHeight: 24,
+    fontFamily: Platform.select({
+      ios: DEFAULT_FONT_FAMILY,
+      android: DEFAULT_FONT_FAMILY,
+      default: undefined, // Use system font on web if custom font not loaded
+    }),
   },
   defaultSemiBold: {
     fontSize: 16,
     lineHeight: 24,
-    fontWeight: '600',
+    fontFamily: Platform.select({
+      ios: Fonts.primary.semiBold,
+      android: Fonts.primary.semiBold,
+      default: undefined,
+    }),
+    fontWeight: Platform.select({
+      web: '600',
+      default: 'normal', // Use font file weight instead
+    }),
   },
   title: {
     fontSize: 32,
-    fontWeight: 'bold',
     lineHeight: 32,
+    fontFamily: Platform.select({
+      ios: Fonts.primary.bold,
+      android: Fonts.primary.bold,
+      default: undefined,
+    }),
+    fontWeight: Platform.select({
+      web: 'bold',
+      default: 'normal',
+    }),
   },
   subtitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontFamily: Platform.select({
+      ios: Fonts.primary.bold,
+      android: Fonts.primary.bold,
+      default: undefined,
+    }),
+    fontWeight: Platform.select({
+      web: 'bold',
+      default: 'normal',
+    }),
   },
   link: {
     lineHeight: 30,
     fontSize: 16,
     color: '#0a7ea4',
+    fontFamily: Platform.select({
+      ios: DEFAULT_FONT_FAMILY,
+      android: DEFAULT_FONT_FAMILY,
+      default: undefined,
+    }),
   },
 });

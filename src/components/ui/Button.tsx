@@ -6,8 +6,10 @@ import {
   ActivityIndicator,
   ViewStyle,
   TextStyle,
+  Platform,
 } from 'react-native';
 import { useThemeColor } from '@/hooks/useThemeColor';
+import { Fonts, DEFAULT_FONT_FAMILY } from '@/constants/Fonts';
 
 interface ButtonProps {
   title: string;
@@ -93,6 +95,14 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: Platform.select({
+      ios: Fonts.primary.semiBold,
+      android: Fonts.primary.semiBold,
+      default: undefined,
+    }),
+    fontWeight: Platform.select({
+      web: '600',
+      default: 'normal',
+    }),
   },
 });

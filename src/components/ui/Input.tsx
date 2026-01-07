@@ -6,9 +6,11 @@ import {
   StyleSheet,
   TextInputProps,
   TouchableOpacity,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColor } from '@/hooks/useThemeColor';
+import { Fonts, DEFAULT_FONT_FAMILY } from '@/constants/Fonts';
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -94,7 +96,15 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: Platform.select({
+      ios: Fonts.primary.semiBold,
+      android: Fonts.primary.semiBold,
+      default: undefined,
+    }),
+    fontWeight: Platform.select({
+      web: '600',
+      default: 'normal',
+    }),
     marginBottom: 8,
   },
   inputContainer: {
@@ -109,6 +119,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     fontSize: 16,
+    fontFamily: Platform.select({
+      ios: DEFAULT_FONT_FAMILY,
+      android: DEFAULT_FONT_FAMILY,
+      default: undefined,
+    }),
   },
   inputWithLeftIcon: {
     paddingLeft: 8,

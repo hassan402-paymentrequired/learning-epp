@@ -13,6 +13,13 @@ SplashScreen.preventAutoHideAsync();
 export function AppContent() {
   const { colorScheme } = useTheme();
   const [loaded] = useFonts({
+    // Add your custom fonts here
+    // Example: 'Inter-Regular': require("../assets/fonts/Inter-Regular.ttf"),
+    // 'Inter-Medium': require("../assets/fonts/Inter-Medium.ttf"),
+    // 'Inter-SemiBold': require("../assets/fonts/Inter-SemiBold.ttf"),
+    // 'Inter-Bold': require("../assets/fonts/Inter-Bold.ttf"),
+
+    // Keep SpaceMono as fallback for now
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
 
