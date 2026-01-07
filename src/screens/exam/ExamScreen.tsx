@@ -61,6 +61,7 @@ export function ExamScreen() {
   
   const backgroundColor = useThemeColor({}, 'background');
   const tintColor = useThemeColor({}, 'tint');
+  const textColor = useThemeColor({}, 'text');
   const cardBackground = useThemeColor({}, 'card');
   const borderColor = useThemeColor({}, 'border');
 
@@ -186,13 +187,13 @@ export function ExamScreen() {
   const isLastQuestion = currentQuestionIndex === totalQuestions - 1;
 
   return (
-    <AppLayout>
+    <AppLayout showHeader={false}>
       <View style={styles.container}>
-        {/* Header */}
+        {/* Custom Header with Timer */}
         <View style={[styles.header, { backgroundColor: cardBackground, borderBottomColor: borderColor }]}>
           <View style={styles.headerTop}>
             <TouchableOpacity onPress={() => navigation.goBack()}>
-              <MaterialIcons name="arrow-back" size={24} color={tintColor} />
+              <MaterialIcons name="arrow-back" size={24} color={textColor} />
             </TouchableOpacity>
             <ThemedText type="subtitle" style={styles.headerTitle}>
               {params.exam.title}

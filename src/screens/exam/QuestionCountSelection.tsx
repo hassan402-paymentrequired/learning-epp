@@ -48,7 +48,7 @@ export function QuestionCountSelection() {
   };
 
   return (
-    <AppLayout>
+    <AppLayout showBackButton={true} headerTitle="Number of Questions">
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}

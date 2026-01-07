@@ -38,7 +38,7 @@ export function QuestionModeSelection() {
   };
 
   return (
-    <AppLayout>
+    <AppLayout showBackButton={true} headerTitle="Question Mode">
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}

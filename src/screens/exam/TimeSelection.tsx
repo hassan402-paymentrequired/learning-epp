@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   StyleSheet,
@@ -6,25 +6,23 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
-} from 'react-native';
-import { ThemedView } from '@/components/ThemedView';
-import { ThemedText } from '@/components/ThemedText';
-import { AppLayout } from '@/components/AppLayout';
-import { Button } from '@/components/ui/Button';
-import { useExamSelection } from '@/contexts/ExamSelectionContext';
-import { useNavigation } from '@react-navigation/native';
-import { useThemeColor } from '@/hooks/useThemeColor';
-import api from '@/services/api';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+} from "react-native";
+import { ThemedText } from "@/components/ThemedText";
+import { AppLayout } from "@/components/AppLayout";
+import { Button } from "@/components/ui/Button";
+import { useExamSelection } from "@/contexts/ExamSelectionContext";
+import { useNavigation } from "@react-navigation/native";
+import { useThemeColor } from "@/hooks/useThemeColor";
+import api from "@/services/api";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 export function TimeSelection() {
   const { selection, setTimeMinutes } = useExamSelection();
   const navigation = useNavigation();
-  const [minutes, setMinutes] = useState<string>('');
+  const [minutes, setMinutes] = useState<string>("");
   const [loading, setLoading] = useState(false);
-  const backgroundColor = useThemeColor({}, 'background');
-  const tintColor = useThemeColor({}, 'tint');
-  const cardBackground = useThemeColor({}, 'backgroundSecondary');
+  const tintColor = useThemeColor({}, "tint");
+  const cardBackground = useThemeColor({}, "backgroundSecondary");
 
   const quickOptions = [30, 60, 90, 120];
 
@@ -32,21 +30,27 @@ export function TimeSelection() {
     const hours = Math.floor(mins / 60);
     const remainingMins = mins % 60;
     if (hours > 0) {
-      return `${hours}h ${remainingMins > 0 ? `${remainingMins}m` : ''}`;
+      return `${hours}h ${remainingMins > 0 ? `${remainingMins}m` : ""}`;
     }
     return `${mins}m`;
   };
 
   const handleStartExam = async () => {
     const numMinutes = parseInt(minutes);
-    
+
     if (!minutes || isNaN(numMinutes) || numMinutes < 1) {
-      Alert.alert('Invalid Input', 'Please enter a valid duration (minimum 1 minute)');
+      Alert.alert(
+        "Invalid Input",
+        "Please enter a valid duration (minimum 1 minute)"
+      );
       return;
     }
 
     if (numMinutes > 120) {
-      Alert.alert('Time Limit Exceeded', 'Maximum allowed time is 120 minutes (2 hours)');
+      Alert.alert(
+        "Time Limit Exceeded",
+        "Maximum allowed time is 120 minutes (2 hours)"
+      );
       return;
     }
 
@@ -55,8 +59,8 @@ export function TimeSelection() {
     // Find matching exam
     try {
       setLoading(true);
-      
-      const examResponse = await api.get('/exams', {
+
+      const examResponse = await api.get("/exams", {
         params: {
           exam_type: selection.examType,
           type: selection.questionMode,
@@ -65,7 +69,10 @@ export function TimeSelection() {
       });
 
       if (!examResponse.data.success || examResponse.data.data.length === 0) {
-        Alert.alert('No Exam Found', 'No exam matches your selection. Please try different options.');
+        Alert.alert(
+          "No Exam Found",
+          "No exam matches your selection. Please try different options."
+        );
         return;
       }
 
@@ -74,23 +81,26 @@ export function TimeSelection() {
 
       // Get questions for the exam
       const questionsResponse = await api.get(`/exams/${exam.id}/questions`);
-      
+
       if (!questionsResponse.data.success) {
-        Alert.alert('Error', 'Failed to load questions. Please try again.');
+        Alert.alert("Error", "Failed to load questions. Please try again.");
         return;
       }
 
       const questionsData = questionsResponse.data.data;
       const allQuestions = questionsData.questions || [];
-      
+
       // Limit questions to selected count
-      const limitedQuestions = allQuestions.slice(0, selection.questionCount || allQuestions.length);
+      const limitedQuestions = allQuestions.slice(
+        0,
+        selection.questionCount || allQuestions.length
+      );
 
       // Start exam attempt
       const attemptResponse = await api.post(`/exams/${exam.id}/start`);
-      
+
       if (!attemptResponse.data.success) {
-        Alert.alert('Error', 'Failed to start exam. Please try again.');
+        Alert.alert("Error", "Failed to start exam. Please try again.");
         return;
       }
 
@@ -98,7 +108,7 @@ export function TimeSelection() {
 
       // Navigate to exam screen
       // @ts-ignore
-      navigation.navigate('ExamScreen', {
+      navigation.navigate("ExamScreen", {
         attemptId: attempt.id,
         examId: exam.id,
         questions: limitedQuestions,
@@ -106,10 +116,11 @@ export function TimeSelection() {
         timeMinutes: numMinutes,
       });
     } catch (error: any) {
-      console.error('Error starting exam:', error);
+      console.error("Error starting exam:", error);
       Alert.alert(
-        'Error',
-        error.response?.data?.message || 'Failed to start exam. Please check your connection and try again.'
+        "Error",
+        error.response?.data?.message ||
+          "Failed to start exam. Please check your connection and try again."
       );
     } finally {
       setLoading(false);
@@ -121,7 +132,7 @@ export function TimeSelection() {
   };
 
   return (
-    <AppLayout>
+    <AppLayout showBackButton={true} headerTitle="Exam Duration">
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -138,7 +149,9 @@ export function TimeSelection() {
         <View style={[styles.inputCard, { backgroundColor: cardBackground }]}>
           <View style={styles.inputHeader}>
             <MaterialIcons name="access-time" size={24} color={tintColor} />
-            <ThemedText style={styles.inputLabel}>Enter duration (minutes)</ThemedText>
+            <ThemedText style={styles.inputLabel}>
+              Enter duration (minutes)
+            </ThemedText>
           </View>
           <TextInput
             style={[styles.input, { borderColor: tintColor }]}
@@ -146,7 +159,7 @@ export function TimeSelection() {
             onChangeText={setMinutes}
             placeholder="e.g., 60"
             keyboardType="number-pad"
-            placeholderTextColor={useThemeColor({}, 'placeholder')}
+            placeholderTextColor={useThemeColor({}, "placeholder")}
           />
           <ThemedText style={styles.hint}>
             Maximum: 120 minutes (2 hours)
@@ -161,17 +174,20 @@ export function TimeSelection() {
                 key={value}
                 style={[
                   styles.quickOption,
-                  { 
-                    backgroundColor: minutes === value.toString() ? tintColor : cardBackground,
+                  {
+                    backgroundColor:
+                      minutes === value.toString() ? tintColor : cardBackground,
                     borderColor: tintColor,
-                  }
+                  },
                 ]}
                 onPress={() => handleQuickSelect(value)}
               >
                 <ThemedText
                   style={[
                     styles.quickOptionText,
-                    { color: minutes === value.toString() ? '#fff' : undefined }
+                    {
+                      color: minutes === value.toString() ? "#fff" : undefined,
+                    },
                   ]}
                 >
                   {formatTime(value)}
@@ -185,26 +201,36 @@ export function TimeSelection() {
           <ThemedText style={styles.summaryTitle}>Exam Summary</ThemedText>
           <View style={styles.summaryRow}>
             <ThemedText style={styles.summaryLabel}>Type:</ThemedText>
-            <ThemedText style={styles.summaryValue}>{selection.examType}</ThemedText>
+            <ThemedText style={styles.summaryValue}>
+              {selection.examType}
+            </ThemedText>
           </View>
           <View style={styles.summaryRow}>
             <ThemedText style={styles.summaryLabel}>Subject:</ThemedText>
-            <ThemedText style={styles.summaryValue}>{selection.subject}</ThemedText>
+            <ThemedText style={styles.summaryValue}>
+              {selection.subject}
+            </ThemedText>
           </View>
           <View style={styles.summaryRow}>
             <ThemedText style={styles.summaryLabel}>Mode:</ThemedText>
             <ThemedText style={styles.summaryValue}>
-              {selection.questionMode === 'practice' ? 'Practice' : 'Past Questions'}
+              {selection.questionMode === "practice"
+                ? "Practice"
+                : "Past Questions"}
             </ThemedText>
           </View>
           <View style={styles.summaryRow}>
             <ThemedText style={styles.summaryLabel}>Questions:</ThemedText>
-            <ThemedText style={styles.summaryValue}>{selection.questionCount}</ThemedText>
+            <ThemedText style={styles.summaryValue}>
+              {selection.questionCount}
+            </ThemedText>
           </View>
           {minutes && (
             <View style={styles.summaryRow}>
               <ThemedText style={styles.summaryLabel}>Duration:</ThemedText>
-              <ThemedText style={styles.summaryValue}>{formatTime(parseInt(minutes) || 0)}</ThemedText>
+              <ThemedText style={styles.summaryValue}>
+                {formatTime(parseInt(minutes) || 0)}
+              </ThemedText>
             </View>
           )}
         </View>
@@ -231,7 +257,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 8,
   },
   subtitle: {
@@ -243,20 +269,20 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 24,
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
   inputHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
     marginBottom: 12,
   },
   inputLabel: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   input: {
     borderWidth: 2,
@@ -274,48 +300,48 @@ const styles = StyleSheet.create({
   },
   quickOptionsTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 16,
   },
   quickOptionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 12,
   },
   quickOption: {
     flex: 1,
-    minWidth: '45%',
+    minWidth: "45%",
     padding: 20,
     borderRadius: 12,
     borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   quickOptionText: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   summaryCard: {
     borderRadius: 12,
     padding: 20,
     marginBottom: 24,
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
   summaryTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 16,
   },
   summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    borderBottomColor: "#e9ecef",
   },
   summaryLabel: {
     fontSize: 16,
@@ -323,9 +349,9 @@ const styles = StyleSheet.create({
   },
   summaryValue: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   startButton: {
-    marginTop: 'auto',
+    marginTop: "auto",
   },
 });

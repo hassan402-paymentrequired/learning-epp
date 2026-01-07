@@ -6,7 +6,7 @@ import React, {
   ReactNode,
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import api from "../services/api";
+import api, { setLogoutCallback } from "../services/api";
 
 interface User {
   id: number;
@@ -44,6 +44,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
   useEffect(() => {
     loadStoredAuth();
+
+    // Register logout callback for API interceptor
+    const handleLogout = () => {
+      setToken(null);
+      setUser(null);
+    };
+
+    setLogoutCallback(handleLogout);
+
+    // Cleanup on unmount
+    return () => {
+      setLogoutCallback(() => {});
+    };
   }, []);
 
   const loadStoredAuth = async () => {

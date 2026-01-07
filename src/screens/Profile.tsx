@@ -46,7 +46,7 @@ export function Profile() {
   };
 
   return (
-    <AppLayout>
+    <AppLayout showBackButton={true} headerTitle="Profile">
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <View style={styles.avatarContainer}>

@@ -82,13 +82,13 @@ export function Login() {
   };
 
   return (
-    <AppLayout>
+    <AppLayout showHeader={false}>
       <LinearGradient
         colors={[gradientStart, gradientEnd]}
         style={StyleSheet.absoluteFillObject}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-      />
+      />  
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -215,22 +215,6 @@ export function Login() {
                 </ThemedText>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.socialButton, { backgroundColor }]}
-                onPress={() => handleSocialLogin("facebook")}
-                activeOpacity={0.7}
-              >
-                <ThemedText
-                  style={[styles.socialButtonText, { color: "#1877F2" }]}
-                >
-                  f
-                </ThemedText>
-                <ThemedText
-                  style={[styles.socialButtonLabel, { color: textColor }]}
-                >
-                  Continue With Facebook
-                </ThemedText>
-              </TouchableOpacity>
             </View>
 
             {/* Footer */}

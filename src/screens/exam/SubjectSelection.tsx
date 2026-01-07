@@ -78,7 +78,7 @@ export function SubjectSelection() {
   }
 
   return (
-    <AppLayout>
+    <AppLayout showBackButton={true} headerTitle="Select Subject">
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}

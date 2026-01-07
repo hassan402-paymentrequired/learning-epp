@@ -9,7 +9,6 @@ import { Onboarding } from "@/screens/Onboarding";
 import { Login } from "@/screens/auth/Login";
 import { Signup } from "@/screens/auth/Signup";
 import { Profile } from "@/screens/Profile";
-import { ExamTypeSelection } from "@/screens/exam/ExamTypeSelection";
 import { SubjectSelection } from "@/screens/exam/SubjectSelection";
 import { QuestionModeSelection } from "@/screens/exam/QuestionModeSelection";
 import { QuestionCountSelection } from "@/screens/exam/QuestionCountSelection";
