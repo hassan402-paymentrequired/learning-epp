@@ -9,8 +9,8 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
+import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Checkbox } from "@/components/ui/Checkbox";
@@ -82,7 +82,7 @@ export function Login() {
   };
 
   return (
-    <ThemedView style={styles.container}>
+    <AppLayout>
       <LinearGradient
         colors={[gradientStart, gradientEnd]}
         style={StyleSheet.absoluteFillObject}
@@ -249,7 +249,7 @@ export function Login() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </ThemedView>
+    </AppLayout>
   );
 }
 

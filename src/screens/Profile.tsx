@@ -9,10 +9,16 @@ import {
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { Button } from '@/components/ui/Button';
+import { AppLayout } from '@/components/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { useThemeColor } from '@/hooks/useThemeColor';
 
 export function Profile() {
   const { user, logout } = useAuth();
+  const { themeMode, toggleTheme, colorScheme } = useTheme();
+  const tintColor = useThemeColor({}, 'tint');
 
   const handleLogout = () => {
     Alert.alert(
@@ -34,8 +40,13 @@ export function Profile() {
     );
   };
 
+  const getThemeLabel = () => {
+    if (themeMode === 'auto') return 'Auto (System)';
+    return themeMode === 'dark' ? 'Dark' : 'Light';
+  };
+
   return (
-    <ThemedView style={styles.container}>
+    <AppLayout>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <View style={styles.avatarContainer}>
@@ -80,9 +91,20 @@ export function Profile() {
             <ThemedText style={styles.settingValue}>Enabled</ThemedText>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.settingItem}>
-            <ThemedText style={styles.settingLabel}>Language</ThemedText>
-            <ThemedText style={styles.settingValue}>English</ThemedText>
+          <TouchableOpacity style={styles.settingItem} onPress={toggleTheme}>
+            <View style={styles.settingLeft}>
+              <MaterialIcons 
+                name={colorScheme === 'dark' ? 'dark-mode' : 'light-mode'} 
+                size={24} 
+                color={tintColor} 
+                style={styles.settingIcon}
+              />
+              <ThemedText style={styles.settingLabel}>Theme</ThemedText>
+            </View>
+            <View style={styles.settingRight}>
+              <ThemedText style={styles.settingValue}>{getThemeLabel()}</ThemedText>
+              <MaterialIcons name="chevron-right" size={20} color={tintColor} />
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -93,7 +115,7 @@ export function Profile() {
           style={styles.logoutButton}
         />
       </ScrollView>
-    </ThemedView>
+    </AppLayout>
   );
 }
 
@@ -152,15 +174,30 @@ const styles = StyleSheet.create({
   settingItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#e9ecef',
+  },
+  settingLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  settingIcon: {
+    marginRight: 4,
+  },
+  settingRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   settingLabel: {
     fontSize: 16,
   },
   settingValue: {
     opacity: 0.7,
+    fontSize: 16,
   },
   logoutButton: {
     marginTop: 24,

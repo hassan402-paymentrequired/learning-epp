@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
+import { AppLayout } from '@/components/AppLayout';
 import { useExamSelection } from '@/contexts/ExamSelectionContext';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -37,7 +38,7 @@ export function QuestionModeSelection() {
   };
 
   return (
-    <ThemedView style={[styles.container, { backgroundColor }]}>
+    <AppLayout>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -113,14 +114,11 @@ export function QuestionModeSelection() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </ThemedView>
+    </AppLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   scrollContent: {
     flexGrow: 1,
     padding: 24,

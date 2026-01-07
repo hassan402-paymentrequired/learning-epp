@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
+import { AppLayout } from '@/components/AppLayout';
 import { useExamSelection } from '@/contexts/ExamSelectionContext';
 import { useNavigation } from '@react-navigation/native';
 import { useThemeColor } from '@/hooks/useThemeColor';
@@ -67,17 +68,17 @@ export function SubjectSelection() {
 
   if (loading) {
     return (
-      <ThemedView style={[styles.container, { backgroundColor }]}>
+      <AppLayout>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={tintColor} />
           <ThemedText style={styles.loadingText}>Loading subjects...</ThemedText>
         </View>
-      </ThemedView>
+      </AppLayout>
     );
   }
 
   return (
-    <ThemedView style={[styles.container, { backgroundColor }]}>
+    <AppLayout>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -122,14 +123,11 @@ export function SubjectSelection() {
           )}
         </View>
       </ScrollView>
-    </ThemedView>
+    </AppLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   scrollContent: {
     flexGrow: 1,
     padding: 24,

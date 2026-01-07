@@ -1,10 +1,8 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Platform, ActivityIndicator } from 'react-native';
+import { ActivityIndicator } from 'react-native';
 
-import { Explore } from './screens/Explore';
 import { Home } from '@/screens/Home';
 import { NotFound } from './screens/NotFound';
 import { Onboarding } from '@/screens/Onboarding';
@@ -17,56 +15,12 @@ import { QuestionModeSelection } from '@/screens/exam/QuestionModeSelection';
 import { QuestionCountSelection } from '@/screens/exam/QuestionCountSelection';
 import { TimeSelection } from '@/screens/exam/TimeSelection';
 
-import { HapticTab } from '@/components/HapticTab';
-import { IconSymbol } from '@/components/ui/IconSymbol';
-import TabBarBackground from '@/components/ui/TabBarBackground';
 import { useAuth } from '@/contexts/AuthContext';
 import { ThemedView } from '@/components/ThemedView';
 
-const Tab = createBottomTabNavigator();
 const AuthStack = createNativeStackNavigator();
 const AppStack = createNativeStackNavigator();
 const RootStack = createNativeStackNavigator();
-
-function HomeTabs() {
-  return (
-    <Tab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarButton: HapticTab,
-        tabBarBackground: TabBarBackground,
-        tabBarStyle: Platform.select({
-          ios: {
-            position: 'absolute',
-          },
-          default: {},
-        }),
-      }}
-    >
-      <Tab.Screen
-        name="Home"
-        component={Home}
-        options={{
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
-        }}
-      />
-      <Tab.Screen
-        name="Explore"
-        component={Explore}
-        options={{
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
-        }}
-      />
-      <Tab.Screen
-        name="Profile"
-        component={Profile}
-        options={{
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.fill" color={color} />,
-        }}
-      />
-    </Tab.Navigator>
-  );
-}
 
 function OnboardingNavigator() {
   return (
@@ -89,7 +43,8 @@ function AuthNavigator() {
 function AppNavigator() {
   return (
     <AppStack.Navigator screenOptions={{ headerShown: false }}>
-      <AppStack.Screen name="HomeTabs" component={HomeTabs} />
+      <AppStack.Screen name="Home" component={Home} />
+      <AppStack.Screen name="Profile" component={Profile} />
       <AppStack.Screen name="SubjectSelection" component={SubjectSelection} />
       <AppStack.Screen name="QuestionModeSelection" component={QuestionModeSelection} />
       <AppStack.Screen name="QuestionCountSelection" component={QuestionCountSelection} />

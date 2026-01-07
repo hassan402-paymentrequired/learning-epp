@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
+import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/Button';
 import { useExamSelection } from '@/contexts/ExamSelectionContext';
 import { useNavigation } from '@react-navigation/native';
@@ -47,7 +48,7 @@ export function QuestionCountSelection() {
   };
 
   return (
-    <ThemedView style={[styles.container, { backgroundColor }]}>
+    <AppLayout>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -110,14 +111,11 @@ export function QuestionCountSelection() {
           style={styles.continueButton}
         />
       </ScrollView>
-    </ThemedView>
+    </AppLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   scrollContent: {
     flexGrow: 1,
     padding: 24,
