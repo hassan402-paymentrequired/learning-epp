@@ -67,8 +67,6 @@ export function ExamResults() {
   const [attempt, setAttempt] = useState<AttemptData | null>(null);
   const [results, setResults] = useState<QuestionResult[]>([]);
   const [subjectAnalytics, setSubjectAnalytics] = useState<SubjectAnalytics[]>([]);
-  const [selectedTab, setSelectedTab] = useState<'overview' | 'corrections'>('overview');
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   
   const tintColor = useThemeColor({}, 'tint');
   const textColor = useThemeColor({}, 'text');
@@ -121,17 +119,6 @@ export function ExamResults() {
     return 'Needs Improvement';
   };
 
-  const handleNext = () => {
-    if (currentQuestionIndex < results.length - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
-    }
-  };
-
-  const handlePrevious = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(currentQuestionIndex - 1);
-    }
-  };
 
   if (loading) {
     return (
@@ -161,59 +148,19 @@ export function ExamResults() {
 
   const correctCount = results.filter((r) => r.is_correct).length;
   const incorrectCount = results.filter((r) => !r.is_correct).length;
-  const currentResult = results[currentQuestionIndex];
 
   return (
-    <AppLayout showBackButton={true} headerTitle="Exam Results">
-      {/* Tab Navigation */}
-      <View style={[styles.tabBar, { backgroundColor: cardBackground, borderBottomColor: borderColor }]}>
-        <TouchableOpacity
-          style={[
-            styles.tab,
-            selectedTab === 'overview' && { borderBottomColor: tintColor, borderBottomWidth: 2 },
-          ]}
-          onPress={() => setSelectedTab('overview')}
-        >
-          <MaterialIcons
-            name="dashboard"
-            size={20}
-            color={selectedTab === 'overview' ? tintColor : textColor}
-          />
-          <ThemedText
-            style={[
-              styles.tabText,
-              { color: selectedTab === 'overview' ? tintColor : textColor },
-            ]}
-          >
-            Overview
-          </ThemedText>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.tab,
-            selectedTab === 'corrections' && { borderBottomColor: tintColor, borderBottomWidth: 2 },
-          ]}
-          onPress={() => setSelectedTab('corrections')}
-        >
-          <MaterialIcons
-            name="assignment"
-            size={20}
-            color={selectedTab === 'corrections' ? tintColor : textColor}
-          />
-          <ThemedText
-            style={[
-              styles.tabText,
-              { color: selectedTab === 'corrections' ? tintColor : textColor },
-            ]}
-          >
-            Corrections
-          </ThemedText>
-        </TouchableOpacity>
-      </View>
-
+    <AppLayout 
+      showBackButton={true} 
+      headerTitle="Exam Results"
+      onBackPress={() => {
+        // @ts-ignore
+        navigation.navigate('Home');
+      }}
+    >
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Overview Tab */}
-        {selectedTab === 'overview' && (
+        {/* Overview */}
+        {attempt && (
           <>
             {/* Score Card */}
             <View style={[styles.scoreCard, { backgroundColor: cardBackground }]}>
@@ -298,7 +245,13 @@ export function ExamResults() {
             <View style={styles.actionsContainer}>
               <Button
                 title="View Corrections"
-                onPress={() => setSelectedTab('corrections')}
+                onPress={() => {
+                  // @ts-ignore
+                  navigation.navigate('CorrectionsScreen', {
+                    attemptId: params.attemptId,
+                    subjects: attempt?.subjects ? (Array.isArray(attempt.subjects) ? attempt.subjects.map((s: any) => typeof s === 'string' ? s : s.subject) : []) : [],
+                  });
+                }}
                 variant="outline"
                 style={styles.actionButton}
               />
@@ -309,180 +262,6 @@ export function ExamResults() {
                   navigation.navigate('Home');
                 }}
                 style={styles.actionButton}
-              />
-            </View>
-          </>
-        )}
-
-        {/* Corrections Tab - Single Question View */}
-        {selectedTab === 'corrections' && currentResult && (
-          <>
-            {/* Question Progress */}
-            <View style={[styles.progressBar, { backgroundColor: cardBackground }]}>
-              <ThemedText style={styles.progressText}>
-                Question {currentQuestionIndex + 1} of {results.length}
-              </ThemedText>
-              <View style={[styles.progressTrack, { backgroundColor: borderColor }]}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    {
-                      width: `${((currentQuestionIndex + 1) / results.length) * 100}%`,
-                      backgroundColor: tintColor,
-                    },
-                  ]}
-                />
-              </View>
-            </View>
-
-            {/* Question Card */}
-            <View style={[styles.correctionCard, { backgroundColor: cardBackground }]}>
-              <View style={styles.correctionHeader}>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    {
-                      backgroundColor: currentResult.is_correct
-                        ? successColor + '20'
-                        : errorColor + '20',
-                    },
-                  ]}
-                >
-                  <MaterialIcons
-                    name={currentResult.is_correct ? 'check-circle' : 'cancel'}
-                    size={20}
-                    color={currentResult.is_correct ? successColor : errorColor}
-                  />
-                  <ThemedText
-                    style={[
-                      styles.statusText,
-                      {
-                        color: currentResult.is_correct ? successColor : errorColor,
-                      },
-                    ]}
-                  >
-                    {currentResult.is_correct ? 'Correct' : 'Incorrect'}
-                  </ThemedText>
-                </View>
-              </View>
-
-              <ThemedText style={styles.questionText}>
-                {currentResult.question.question_text}
-              </ThemedText>
-
-              <View style={styles.answersSection}>
-                {currentResult.user_answer && (
-                  <View
-                    style={[
-                      styles.answerBox,
-                      {
-                        backgroundColor: currentResult.is_correct
-                          ? successColor + '10'
-                          : errorColor + '10',
-                        borderColor: currentResult.is_correct ? successColor : errorColor,
-                      },
-                    ]}
-                  >
-                    <View style={styles.answerHeader}>
-                      <MaterialIcons
-                        name={currentResult.is_correct ? 'check-circle' : 'cancel'}
-                        size={18}
-                        color={currentResult.is_correct ? successColor : errorColor}
-                      />
-                      <ThemedText
-                        style={[
-                          styles.answerLabel,
-                          {
-                            color: currentResult.is_correct ? successColor : errorColor,
-                          },
-                        ]}
-                      >
-                        Your Answer
-                      </ThemedText>
-                    </View>
-                    <ThemedText style={styles.answerText}>
-                      {currentResult.user_answer.order}. {currentResult.user_answer.answer_text}
-                    </ThemedText>
-                  </View>
-                )}
-
-                {!currentResult.is_correct && currentResult.correct_answer && (
-                  <View
-                    style={[
-                      styles.answerBox,
-                      {
-                        backgroundColor: successColor + '10',
-                        borderColor: successColor,
-                      },
-                    ]}
-                  >
-                    <View style={styles.answerHeader}>
-                      <MaterialIcons name="check-circle" size={18} color={successColor} />
-                      <ThemedText
-                        style={[styles.answerLabel, { color: successColor }]}
-                      >
-                        Correct Answer
-                      </ThemedText>
-                    </View>
-                    <ThemedText style={styles.answerText}>
-                      {currentResult.correct_answer.order}. {currentResult.correct_answer.answer_text}
-                    </ThemedText>
-                  </View>
-                )}
-
-                {!currentResult.user_answer && (
-                  <View
-                    style={[
-                      styles.answerBox,
-                      {
-                        backgroundColor: '#6B7280' + '10',
-                        borderColor: '#6B7280',
-                      },
-                    ]}
-                  >
-                    <View style={styles.answerHeader}>
-                      <MaterialIcons name="help-outline" size={18} color="#6B7280" />
-                      <ThemedText style={[styles.answerLabel, { color: '#6B7280' }]}>
-                        Not Answered
-                      </ThemedText>
-                    </View>
-                  </View>
-                )}
-              </View>
-
-              {currentResult.question.explanation && (
-                <View style={[styles.explanationBox, { backgroundColor: tintColor + '10' }]}>
-                  <View style={styles.explanationHeader}>
-                    <MaterialIcons name="lightbulb" size={18} color={tintColor} />
-                    <ThemedText style={[styles.explanationLabel, { color: tintColor }]}>
-                      Explanation
-                    </ThemedText>
-                  </View>
-                  <ThemedText style={styles.explanationText}>
-                    {currentResult.question.explanation}
-                  </ThemedText>
-                </View>
-              )}
-            </View>
-
-            {/* Navigation Buttons */}
-            <View style={styles.navigationContainer}>
-              <Button
-                title="Previous"
-                onPress={handlePrevious}
-                variant="outline"
-                disabled={currentQuestionIndex === 0}
-                style={styles.navButton}
-              />
-              <Button
-                title={currentQuestionIndex === results.length - 1 ? 'Finish' : 'Next'}
-                onPress={currentQuestionIndex === results.length - 1 
-                  ? () => {
-                      // @ts-ignore
-                      navigation.navigate('Home');
-                    }
-                  : handleNext}
-                style={styles.navButton}
               />
             </View>
           </>
@@ -650,111 +429,5 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     marginBottom: 0,
-  },
-  progressBar: {
-    padding: 16,
-    marginBottom: 8,
-  },
-  progressText: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  progressTrack: {
-    height: 6,
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  correctionCard: {
-    margin: 16,
-    marginBottom: 8,
-    padding: 20,
-    borderRadius: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  correctionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    gap: 6,
-  },
-  statusText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  questionText: {
-    fontSize: 18,
-    lineHeight: 26,
-    marginBottom: 16,
-    fontWeight: '600',
-  },
-  answersSection: {
-    gap: 12,
-    marginBottom: 16,
-  },
-  answerBox: {
-    padding: 16,
-    borderRadius: 8,
-    borderWidth: 2,
-  },
-  answerHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 8,
-  },
-  answerLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  answerText: {
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  explanationBox: {
-    padding: 16,
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  explanationHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 8,
-  },
-  explanationLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  explanationText: {
-    fontSize: 15,
-    lineHeight: 22,
-    opacity: 0.9,
-  },
-  navigationContainer: {
-    flexDirection: 'row',
-    padding: 16,
-    gap: 12,
-    marginBottom: 24,
-  },
-  navButton: {
-    flex: 1,
   },
 });

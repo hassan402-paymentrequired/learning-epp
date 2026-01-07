@@ -38,6 +38,7 @@ export function SubjectSelection() {
   const cardBackground = useThemeColor({}, 'cardBackground');
   const borderColor = useThemeColor({}, 'border');
   const textColor = useThemeColor({}, 'text');
+  const placeholderColor = useThemeColor({}, 'placeholder');
 
   const quickOptions = [10, 20, 30, 40, 50];
 
@@ -306,7 +307,7 @@ export function SubjectSelection() {
                           }}
                           placeholder="e.g., 25"
                           keyboardType="number-pad"
-                          placeholderTextColor={useThemeColor({}, 'placeholder')}
+                          placeholderTextColor={placeholderColor}
                         />
                         <ThemedText style={styles.hint}>
                           Minimum: 1, Maximum: 100

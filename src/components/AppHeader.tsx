@@ -10,9 +10,14 @@ import { Fonts } from "@/constants/Fonts";
 interface AppHeaderProps {
   showBackButton?: boolean;
   title?: string;
+  onBackPress?: () => void;
 }
 
-export function AppHeader({ showBackButton = false, title }: AppHeaderProps) {
+export function AppHeader({
+  showBackButton = false,
+  title,
+  onBackPress,
+}: AppHeaderProps) {
   const navigation = useNavigation();
   const { user } = useAuth();
   const backgroundColor = useThemeColor({}, "background");
@@ -25,6 +30,14 @@ export function AppHeader({ showBackButton = false, title }: AppHeaderProps) {
     navigation.navigate("Profile");
   };
 
+  const handleBackPress = () => {
+    if (onBackPress) {
+      onBackPress();
+    } else {
+      navigation.goBack();
+    }
+  };
+
   return (
     <View
       style={[
@@ -34,10 +47,7 @@ export function AppHeader({ showBackButton = false, title }: AppHeaderProps) {
     >
       <View style={styles.leftSection}>
         {showBackButton ? (
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.iconButton}
-          >
+          <TouchableOpacity onPress={handleBackPress} style={styles.iconButton}>
             <MaterialIcons name="arrow-back" size={24} color={textColor} />
           </TouchableOpacity>
         ) : (

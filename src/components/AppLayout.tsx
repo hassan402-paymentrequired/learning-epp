@@ -10,6 +10,7 @@ interface AppLayoutProps {
   showHeader?: boolean;
   headerTitle?: string;
   showBackButton?: boolean;
+  onBackPress?: () => void;
 }
 
 export function AppLayout({
@@ -18,13 +19,14 @@ export function AppLayout({
   showHeader = true,
   headerTitle,
   showBackButton = false,
+  onBackPress,
 }: AppLayoutProps) {
   const backgroundColor = useThemeColor({}, "background");
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor }, style]}>
       {showHeader && (
-        <AppHeader title={headerTitle} showBackButton={showBackButton} />
+        <AppHeader title={headerTitle} showBackButton={showBackButton} onBackPress={onBackPress} />
       )}
       {children}
     </SafeAreaView>

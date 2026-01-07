@@ -41,8 +41,15 @@ export function TimeSelection() {
   const cardBackground = useThemeColor({}, "backgroundSecondary");
 
   // Calculate default time based on number of subjects (30 min per subject)
+  // For JAMB, allow 30 minutes to 2 hours (120 minutes) regardless of subject count
+  const isJAMB = selection.examType === 'JAMB';
   const defaultMinutes = selection.subjects.length * 30;
-  const maxMinutes = selection.subjects.length * 30; // Max is 30 min per subject
+  const maxMinutes = isJAMB 
+    ? 120 // JAMB: maximum 2 hours (120 minutes)
+    : selection.subjects.length * 30; // Other exams: 30 min per subject
+  const minMinutes = isJAMB 
+    ? 30 // JAMB: minimum 30 minutes
+    : 1; // Other exams: minimum 1 minute
 
   useEffect(() => {
     // Set default time when component mounts
@@ -51,14 +58,17 @@ export function TimeSelection() {
     }
   }, [defaultMinutes, minutes]);
 
-  const quickOptions =
-    selection.subjects.length === 1
-      ? [30]
-      : selection.subjects.length === 2
-      ? [60]
-      : selection.subjects.length === 3
-      ? [90]
-      : [120]; // For 4 subjects
+  // For JAMB, show quick options from 30 minutes to 2 hours
+  // For other exams, show quick options based on subject count
+  const quickOptions = isJAMB
+    ? [30, 60, 90, 120] // JAMB: 30 min, 1 hour, 1.5 hours, 2 hours
+    : selection.subjects.length === 1
+    ? [30]
+    : selection.subjects.length === 2
+    ? [60]
+    : selection.subjects.length === 3
+    ? [90]
+    : [120]; // For 4 subjects
 
   const formatTime = (mins: number) => {
     const hours = Math.floor(mins / 60);
@@ -72,10 +82,12 @@ export function TimeSelection() {
   const handleStartExam = async () => {
     const numMinutes = parseInt(minutes);
 
-    if (!minutes || isNaN(numMinutes) || numMinutes < 1) {
+    if (!minutes || isNaN(numMinutes) || numMinutes < minMinutes) {
       Alert.alert(
         "Invalid Input",
-        "Please enter a valid duration (minimum 1 minute)"
+        isJAMB
+          ? `For JAMB (UTME), please enter a duration between 30 minutes and 2 hours (120 minutes).`
+          : `Please enter a valid duration (minimum ${minMinutes} minute)`
       );
       return;
     }
@@ -83,11 +95,13 @@ export function TimeSelection() {
     if (numMinutes > maxMinutes) {
       Alert.alert(
         "Time Limit Exceeded",
-        `Maximum allowed time is ${maxMinutes} minutes (${formatTime(
-          maxMinutes
-        )}) for ${selection.subjects.length} ${
-          selection.subjects.length === 1 ? "subject" : "subjects"
-        }`
+        isJAMB
+          ? `For JAMB (UTME), maximum allowed time is 2 hours (120 minutes).`
+          : `Maximum allowed time is ${maxMinutes} minutes (${formatTime(
+              maxMinutes
+            )}) for ${selection.subjects.length} ${
+              selection.subjects.length === 1 ? "subject" : "subjects"
+            }`
       );
       return;
     }
@@ -242,13 +256,16 @@ export function TimeSelection() {
             Select Duration
           </ThemedText>
           <ThemedText style={styles.subtitle}>
-            {selection.subjects.length === 1
+            {isJAMB
+              ? `For JAMB (UTME), you can choose any duration between 30 minutes and 2 hours.`
+              : selection.subjects.length === 1
               ? `Each subject takes 30 minutes`
               : `You've selected ${selection.subjects.length} subjects. Each subject takes 30 minutes.`}
           </ThemedText>
           <ThemedText style={styles.hint}>
-            Total time: {formatTime(maxMinutes)} ({selection.subjects.length} ×
-            30 minutes)
+            {isJAMB
+              ? `Recommended: ${formatTime(defaultMinutes)} (${selection.subjects.length} × 30 minutes). Maximum: ${formatTime(maxMinutes)}.`
+              : `Total time: ${formatTime(maxMinutes)} (${selection.subjects.length} × 30 minutes)`}
           </ThemedText>
         </View>
 
@@ -266,18 +283,19 @@ export function TimeSelection() {
             placeholder={`e.g., ${defaultMinutes}`}
             keyboardType="number-pad"
             placeholderTextColor={useThemeColor({}, "placeholder")}
-            editable={!loading}
+            editable={!loading} // Allow input for all exam types
           />
           <ThemedText style={styles.hint}>
-            Minimum: 1 minute, Maximum: {maxMinutes} minutes (
-            {formatTime(maxMinutes)})
+            {isJAMB
+              ? `Minimum: ${minMinutes} minutes, Maximum: ${maxMinutes} minutes (${formatTime(maxMinutes)})`
+              : `Minimum: ${minMinutes} minute, Maximum: ${maxMinutes} minutes (${formatTime(maxMinutes)})`}
           </ThemedText>
         </View>
 
         {quickOptions.length > 0 && (
           <View style={styles.quickOptionsContainer}>
             <ThemedText style={styles.quickOptionsTitle}>
-              Quick Select
+              {isJAMB ? "Duration" : "Quick Select"}
             </ThemedText>
             <View style={styles.quickOptionsGrid}>
               {quickOptions.map((value) => (
@@ -291,10 +309,11 @@ export function TimeSelection() {
                           ? tintColor
                           : cardBackground,
                       borderColor: tintColor,
+                      opacity: isJAMB ? 1 : undefined,
                     },
                   ]}
                   onPress={() => handleQuickSelect(value)}
-                  disabled={loading}
+                  disabled={loading} // Allow selection for all exam types
                 >
                   <ThemedText
                     style={[
@@ -359,7 +378,10 @@ export function TimeSelection() {
           title={loading ? "Starting Exam..." : "Start Exam"}
           onPress={handleStartExam}
           disabled={
-            !minutes || parseInt(minutes) < 1 || parseInt(minutes) > maxMinutes || loading
+            !minutes || 
+            parseInt(minutes) < minMinutes || 
+            parseInt(minutes) > maxMinutes ||
+            loading
           }
           loading={loading}
         />

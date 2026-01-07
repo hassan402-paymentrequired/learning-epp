@@ -14,6 +14,7 @@ import { QuestionModeSelection } from "@/screens/exam/QuestionModeSelection";
 import { TimeSelection } from "@/screens/exam/TimeSelection";
 import { ExamScreen } from "@/screens/exam/ExamScreen";
 import { ExamResults } from "@/screens/exam/ExamResults";
+import { CorrectionsScreen } from "@/screens/exam/CorrectionsScreen";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/contexts/AuthContext";
@@ -55,6 +56,7 @@ function AppNavigator() {
       <AppStack.Screen name="TimeSelection" component={TimeSelection} />
       <AppStack.Screen name="ExamScreen" component={ExamScreen} />
       <AppStack.Screen name="ExamResults" component={ExamResults} />
+      <AppStack.Screen name="CorrectionsScreen" component={CorrectionsScreen} />
       <AppStack.Screen name="NotFound" component={NotFound} />
     </AppStack.Navigator>
   );

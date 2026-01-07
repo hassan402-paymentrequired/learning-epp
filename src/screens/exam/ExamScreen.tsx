@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   StyleSheet,
@@ -7,16 +7,20 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
-} from 'react-native';
-import { ThemedView } from '@/components/ThemedView';
-import { ThemedText } from '@/components/ThemedText';
-import { AppLayout } from '@/components/AppLayout';
-import { Button } from '@/components/ui/Button';
-import { useExamSelection } from '@/contexts/ExamSelectionContext';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import { useThemeColor } from '@/hooks/useThemeColor';
-import api from '@/services/api';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+  BackHandler,
+} from "react-native";
+import { ThemedText } from "@/components/ThemedText";
+import { AppLayout } from "@/components/AppLayout";
+import { Button } from "@/components/ui/Button";
+import { useExamSelection } from "@/contexts/ExamSelectionContext";
+import {
+  useNavigation,
+  useRoute,
+  useFocusEffect,
+} from "@react-navigation/native";
+import { useThemeColor } from "@/hooks/useThemeColor";
+import api from "@/services/api";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 interface Question {
   id: number;
@@ -41,12 +45,6 @@ interface ExamData {
   total_questions: number;
 }
 
-interface SubjectQuestions {
-  subject: string;
-  questions: Question[];
-  currentIndex: number; // Track where user left off
-}
-
 interface RouteParams {
   attemptId: number;
   examId: number;
@@ -60,12 +58,16 @@ export function ExamScreen() {
   const navigation = useNavigation();
   const { incrementPracticeSession, selection } = useExamSelection();
   const params = route.params as RouteParams;
-  
-  const [currentSubject, setCurrentSubject] = useState<string>(selection.subjects[0] || '');
-  const [subjectsQuestions, setSubjectsQuestions] = useState<Record<string, Question[]>>(
-    params?.subjectsQuestions || {}
+
+  const [currentSubject, setCurrentSubject] = useState<string>(
+    selection.subjects[0] || ""
   );
-  const [subjectCurrentIndex, setSubjectCurrentIndex] = useState<Record<string, number>>(() => {
+  const [subjectsQuestions, setSubjectsQuestions] = useState<
+    Record<string, Question[]>
+  >(params?.subjectsQuestions || {});
+  const [subjectCurrentIndex, setSubjectCurrentIndex] = useState<
+    Record<string, number>
+  >(() => {
     // Initialize current index for each subject to 0
     const indices: Record<string, number> = {};
     selection.subjects.forEach((subject) => {
@@ -73,36 +75,151 @@ export function ExamScreen() {
     });
     return indices;
   });
-  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
-  const [timeRemaining, setTimeRemaining] = useState((params?.timeMinutes || 30) * 60); // in seconds
+  const [selectedAnswers, setSelectedAnswers] = useState<
+    Record<number, number>
+  >({});
+  const [timeRemaining, setTimeRemaining] = useState(
+    (params?.timeMinutes || 30) * 60
+  ); // in seconds
   const [loading, setLoading] = useState(false);
   const [showSubjectModal, setShowSubjectModal] = useState(false);
-  
-  const backgroundColor = useThemeColor({}, 'background');
-  const tintColor = useThemeColor({}, 'tint');
-  const textColor = useThemeColor({}, 'text');
-  const cardBackground = useThemeColor({}, 'card');
-  const borderColor = useThemeColor({}, 'border');
-  const backgroundSecondary = useThemeColor({}, 'backgroundSecondary');
+
+  const backgroundColor = useThemeColor({}, "background");
+  const tintColor = useThemeColor({}, "tint");
+  const textColor = useThemeColor({}, "text");
+  const cardBackground = useThemeColor({}, "card");
+  const borderColor = useThemeColor({}, "border");
+  const backgroundSecondary = useThemeColor({}, "backgroundSecondary");
 
   // Get current subject's questions and progress
   const currentQuestions = subjectsQuestions[currentSubject] || [];
   const currentQuestionIndex = subjectCurrentIndex[currentSubject] || 0;
   const currentQuestion = currentQuestions[currentQuestionIndex];
   const totalQuestionsForSubject = currentQuestions.length;
-  
+
   // Calculate overall progress
-  const totalQuestions = Object.values(subjectsQuestions).reduce((sum, qs) => sum + qs.length, 0);
+  const totalQuestions = Object.values(subjectsQuestions).reduce(
+    (sum, qs) => sum + qs.length,
+    0
+  );
   const totalAnswered = Object.keys(selectedAnswers).length;
-  
+
   // Check if all subjects are completed
   const allSubjectsCompleted = selection.subjects.every((subject) => {
     const questions = subjectsQuestions[subject] || [];
     return questions.every((q) => selectedAnswers[q.id] !== undefined);
   });
 
+  // Handle back button press - warn user before leaving
+  useFocusEffect(
+    React.useCallback(() => {
+      const onBackPress = () => {
+        Alert.alert(
+          "Leave Exam?",
+          "Are you sure you want to leave? Your progress will be saved, but you should submit your exam first.",
+          [
+            {
+              text: "Cancel",
+              style: "cancel",
+            },
+            {
+              text: "Leave",
+              style: "destructive",
+              onPress: () => {
+                navigation.goBack();
+              },
+            },
+          ]
+        );
+        return true; // Prevent default back behavior
+      };
+
+      const backHandler = BackHandler.addEventListener(
+        "hardwareBackPress",
+        onBackPress
+      );
+
+      return () => backHandler.remove();
+    }, [navigation])
+  );
+
+  // Define submitExam function
+  const submitExam = useCallback(async () => {
+    if (!params?.attemptId) return;
+
+    try {
+      setLoading(true);
+
+      // Submit all answers
+      for (const [questionId, answerId] of Object.entries(selectedAnswers)) {
+        await api.post(`/exam-attempts/${params.attemptId}/submit-answer`, {
+          question_id: parseInt(questionId),
+          answer_id: answerId,
+        });
+      }
+
+      // Prepare subjects data for multi-subject exams
+      const subjectsData = selection.subjects.map((subject) => ({
+        subject: subject,
+        question_count: selection.questionCounts[subject] || 0,
+      }));
+
+      // Complete the exam with subjects and duration
+      await api.post(`/exam-attempts/${params.attemptId}/complete`, {
+        subjects: subjectsData,
+        duration_minutes: selection.timeMinutes,
+      });
+
+      // Increment practice session if it was a practice exam
+      if (
+        selection.questionMode === "practice" &&
+        selection.subjects.length > 0
+      ) {
+        selection.subjects.forEach((subject) => {
+          incrementPracticeSession(subject);
+        });
+      }
+
+      // Navigate to results screen
+      // @ts-ignore
+      navigation.navigate("ExamResults", {
+        attemptId: params.attemptId,
+      });
+    } catch (error: any) {
+      console.error("Error submitting exam:", error);
+      Alert.alert("Error", "Failed to submit exam. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    params,
+    selectedAnswers,
+    selection,
+    incrementPracticeSession,
+    navigation,
+  ]);
+
+  // Timer effect
+  useEffect(() => {
+    if (timeRemaining <= 0) {
+      // Auto-submit when time runs out
+      submitExam();
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setTimeRemaining(timeRemaining - 1);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [timeRemaining, submitExam]);
+
   // Validate params
-  if (!params || !subjectsQuestions || Object.keys(subjectsQuestions).length === 0) {
+  if (
+    !params ||
+    !subjectsQuestions ||
+    Object.keys(subjectsQuestions).length === 0
+  ) {
     return (
       <AppLayout>
         <View style={styles.centerContainer}>
@@ -119,24 +236,12 @@ export function ExamScreen() {
     );
   }
 
-  // Timer effect
-  useEffect(() => {
-    if (timeRemaining <= 0) {
-      handleCompleteExam(true); // Auto-submit when time runs out
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      setTimeRemaining(timeRemaining - 1);
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, [timeRemaining]);
-
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    return `${mins.toString().padStart(2, "0")}:${secs
+      .toString()
+      .padStart(2, "0")}`;
   };
 
   const handleSelectAnswer = (answerId: number) => {
@@ -171,7 +276,9 @@ export function ExamScreen() {
 
   const getSubjectProgress = (subject: string) => {
     const questions = subjectsQuestions[subject] || [];
-    const answered = questions.filter((q) => selectedAnswers[q.id] !== undefined).length;
+    const answered = questions.filter(
+      (q) => selectedAnswers[q.id] !== undefined
+    ).length;
     return { answered, total: questions.length };
   };
 
@@ -183,13 +290,15 @@ export function ExamScreen() {
 
     if (!autoSubmit && unansweredSubjects.length > 0) {
       Alert.alert(
-        'Complete Exam',
-        `You have unanswered questions in ${unansweredSubjects.length} ${unansweredSubjects.length === 1 ? 'subject' : 'subjects'}. Are you sure you want to submit?`,
+        "Complete Exam",
+        `You have unanswered questions in ${unansweredSubjects.length} ${
+          unansweredSubjects.length === 1 ? "subject" : "subjects"
+        }. Are you sure you want to submit?`,
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: "Cancel", style: "cancel" },
           {
-            text: 'Submit',
-            style: 'destructive',
+            text: "Submit",
+            style: "destructive",
             onPress: async () => {
               await submitExam();
             },
@@ -200,52 +309,6 @@ export function ExamScreen() {
     }
 
     await submitExam();
-  };
-
-  const submitExam = async () => {
-    try {
-      setLoading(true);
-      
-      // Submit all answers
-      if (params?.attemptId) {
-        for (const [questionId, answerId] of Object.entries(selectedAnswers)) {
-          await api.post(`/exam-attempts/${params.attemptId}/submit-answer`, {
-            question_id: parseInt(questionId),
-            answer_id: answerId,
-          });
-        }
-
-        // Prepare subjects data for multi-subject exams
-        const subjectsData = selection.subjects.map((subject) => ({
-          subject: subject,
-          question_count: selection.questionCounts[subject] || 0,
-        }));
-
-        // Complete the exam with subjects and duration
-        await api.post(`/exam-attempts/${params.attemptId}/complete`, {
-          subjects: subjectsData,
-          duration_minutes: selection.timeMinutes,
-        });
-      }
-      
-      // Increment practice session if it was a practice exam
-      if (selection.questionMode === 'practice' && selection.subjects.length > 0) {
-        selection.subjects.forEach((subject) => {
-          incrementPracticeSession(subject);
-        });
-      }
-
-      // Navigate to results screen
-      // @ts-ignore
-      navigation.navigate('ExamResults', {
-        attemptId: params.attemptId,
-      });
-    } catch (error: any) {
-      console.error('Error submitting exam:', error);
-      Alert.alert('Error', 'Failed to submit exam. Please try again.');
-    } finally {
-      setLoading(false);
-    }
   };
 
   const goToQuestion = (index: number) => {
@@ -267,19 +330,25 @@ export function ExamScreen() {
   }
 
   const selectedAnswerId = selectedAnswers[currentQuestion.id];
-  const isLastQuestionInSubject = currentQuestionIndex === totalQuestionsForSubject - 1;
+  const isLastQuestionInSubject =
+    currentQuestionIndex === totalQuestionsForSubject - 1;
   const currentSubjectProgress = getSubjectProgress(currentSubject);
 
   return (
     <AppLayout showHeader={false}>
       <View style={styles.container}>
         {/* Custom Header with Timer and Subject Selector */}
-        <View style={[styles.header, { backgroundColor: cardBackground, borderBottomColor: borderColor }]}>
+        <View
+          style={[
+            styles.header,
+            { backgroundColor: cardBackground, borderBottomColor: borderColor },
+          ]}
+        >
           <View style={styles.headerTop}>
             <TouchableOpacity onPress={() => navigation.goBack()}>
               <MaterialIcons name="arrow-back" size={24} color={textColor} />
             </TouchableOpacity>
-            
+
             {/* Subject Selector */}
             <TouchableOpacity
               style={styles.subjectSelector}
@@ -288,37 +357,56 @@ export function ExamScreen() {
               <ThemedText type="subtitle" style={styles.headerTitle}>
                 {currentSubject}
               </ThemedText>
-              <MaterialIcons name="arrow-drop-down" size={20} color={textColor} />
+              <MaterialIcons
+                name="arrow-drop-down"
+                size={20}
+                color={textColor}
+              />
             </TouchableOpacity>
-            
+
             <View style={styles.timerContainer}>
-              <MaterialIcons name="access-time" size={20} color={timeRemaining < 300 ? '#EF4444' : tintColor} />
-              <ThemedText style={[styles.timer, { color: timeRemaining < 300 ? '#EF4444' : undefined }]}>
+              <MaterialIcons
+                name="access-time"
+                size={20}
+                color={timeRemaining < 300 ? "#EF4444" : tintColor}
+              />
+              <ThemedText
+                style={[
+                  styles.timer,
+                  { color: timeRemaining < 300 ? "#EF4444" : undefined },
+                ]}
+              >
                 {formatTime(timeRemaining)}
               </ThemedText>
             </View>
           </View>
-          
+
           {/* Subject Progress */}
           <View style={styles.subjectProgress}>
             <ThemedText style={styles.subjectProgressText}>
-              {currentSubjectProgress.answered} / {currentSubjectProgress.total} answered
+              {currentSubjectProgress.answered} / {currentSubjectProgress.total}{" "}
+              answered
             </ThemedText>
           </View>
-          
+
           <View style={styles.progressBar}>
             <View
               style={[
                 styles.progressFill,
-                { 
-                  width: `${(currentSubjectProgress.answered / currentSubjectProgress.total) * 100}%`, 
-                  backgroundColor: tintColor 
+                {
+                  width: `${
+                    (currentSubjectProgress.answered /
+                      currentSubjectProgress.total) *
+                    100
+                  }%`,
+                  backgroundColor: tintColor,
                 },
               ]}
             />
           </View>
           <ThemedText style={styles.progressText}>
-            Question {currentQuestionIndex + 1} of {totalQuestionsForSubject} ({currentSubject})
+            Question {currentQuestionIndex + 1} of {totalQuestionsForSubject} (
+            {currentSubject})
           </ThemedText>
         </View>
 
@@ -330,7 +418,9 @@ export function ExamScreen() {
           onRequestClose={() => setShowSubjectModal(false)}
         >
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: cardBackground }]}>
+            <View
+              style={[styles.modalContent, { backgroundColor: cardBackground }]}
+            >
               <View style={styles.modalHeader}>
                 <ThemedText type="subtitle" style={styles.modalTitle}>
                   Select Subject
@@ -339,7 +429,7 @@ export function ExamScreen() {
                   <MaterialIcons name="close" size={24} color={textColor} />
                 </TouchableOpacity>
               </View>
-              
+
               <ScrollView>
                 {selection.subjects.map((subject) => {
                   const progress = getSubjectProgress(subject);
@@ -350,14 +440,19 @@ export function ExamScreen() {
                       style={[
                         styles.subjectOption,
                         {
-                          backgroundColor: isCurrent ? tintColor + '20' : backgroundSecondary,
+                          backgroundColor: isCurrent
+                            ? tintColor + "20"
+                            : backgroundSecondary,
                           borderColor: isCurrent ? tintColor : borderColor,
                         },
                       ]}
                       onPress={() => handleSwitchSubject(subject)}
                     >
                       <View style={styles.subjectOptionContent}>
-                        <ThemedText type="subtitle" style={styles.subjectOptionName}>
+                        <ThemedText
+                          type="subtitle"
+                          style={styles.subjectOptionName}
+                        >
                           {subject}
                         </ThemedText>
                         <ThemedText style={styles.subjectOptionProgress}>
@@ -365,7 +460,11 @@ export function ExamScreen() {
                         </ThemedText>
                       </View>
                       {isCurrent && (
-                        <MaterialIcons name="check-circle" size={24} color={tintColor} />
+                        <MaterialIcons
+                          name="check-circle"
+                          size={24}
+                          color={tintColor}
+                        />
                       )}
                     </TouchableOpacity>
                   );
@@ -377,7 +476,9 @@ export function ExamScreen() {
 
         {/* Question */}
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={[styles.questionCard, { backgroundColor: cardBackground }]}>
+          <View
+            style={[styles.questionCard, { backgroundColor: cardBackground }]}
+          >
             <ThemedText type="subtitle" style={styles.questionNumber}>
               Question {currentQuestionIndex + 1}
             </ThemedText>
@@ -396,17 +497,34 @@ export function ExamScreen() {
                   style={[
                     styles.answerCard,
                     {
-                      backgroundColor: isSelected ? tintColor + '20' : cardBackground,
+                      backgroundColor: isSelected
+                        ? tintColor + "20"
+                        : cardBackground,
                       borderColor: isSelected ? tintColor : borderColor,
                     },
                   ]}
                   onPress={() => handleSelectAnswer(answer.id)}
                   activeOpacity={0.7}
                 >
-                  <View style={[styles.answerIndicator, { backgroundColor: isSelected ? tintColor : 'transparent', borderColor: tintColor }]}>
-                    {isSelected && <MaterialIcons name="check" size={16} color="#fff" />}
+                  <View
+                    style={[
+                      styles.answerIndicator,
+                      {
+                        backgroundColor: isSelected ? tintColor : "transparent",
+                        borderColor: tintColor,
+                      },
+                    ]}
+                  >
+                    {isSelected && (
+                      <MaterialIcons name="check" size={16} color="#fff" />
+                    )}
                   </View>
-                  <ThemedText style={[styles.answerText, { color: isSelected ? tintColor : undefined }]}>
+                  <ThemedText
+                    style={[
+                      styles.answerText,
+                      { color: isSelected ? tintColor : undefined },
+                    ]}
+                  >
                     {answer.order}. {answer.answer_text}
                   </ThemedText>
                 </TouchableOpacity>
@@ -416,7 +534,12 @@ export function ExamScreen() {
         </ScrollView>
 
         {/* Navigation Footer */}
-        <View style={[styles.footer, { backgroundColor: cardBackground, borderTopColor: borderColor }]}>
+        <View
+          style={[
+            styles.footer,
+            { backgroundColor: cardBackground, borderTopColor: borderColor },
+          ]}
+        >
           <View style={styles.questionGrid}>
             {currentQuestions.map((q, index) => {
               const isAnswered = selectedAnswers[q.id] !== undefined;
@@ -430,8 +553,8 @@ export function ExamScreen() {
                       backgroundColor: isCurrent
                         ? tintColor
                         : isAnswered
-                        ? tintColor + '80'
-                        : 'transparent',
+                        ? tintColor + "80"
+                        : "transparent",
                       borderColor: tintColor,
                     },
                   ]}
@@ -440,7 +563,7 @@ export function ExamScreen() {
                   <ThemedText
                     style={[
                       styles.questionDotText,
-                      { color: isCurrent || isAnswered ? '#fff' : tintColor },
+                      { color: isCurrent || isAnswered ? "#fff" : tintColor },
                     ]}
                   >
                     {index + 1}
@@ -469,13 +592,16 @@ export function ExamScreen() {
                 title="Next Subject"
                 onPress={() => {
                   // Find next incomplete subject
-                  const currentIndex = selection.subjects.indexOf(currentSubject);
-                  const nextSubjects = selection.subjects.slice(currentIndex + 1);
+                  const currentIndex =
+                    selection.subjects.indexOf(currentSubject);
+                  const nextSubjects = selection.subjects.slice(
+                    currentIndex + 1
+                  );
                   const incompleteSubject = nextSubjects.find((subject) => {
                     const progress = getSubjectProgress(subject);
                     return progress.answered < progress.total;
                   });
-                  
+
                   if (incompleteSubject) {
                     handleSwitchSubject(incompleteSubject);
                   } else {
@@ -498,7 +624,10 @@ export function ExamScreen() {
               title={loading ? "Submitting..." : "Submit Exam"}
               onPress={() => handleCompleteExam(false)}
               disabled={loading}
-              style={[styles.footerButton, { marginTop: 12 }]}
+              style={StyleSheet.flatten([
+                styles.footerButton,
+                { marginTop: 12 },
+              ])}
             />
           )}
         </View>
@@ -513,8 +642,8 @@ const styles = StyleSheet.create({
   },
   centerContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingText: {
     marginTop: 16,
@@ -522,7 +651,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 16,
     opacity: 0.7,
   },
@@ -531,30 +660,30 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 8,
   },
   subjectSelector: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 4,
   },
   headerTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   timerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
   },
   timer: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   subjectProgress: {
     marginBottom: 8,
@@ -562,49 +691,49 @@ const styles = StyleSheet.create({
   subjectProgressText: {
     fontSize: 12,
     opacity: 0.7,
-    textAlign: 'center',
+    textAlign: "center",
   },
   progressBar: {
     height: 4,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: "#E5E7EB",
     borderRadius: 2,
     marginBottom: 8,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   progressFill: {
-    height: '100%',
+    height: "100%",
     borderRadius: 2,
   },
   progressText: {
     fontSize: 12,
     opacity: 0.7,
-    textAlign: 'center',
+    textAlign: "center",
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
   },
   modalContent: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
-    maxHeight: '70%',
+    maxHeight: "70%",
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 20,
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   subjectOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     padding: 16,
     borderRadius: 12,
     borderWidth: 2,
@@ -615,7 +744,7 @@ const styles = StyleSheet.create({
   },
   subjectOptionName: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 4,
   },
   subjectOptionProgress: {
@@ -631,7 +760,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 24,
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -650,8 +779,8 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   answerCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 16,
     borderRadius: 12,
     borderWidth: 2,
@@ -662,8 +791,8 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   answerText: {
     flex: 1,
@@ -675,26 +804,26 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   questionGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
     marginBottom: 16,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   questionDot: {
     width: 36,
     height: 36,
     borderRadius: 18,
     borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   questionDotText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   footerButtons: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
   },
   footerButton: {
