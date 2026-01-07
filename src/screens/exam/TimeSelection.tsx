@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -13,18 +13,34 @@ import { Button } from "@/components/ui/Button";
 import { useExamSelection } from "@/contexts/ExamSelectionContext";
 import { useNavigation } from "@react-navigation/native";
 import { useThemeColor } from "@/hooks/useThemeColor";
-import api from "@/services/api";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 export function TimeSelection() {
   const { selection, setTimeMinutes } = useExamSelection();
   const navigation = useNavigation();
   const [minutes, setMinutes] = useState<string>("");
-  const [loading, setLoading] = useState(false);
   const tintColor = useThemeColor({}, "tint");
   const cardBackground = useThemeColor({}, "backgroundSecondary");
 
-  const quickOptions = [30, 60, 90, 120];
+  // Calculate default time based on number of subjects (30 min per subject)
+  const defaultMinutes = selection.subjects.length * 30;
+  const maxMinutes = selection.subjects.length * 30; // Max is 30 min per subject
+
+  useEffect(() => {
+    // Set default time when component mounts
+    if (!minutes && defaultMinutes > 0) {
+      setMinutes(defaultMinutes.toString());
+    }
+  }, [defaultMinutes, minutes]);
+
+  const quickOptions =
+    selection.subjects.length === 1
+      ? [30]
+      : selection.subjects.length === 2
+      ? [60]
+      : selection.subjects.length === 3
+      ? [90]
+      : [120]; // For 4 subjects
 
   const formatTime = (mins: number) => {
     const hours = Math.floor(mins / 60);
@@ -35,7 +51,7 @@ export function TimeSelection() {
     return `${mins}m`;
   };
 
-  const handleStartExam = async () => {
+  const handleContinue = () => {
     const numMinutes = parseInt(minutes);
 
     if (!minutes || isNaN(numMinutes) || numMinutes < 1) {
@@ -46,85 +62,21 @@ export function TimeSelection() {
       return;
     }
 
-    if (numMinutes > 120) {
+    if (numMinutes > maxMinutes) {
       Alert.alert(
         "Time Limit Exceeded",
-        "Maximum allowed time is 120 minutes (2 hours)"
+        `Maximum allowed time is ${maxMinutes} minutes (${formatTime(
+          maxMinutes
+        )}) for ${selection.subjects.length} ${
+          selection.subjects.length === 1 ? "subject" : "subjects"
+        }`
       );
       return;
     }
 
     setTimeMinutes(numMinutes);
-
-    // Find matching exam
-    try {
-      setLoading(true);
-
-      const examResponse = await api.get("/exams", {
-        params: {
-          exam_type: selection.examType,
-          type: selection.questionMode,
-          subject: selection.subject,
-        },
-      });
-
-      if (!examResponse.data.success || examResponse.data.data.length === 0) {
-        Alert.alert(
-          "No Exam Found",
-          "No exam matches your selection. Please try different options."
-        );
-        return;
-      }
-
-      // Get the first matching exam
-      const exam = examResponse.data.data[0];
-
-      // Get questions for the exam
-      const questionsResponse = await api.get(`/exams/${exam.id}/questions`);
-
-      if (!questionsResponse.data.success) {
-        Alert.alert("Error", "Failed to load questions. Please try again.");
-        return;
-      }
-
-      const questionsData = questionsResponse.data.data;
-      const allQuestions = questionsData.questions || [];
-
-      // Limit questions to selected count
-      const limitedQuestions = allQuestions.slice(
-        0,
-        selection.questionCount || allQuestions.length
-      );
-
-      // Start exam attempt
-      const attemptResponse = await api.post(`/exams/${exam.id}/start`);
-
-      if (!attemptResponse.data.success) {
-        Alert.alert("Error", "Failed to start exam. Please try again.");
-        return;
-      }
-
-      const attempt = attemptResponse.data.data.attempt;
-
-      // Navigate to exam screen
-      // @ts-ignore
-      navigation.navigate("ExamScreen", {
-        attemptId: attempt.id,
-        examId: exam.id,
-        questions: limitedQuestions,
-        exam: questionsData.exam,
-        timeMinutes: numMinutes,
-      });
-    } catch (error: any) {
-      console.error("Error starting exam:", error);
-      Alert.alert(
-        "Error",
-        error.response?.data?.message ||
-          "Failed to start exam. Please check your connection and try again."
-      );
-    } finally {
-      setLoading(false);
-    }
+    // @ts-ignore
+    navigation.navigate("QuestionCountSelection");
   };
 
   const handleQuickSelect = (value: number) => {
@@ -132,17 +84,23 @@ export function TimeSelection() {
   };
 
   return (
-    <AppLayout showBackButton={true} headerTitle="Exam Duration">
+    <AppLayout showBackButton={true} headerTitle="Select Duration">
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
           <ThemedText type="title" style={styles.title}>
-            Exam Duration
+            Select Duration
           </ThemedText>
           <ThemedText style={styles.subtitle}>
-            How much time do you want for this exam?
+            {selection.subjects.length === 1
+              ? `Each subject takes 30 minutes`
+              : `You've selected ${selection.subjects.length} subjects. Each subject takes 30 minutes.`}
+          </ThemedText>
+          <ThemedText style={styles.hint}>
+            Total time: {formatTime(maxMinutes)} ({selection.subjects.length} ×
+            30 minutes)
           </ThemedText>
         </View>
 
@@ -157,58 +115,60 @@ export function TimeSelection() {
             style={[styles.input, { borderColor: tintColor }]}
             value={minutes}
             onChangeText={setMinutes}
-            placeholder="e.g., 60"
+            placeholder={`e.g., ${defaultMinutes}`}
             keyboardType="number-pad"
             placeholderTextColor={useThemeColor({}, "placeholder")}
           />
           <ThemedText style={styles.hint}>
-            Maximum: 120 minutes (2 hours)
+            Minimum: 1 minute, Maximum: {maxMinutes} minutes (
+            {formatTime(maxMinutes)})
           </ThemedText>
         </View>
 
-        <View style={styles.quickOptionsContainer}>
-          <ThemedText style={styles.quickOptionsTitle}>Quick Select</ThemedText>
-          <View style={styles.quickOptionsGrid}>
-            {quickOptions.map((value) => (
-              <TouchableOpacity
-                key={value}
-                style={[
-                  styles.quickOption,
-                  {
-                    backgroundColor:
-                      minutes === value.toString() ? tintColor : cardBackground,
-                    borderColor: tintColor,
-                  },
-                ]}
-                onPress={() => handleQuickSelect(value)}
-              >
-                <ThemedText
+        {quickOptions.length > 0 && (
+          <View style={styles.quickOptionsContainer}>
+            <ThemedText style={styles.quickOptionsTitle}>
+              Quick Select
+            </ThemedText>
+            <View style={styles.quickOptionsGrid}>
+              {quickOptions.map((value) => (
+                <TouchableOpacity
+                  key={value}
                   style={[
-                    styles.quickOptionText,
+                    styles.quickOption,
                     {
-                      color: minutes === value.toString() ? "#fff" : undefined,
+                      backgroundColor:
+                        minutes === value.toString()
+                          ? tintColor
+                          : cardBackground,
+                      borderColor: tintColor,
                     },
                   ]}
+                  onPress={() => handleQuickSelect(value)}
                 >
-                  {formatTime(value)}
-                </ThemedText>
-              </TouchableOpacity>
-            ))}
+                  <ThemedText
+                    style={[
+                      styles.quickOptionText,
+                      {
+                        color:
+                          minutes === value.toString() ? "#fff" : undefined,
+                      },
+                    ]}
+                  >
+                    {formatTime(value)}
+                  </ThemedText>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
-        </View>
+        )}
 
         <View style={[styles.summaryCard, { backgroundColor: cardBackground }]}>
-          <ThemedText style={styles.summaryTitle}>Exam Summary</ThemedText>
+          <ThemedText style={styles.summaryTitle}>Summary</ThemedText>
           <View style={styles.summaryRow}>
             <ThemedText style={styles.summaryLabel}>Type:</ThemedText>
             <ThemedText style={styles.summaryValue}>
               {selection.examType}
-            </ThemedText>
-          </View>
-          <View style={styles.summaryRow}>
-            <ThemedText style={styles.summaryLabel}>Subject:</ThemedText>
-            <ThemedText style={styles.summaryValue}>
-              {selection.subject}
             </ThemedText>
           </View>
           <View style={styles.summaryRow}>
@@ -220,9 +180,9 @@ export function TimeSelection() {
             </ThemedText>
           </View>
           <View style={styles.summaryRow}>
-            <ThemedText style={styles.summaryLabel}>Questions:</ThemedText>
+            <ThemedText style={styles.summaryLabel}>Subjects:</ThemedText>
             <ThemedText style={styles.summaryValue}>
-              {selection.questionCount}
+              {selection.subjects.join(", ")}
             </ThemedText>
           </View>
           {minutes && (
@@ -234,15 +194,17 @@ export function TimeSelection() {
             </View>
           )}
         </View>
-
-        <Button
-          title={loading ? "Starting..." : "Start Exam"}
-          onPress={handleStartExam}
-          style={styles.startButton}
-          disabled={loading}
-          loading={loading}
-        />
       </ScrollView>
+
+      <View style={styles.footer}>
+        <Button
+          title="Continue"
+          onPress={handleContinue}
+          disabled={
+            !minutes || parseInt(minutes) < 1 || parseInt(minutes) > maxMinutes
+          }
+        />
+      </View>
     </AppLayout>
   );
 }
@@ -251,9 +213,10 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     padding: 24,
+    paddingBottom: 100,
   },
   header: {
-    marginBottom: 32,
+    marginBottom: 24,
   },
   title: {
     fontSize: 28,
@@ -263,6 +226,12 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     opacity: 0.7,
+    marginBottom: 8,
+  },
+  hint: {
+    fontSize: 14,
+    opacity: 0.6,
+    fontStyle: "italic",
   },
   inputCard: {
     borderRadius: 12,
@@ -290,10 +259,6 @@ const styles = StyleSheet.create({
     padding: 16,
     fontSize: 18,
     marginBottom: 8,
-  },
-  hint: {
-    fontSize: 14,
-    opacity: 0.6,
   },
   quickOptionsContainer: {
     marginBottom: 24,
@@ -351,7 +316,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  startButton: {
-    marginTop: "auto",
+  footer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 24,
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    borderTopWidth: 1,
+    borderTopColor: "#e9ecef",
   },
 });

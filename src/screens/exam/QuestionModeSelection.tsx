@@ -4,6 +4,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -15,26 +16,15 @@ import { useThemeColor } from '@/hooks/useThemeColor';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 export function QuestionModeSelection() {
-  const { selection, setQuestionMode, getPracticeSessionCount } = useExamSelection();
+  const { selection, setQuestionMode } = useExamSelection();
   const navigation = useNavigation();
   const backgroundColor = useThemeColor({}, 'background');
   const tintColor = useThemeColor({}, 'tint');
-  const practiceCount = selection.subject ? getPracticeSessionCount(selection.subject) : 0;
-  const canPractice = practiceCount < 4;
 
   const handleSelectMode = (mode: 'past_question' | 'practice') => {
-    if (mode === 'practice' && !canPractice) {
-      Alert.alert(
-        'Practice Limit Reached',
-        `You have already completed ${practiceCount} practice sessions for ${selection.subject}. Maximum allowed is 4 sessions per subject.`,
-        [{ text: 'OK' }]
-      );
-      return;
-    }
-
     setQuestionMode(mode);
     // @ts-ignore
-    navigation.navigate('QuestionCountSelection');
+    navigation.navigate('SubjectSelection');
   };
 
   return (
@@ -48,19 +38,9 @@ export function QuestionModeSelection() {
             Select Question Mode
           </ThemedText>
           <ThemedText style={styles.subtitle}>
-            Choose how you want to practice {selection.subject}
+            Choose how you want to practice {selection.examType} questions
           </ThemedText>
         </View>
-
-        {!canPractice && (
-          <View style={[styles.warningCard, { backgroundColor: '#FFF3CD' }]}>
-            <MaterialIcons name="warning" size={20} color="#856404" />
-            <ThemedText style={[styles.warningText, { color: '#856404' }]}>
-              You have reached the maximum of 4 practice sessions for {selection.subject}. 
-              Please select Past Questions instead.
-            </ThemedText>
-          </View>
-        )}
 
         <View style={styles.optionsContainer}>
           <TouchableOpacity
@@ -87,13 +67,12 @@ export function QuestionModeSelection() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.optionCard, !canPractice && styles.disabledCard]}
+            style={styles.optionCard}
             onPress={() => handleSelectMode('practice')}
             activeOpacity={0.8}
-            disabled={!canPractice}
           >
             <LinearGradient
-              colors={canPractice ? [tintColor, tintColor + 'DD'] : ['#999', '#777']}
+              colors={[tintColor, tintColor + 'DD']}
               style={styles.gradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
@@ -105,10 +84,7 @@ export function QuestionModeSelection() {
                 Practice Questions
               </ThemedText>
               <ThemedText style={styles.optionDescription}>
-                {canPractice 
-                  ? `Practice mode (${practiceCount}/4 sessions used)`
-                  : 'Practice limit reached (4/4 sessions)'
-                }
+                Practice mode (max 4 sessions per subject)
               </ThemedText>
             </LinearGradient>
           </TouchableOpacity>

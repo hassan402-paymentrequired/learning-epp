@@ -1,7 +1,8 @@
-import React from 'react';
-import { SafeAreaView, StyleSheet, ViewStyle } from 'react-native';
-import { useThemeColor } from '@/hooks/useThemeColor';
-import { AppHeader } from './AppHeader';
+import React from "react";
+import { StyleSheet, ViewStyle } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useThemeColor } from "@/hooks/useThemeColor";
+import { AppHeader } from "./AppHeader";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -11,14 +12,14 @@ interface AppLayoutProps {
   showBackButton?: boolean;
 }
 
-export function AppLayout({ 
-  children, 
-  style, 
+export function AppLayout({
+  children,
+  style,
   showHeader = true,
   headerTitle,
   showBackButton = false,
 }: AppLayoutProps) {
-  const backgroundColor = useThemeColor({}, 'background');
+  const backgroundColor = useThemeColor({}, "background");
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor }, style]}>

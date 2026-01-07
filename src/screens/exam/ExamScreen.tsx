@@ -65,10 +65,29 @@ export function ExamScreen() {
   const cardBackground = useThemeColor({}, 'card');
   const borderColor = useThemeColor({}, 'border');
 
-  const questions = params.questions || [];
+  const questions = params?.questions || [];
+  const exam = params?.exam;
   const currentQuestion = questions[currentQuestionIndex];
   const totalQuestions = questions.length;
   const answeredCount = Object.keys(selectedAnswers).length;
+  
+  // Validate params
+  if (!params || !questions || questions.length === 0) {
+    return (
+      <AppLayout>
+        <View style={styles.centerContainer}>
+          <ThemedText style={styles.errorText}>
+            Invalid exam data. Please try again.
+          </ThemedText>
+          <Button
+            title="Go Back"
+            onPress={() => navigation.goBack()}
+            style={{ marginTop: 16 }}
+          />
+        </View>
+      </AppLayout>
+    );
+  }
 
   // Timer effect
   useEffect(() => {
@@ -131,19 +150,23 @@ export function ExamScreen() {
       setLoading(true);
       
       // Submit all answers
-      for (const [questionId, answerId] of Object.entries(selectedAnswers)) {
-        await api.post(`/exam-attempts/${params.attemptId}/submit-answer`, {
-          question_id: parseInt(questionId),
-          answer_id: answerId,
-        });
-      }
+      if (params?.attemptId) {
+        for (const [questionId, answerId] of Object.entries(selectedAnswers)) {
+          await api.post(`/exam-attempts/${params.attemptId}/submit-answer`, {
+            question_id: parseInt(questionId),
+            answer_id: answerId,
+          });
+        }
 
-      // Complete the exam
-      const response = await api.post(`/exam-attempts/${params.attemptId}/complete`);
+        // Complete the exam
+        await api.post(`/exam-attempts/${params.attemptId}/complete`);
+      }
       
       // Increment practice session if it was a practice exam
-      if (selection.questionMode === 'practice' && selection.subject) {
-        incrementPracticeSession(selection.subject);
+      if (selection.questionMode === 'practice' && selection.subjects.length > 0) {
+        selection.subjects.forEach((subject) => {
+          incrementPracticeSession(subject);
+        });
       }
 
       // Navigate back to home for now (results screen can be added later)
@@ -196,7 +219,7 @@ export function ExamScreen() {
               <MaterialIcons name="arrow-back" size={24} color={textColor} />
             </TouchableOpacity>
             <ThemedText type="subtitle" style={styles.headerTitle}>
-              {params.exam.title}
+              {exam?.title || `${selection.examType} Practice`}
             </ThemedText>
             <View style={styles.timerContainer}>
               <MaterialIcons name="access-time" size={20} color={timeRemaining < 300 ? '#EF4444' : tintColor} />
@@ -332,6 +355,12 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 16,
+    opacity: 0.7,
+  },
+  errorText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 16,
     opacity: 0.7,
   },
   header: {

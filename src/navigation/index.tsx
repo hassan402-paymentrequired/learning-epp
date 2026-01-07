@@ -46,16 +46,17 @@ function AppNavigator() {
     <AppStack.Navigator screenOptions={{ headerShown: false }}>
       <AppStack.Screen name="Home" component={Home} />
       <AppStack.Screen name="Profile" component={Profile} />
-      <AppStack.Screen name="SubjectSelection" component={SubjectSelection} />
+      {/* Updated flow order: Question Mode → Subjects → Time → Question Count */}
       <AppStack.Screen
         name="QuestionModeSelection"
         component={QuestionModeSelection}
       />
+      <AppStack.Screen name="SubjectSelection" component={SubjectSelection} />
+      <AppStack.Screen name="TimeSelection" component={TimeSelection} />
       <AppStack.Screen
         name="QuestionCountSelection"
         component={QuestionCountSelection}
       />
-      <AppStack.Screen name="TimeSelection" component={TimeSelection} />
       <AppStack.Screen name="ExamScreen" component={ExamScreen} />
       <AppStack.Screen name="NotFound" component={NotFound} />
     </AppStack.Navigator>
