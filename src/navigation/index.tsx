@@ -5,12 +5,17 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Platform, ActivityIndicator } from 'react-native';
 
 import { Explore } from './screens/Explore';
-import { Home } from './screens/Home';
+import { Home } from '@/screens/Home';
 import { NotFound } from './screens/NotFound';
 import { Onboarding } from '@/screens/Onboarding';
 import { Login } from '@/screens/auth/Login';
 import { Signup } from '@/screens/auth/Signup';
 import { Profile } from '@/screens/Profile';
+import { ExamTypeSelection } from '@/screens/exam/ExamTypeSelection';
+import { SubjectSelection } from '@/screens/exam/SubjectSelection';
+import { QuestionModeSelection } from '@/screens/exam/QuestionModeSelection';
+import { QuestionCountSelection } from '@/screens/exam/QuestionCountSelection';
+import { TimeSelection } from '@/screens/exam/TimeSelection';
 
 import { HapticTab } from '@/components/HapticTab';
 import { IconSymbol } from '@/components/ui/IconSymbol';
@@ -85,6 +90,10 @@ function AppNavigator() {
   return (
     <AppStack.Navigator screenOptions={{ headerShown: false }}>
       <AppStack.Screen name="HomeTabs" component={HomeTabs} />
+      <AppStack.Screen name="SubjectSelection" component={SubjectSelection} />
+      <AppStack.Screen name="QuestionModeSelection" component={QuestionModeSelection} />
+      <AppStack.Screen name="QuestionCountSelection" component={QuestionCountSelection} />
+      <AppStack.Screen name="TimeSelection" component={TimeSelection} />
       <AppStack.Screen name="NotFound" component={NotFound} />
     </AppStack.Navigator>
   );

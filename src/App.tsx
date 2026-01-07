@@ -8,6 +8,7 @@ import { useColorScheme } from 'react-native';
 import { Colors } from './constants/Colors';
 import { Navigation } from './navigation';
 import { AuthProvider } from './contexts/AuthContext';
+import { ExamSelectionProvider } from './contexts/ExamSelectionContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -35,19 +36,21 @@ export function App() {
 
   return (
     <AuthProvider>
-      <Navigation
-        theme={theme}
-        linking={{
-          enabled: 'auto',
-          prefixes: [
-            // Change the scheme to match your app's scheme defined in app.json
-            'helloworld://',
-          ],
-        }}
-        onReady={() => {
-          SplashScreen.hideAsync();
-        }}
-      />
+      <ExamSelectionProvider>
+        <Navigation
+          theme={theme}
+          linking={{
+            enabled: 'auto',
+            prefixes: [
+              // Change the scheme to match your app's scheme defined in app.json
+              'helloworld://',
+            ],
+          }}
+          onReady={() => {
+            SplashScreen.hideAsync();
+          }}
+        />
+      </ExamSelectionProvider>
     </AuthProvider>
   );
 }
