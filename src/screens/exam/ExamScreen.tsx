@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  Text,
+  Modal,
 } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -25,6 +25,7 @@ interface Question {
   points: number;
   order: number;
   answers: Answer[];
+  subject?: string; // Subject name for organization
 }
 
 interface Answer {
@@ -40,10 +41,16 @@ interface ExamData {
   total_questions: number;
 }
 
+interface SubjectQuestions {
+  subject: string;
+  questions: Question[];
+  currentIndex: number; // Track where user left off
+}
+
 interface RouteParams {
   attemptId: number;
   examId: number;
-  questions: Question[];
+  subjectsQuestions: Record<string, Question[]>; // Subject -> Questions mapping
   exam: ExamData;
   timeMinutes: number;
 }
@@ -54,25 +61,48 @@ export function ExamScreen() {
   const { incrementPracticeSession, selection } = useExamSelection();
   const params = route.params as RouteParams;
   
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [currentSubject, setCurrentSubject] = useState<string>(selection.subjects[0] || '');
+  const [subjectsQuestions, setSubjectsQuestions] = useState<Record<string, Question[]>>(
+    params?.subjectsQuestions || {}
+  );
+  const [subjectCurrentIndex, setSubjectCurrentIndex] = useState<Record<string, number>>(() => {
+    // Initialize current index for each subject to 0
+    const indices: Record<string, number> = {};
+    selection.subjects.forEach((subject) => {
+      indices[subject] = 0;
+    });
+    return indices;
+  });
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
-  const [timeRemaining, setTimeRemaining] = useState(params.timeMinutes * 60); // in seconds
+  const [timeRemaining, setTimeRemaining] = useState((params?.timeMinutes || 30) * 60); // in seconds
   const [loading, setLoading] = useState(false);
+  const [showSubjectModal, setShowSubjectModal] = useState(false);
   
   const backgroundColor = useThemeColor({}, 'background');
   const tintColor = useThemeColor({}, 'tint');
   const textColor = useThemeColor({}, 'text');
   const cardBackground = useThemeColor({}, 'card');
   const borderColor = useThemeColor({}, 'border');
+  const backgroundSecondary = useThemeColor({}, 'backgroundSecondary');
 
-  const questions = params?.questions || [];
-  const exam = params?.exam;
-  const currentQuestion = questions[currentQuestionIndex];
-  const totalQuestions = questions.length;
-  const answeredCount = Object.keys(selectedAnswers).length;
+  // Get current subject's questions and progress
+  const currentQuestions = subjectsQuestions[currentSubject] || [];
+  const currentQuestionIndex = subjectCurrentIndex[currentSubject] || 0;
+  const currentQuestion = currentQuestions[currentQuestionIndex];
+  const totalQuestionsForSubject = currentQuestions.length;
   
+  // Calculate overall progress
+  const totalQuestions = Object.values(subjectsQuestions).reduce((sum, qs) => sum + qs.length, 0);
+  const totalAnswered = Object.keys(selectedAnswers).length;
+  
+  // Check if all subjects are completed
+  const allSubjectsCompleted = selection.subjects.every((subject) => {
+    const questions = subjectsQuestions[subject] || [];
+    return questions.every((q) => selectedAnswers[q.id] !== undefined);
+  });
+
   // Validate params
-  if (!params || !questions || questions.length === 0) {
+  if (!params || !subjectsQuestions || Object.keys(subjectsQuestions).length === 0) {
     return (
       <AppLayout>
         <View style={styles.centerContainer}>
@@ -92,7 +122,7 @@ export function ExamScreen() {
   // Timer effect
   useEffect(() => {
     if (timeRemaining <= 0) {
-      handleCompleteExam();
+      handleCompleteExam(true); // Auto-submit when time runs out
       return;
     }
 
@@ -117,32 +147,59 @@ export function ExamScreen() {
   };
 
   const handleNext = () => {
-    if (currentQuestionIndex < totalQuestions - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
+    if (currentQuestionIndex < totalQuestionsForSubject - 1) {
+      setSubjectCurrentIndex({
+        ...subjectCurrentIndex,
+        [currentSubject]: currentQuestionIndex + 1,
+      });
     }
   };
 
   const handlePrevious = () => {
     if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(currentQuestionIndex - 1);
+      setSubjectCurrentIndex({
+        ...subjectCurrentIndex,
+        [currentSubject]: currentQuestionIndex - 1,
+      });
     }
   };
 
-  const handleCompleteExam = async () => {
-    Alert.alert(
-      'Complete Exam',
-      `You have answered ${answeredCount} out of ${totalQuestions} questions. Are you sure you want to submit?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Submit',
-          style: 'destructive',
-          onPress: async () => {
-            await submitExam();
+  const handleSwitchSubject = (subject: string) => {
+    setCurrentSubject(subject);
+    setShowSubjectModal(false);
+  };
+
+  const getSubjectProgress = (subject: string) => {
+    const questions = subjectsQuestions[subject] || [];
+    const answered = questions.filter((q) => selectedAnswers[q.id] !== undefined).length;
+    return { answered, total: questions.length };
+  };
+
+  const handleCompleteExam = async (autoSubmit = false) => {
+    const unansweredSubjects = selection.subjects.filter((subject) => {
+      const questions = subjectsQuestions[subject] || [];
+      return questions.some((q) => selectedAnswers[q.id] === undefined);
+    });
+
+    if (!autoSubmit && unansweredSubjects.length > 0) {
+      Alert.alert(
+        'Complete Exam',
+        `You have unanswered questions in ${unansweredSubjects.length} ${unansweredSubjects.length === 1 ? 'subject' : 'subjects'}. Are you sure you want to submit?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Submit',
+            style: 'destructive',
+            onPress: async () => {
+              await submitExam();
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+      return;
+    }
+
+    await submitExam();
   };
 
   const submitExam = async () => {
@@ -172,7 +229,7 @@ export function ExamScreen() {
       // Navigate back to home for now (results screen can be added later)
       Alert.alert(
         'Exam Submitted',
-        `You answered ${answeredCount} out of ${totalQuestions} questions. Results will be available soon.`,
+        `You answered ${totalAnswered} out of ${totalQuestions} questions across ${selection.subjects.length} ${selection.subjects.length === 1 ? 'subject' : 'subjects'}. Results will be available soon.`,
         [
           {
             text: 'OK',
@@ -192,7 +249,10 @@ export function ExamScreen() {
   };
 
   const goToQuestion = (index: number) => {
-    setCurrentQuestionIndex(index);
+    setSubjectCurrentIndex({
+      ...subjectCurrentIndex,
+      [currentSubject]: index,
+    });
   };
 
   if (!currentQuestion) {
@@ -207,20 +267,30 @@ export function ExamScreen() {
   }
 
   const selectedAnswerId = selectedAnswers[currentQuestion.id];
-  const isLastQuestion = currentQuestionIndex === totalQuestions - 1;
+  const isLastQuestionInSubject = currentQuestionIndex === totalQuestionsForSubject - 1;
+  const currentSubjectProgress = getSubjectProgress(currentSubject);
 
   return (
     <AppLayout showHeader={false}>
       <View style={styles.container}>
-        {/* Custom Header with Timer */}
+        {/* Custom Header with Timer and Subject Selector */}
         <View style={[styles.header, { backgroundColor: cardBackground, borderBottomColor: borderColor }]}>
           <View style={styles.headerTop}>
             <TouchableOpacity onPress={() => navigation.goBack()}>
               <MaterialIcons name="arrow-back" size={24} color={textColor} />
             </TouchableOpacity>
-            <ThemedText type="subtitle" style={styles.headerTitle}>
-              {exam?.title || `${selection.examType} Practice`}
-            </ThemedText>
+            
+            {/* Subject Selector */}
+            <TouchableOpacity
+              style={styles.subjectSelector}
+              onPress={() => setShowSubjectModal(true)}
+            >
+              <ThemedText type="subtitle" style={styles.headerTitle}>
+                {currentSubject}
+              </ThemedText>
+              <MaterialIcons name="arrow-drop-down" size={20} color={textColor} />
+            </TouchableOpacity>
+            
             <View style={styles.timerContainer}>
               <MaterialIcons name="access-time" size={20} color={timeRemaining < 300 ? '#EF4444' : tintColor} />
               <ThemedText style={[styles.timer, { color: timeRemaining < 300 ? '#EF4444' : undefined }]}>
@@ -228,18 +298,82 @@ export function ExamScreen() {
               </ThemedText>
             </View>
           </View>
+          
+          {/* Subject Progress */}
+          <View style={styles.subjectProgress}>
+            <ThemedText style={styles.subjectProgressText}>
+              {currentSubjectProgress.answered} / {currentSubjectProgress.total} answered
+            </ThemedText>
+          </View>
+          
           <View style={styles.progressBar}>
             <View
               style={[
                 styles.progressFill,
-                { width: `${((currentQuestionIndex + 1) / totalQuestions) * 100}%`, backgroundColor: tintColor },
+                { 
+                  width: `${(currentSubjectProgress.answered / currentSubjectProgress.total) * 100}%`, 
+                  backgroundColor: tintColor 
+                },
               ]}
             />
           </View>
           <ThemedText style={styles.progressText}>
-            Question {currentQuestionIndex + 1} of {totalQuestions}
+            Question {currentQuestionIndex + 1} of {totalQuestionsForSubject} ({currentSubject})
           </ThemedText>
         </View>
+
+        {/* Subject Selection Modal */}
+        <Modal
+          visible={showSubjectModal}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowSubjectModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: cardBackground }]}>
+              <View style={styles.modalHeader}>
+                <ThemedText type="subtitle" style={styles.modalTitle}>
+                  Select Subject
+                </ThemedText>
+                <TouchableOpacity onPress={() => setShowSubjectModal(false)}>
+                  <MaterialIcons name="close" size={24} color={textColor} />
+                </TouchableOpacity>
+              </View>
+              
+              <ScrollView>
+                {selection.subjects.map((subject) => {
+                  const progress = getSubjectProgress(subject);
+                  const isCurrent = subject === currentSubject;
+                  return (
+                    <TouchableOpacity
+                      key={subject}
+                      style={[
+                        styles.subjectOption,
+                        {
+                          backgroundColor: isCurrent ? tintColor + '20' : backgroundSecondary,
+                          borderColor: isCurrent ? tintColor : borderColor,
+                        },
+                      ]}
+                      onPress={() => handleSwitchSubject(subject)}
+                    >
+                      <View style={styles.subjectOptionContent}>
+                        <ThemedText type="subtitle" style={styles.subjectOptionName}>
+                          {subject}
+                        </ThemedText>
+                        <ThemedText style={styles.subjectOptionProgress}>
+                          {progress.answered} / {progress.total} answered
+                        </ThemedText>
+                      </View>
+                      {isCurrent && (
+                        <MaterialIcons name="check-circle" size={24} color={tintColor} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
 
         {/* Question */}
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -254,7 +388,7 @@ export function ExamScreen() {
 
           {/* Answers */}
           <View style={styles.answersContainer}>
-            {currentQuestion.answers.map((answer, index) => {
+            {currentQuestion.answers.map((answer) => {
               const isSelected = selectedAnswerId === answer.id;
               return (
                 <TouchableOpacity
@@ -284,7 +418,7 @@ export function ExamScreen() {
         {/* Navigation Footer */}
         <View style={[styles.footer, { backgroundColor: cardBackground, borderTopColor: borderColor }]}>
           <View style={styles.questionGrid}>
-            {questions.map((q, index) => {
+            {currentQuestions.map((q, index) => {
               const isAnswered = selectedAnswers[q.id] !== undefined;
               const isCurrent = index === currentQuestionIndex;
               return (
@@ -323,11 +457,32 @@ export function ExamScreen() {
               disabled={currentQuestionIndex === 0}
               style={styles.footerButton}
             />
-            {isLastQuestion ? (
+            {isLastQuestionInSubject && allSubjectsCompleted ? (
               <Button
                 title={loading ? "Submitting..." : "Submit Exam"}
-                onPress={handleCompleteExam}
+                onPress={() => handleCompleteExam(false)}
                 disabled={loading}
+                style={styles.footerButton}
+              />
+            ) : isLastQuestionInSubject ? (
+              <Button
+                title="Next Subject"
+                onPress={() => {
+                  // Find next incomplete subject
+                  const currentIndex = selection.subjects.indexOf(currentSubject);
+                  const nextSubjects = selection.subjects.slice(currentIndex + 1);
+                  const incompleteSubject = nextSubjects.find((subject) => {
+                    const progress = getSubjectProgress(subject);
+                    return progress.answered < progress.total;
+                  });
+                  
+                  if (incompleteSubject) {
+                    handleSwitchSubject(incompleteSubject);
+                  } else {
+                    // All subjects done, allow submit
+                    handleCompleteExam(false);
+                  }
+                }}
                 style={styles.footerButton}
               />
             ) : (
@@ -338,6 +493,14 @@ export function ExamScreen() {
               />
             )}
           </View>
+          {allSubjectsCompleted && !isLastQuestionInSubject && (
+            <Button
+              title={loading ? "Submitting..." : "Submit Exam"}
+              onPress={() => handleCompleteExam(false)}
+              disabled={loading}
+              style={[styles.footerButton, { marginTop: 12 }]}
+            />
+          )}
         </View>
       </View>
     </AppLayout>
@@ -371,11 +534,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 8,
+  },
+  subjectSelector: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
   },
   headerTitle: {
-    flex: 1,
-    textAlign: 'center',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -387,6 +555,14 @@ const styles = StyleSheet.create({
   timer: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  subjectProgress: {
+    marginBottom: 8,
+  },
+  subjectProgressText: {
+    fontSize: 12,
+    opacity: 0.7,
+    textAlign: 'center',
   },
   progressBar: {
     height: 4,
@@ -403,6 +579,48 @@ const styles = StyleSheet.create({
     fontSize: 12,
     opacity: 0.7,
     textAlign: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    maxHeight: '70%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  subjectOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    marginBottom: 12,
+  },
+  subjectOptionContent: {
+    flex: 1,
+  },
+  subjectOptionName: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  subjectOptionProgress: {
+    fontSize: 14,
+    opacity: 0.7,
   },
   content: {
     flex: 1,

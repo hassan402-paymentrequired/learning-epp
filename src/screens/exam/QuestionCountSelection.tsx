@@ -17,6 +17,21 @@ import { useThemeColor } from '@/hooks/useThemeColor';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import api from '@/services/api';
 
+interface Question {
+  id: number;
+  question_text: string;
+  question_type: string;
+  points: number;
+  order: number;
+  answers: Answer[];
+}
+
+interface Answer {
+  id: number;
+  answer_text: string;
+  order: string;
+}
+
 export function QuestionCountSelection() {
   const { selection, setQuestionCount } = useExamSelection();
   const navigation = useNavigation();
@@ -97,44 +112,69 @@ export function QuestionCountSelection() {
 
       // For JAMB with multiple subjects, we'll need to handle this differently
       // For now, let's use the first subject's exam
-      // TODO: Update API to handle multiple subjects
-      const examResponse = await api.get('/exams', {
-        params: {
-          exam_type: selection.examType,
-          type: selection.questionMode,
-          subject: selection.subjects[0], // Use first subject for now
-        },
-      });
+      // Fetch questions for all subjects
+      const subjectsQuestions: Record<string, Question[]> = {};
+      let firstExamId: number | null = null;
 
-      if (!examResponse.data.success || examResponse.data.data.length === 0) {
-        Alert.alert(
-          'No Exam Found',
-          'No exam matches your selection. Please try different options.'
-        );
+      for (const subject of selection.subjects) {
+        try {
+          const examResponse = await api.get('/exams', {
+            params: {
+              exam_type: selection.examType,
+              type: selection.questionMode,
+              subject: subject,
+            },
+          });
+
+          if (!examResponse.data.success || examResponse.data.data.length === 0) {
+            Alert.alert(
+              'No Exam Found',
+              `No exam found for ${subject}. Please try different options.`
+            );
+            return;
+          }
+
+          const exam = examResponse.data.data[0];
+          if (!firstExamId) {
+            firstExamId = exam.id;
+          }
+
+          // Get questions for this subject's exam
+          const questionsResponse = await api.get(`/exams/${exam.id}/questions`);
+
+          if (!questionsResponse.data.success) {
+            Alert.alert('Error', `Failed to load questions for ${subject}. Please try again.`);
+            return;
+          }
+
+          const questionsData = questionsResponse.data.data;
+          const allQuestions = questionsData.questions || [];
+
+          // Limit questions to selected count for this subject
+          const questionCount = parseInt(questionCounts[subject]) || allQuestions.length;
+          const limitedQuestions = allQuestions.slice(0, questionCount);
+
+          // Add subject identifier to questions
+          const questionsWithSubject = limitedQuestions.map((q: any) => ({
+            ...q,
+            subject: subject,
+          }));
+
+          subjectsQuestions[subject] = questionsWithSubject;
+        } catch (error: any) {
+          console.error(`Error loading questions for ${subject}:`, error);
+          Alert.alert('Error', `Failed to load questions for ${subject}. Please try again.`);
+          return;
+        }
+      }
+
+      if (!firstExamId) {
+        Alert.alert('Error', 'Failed to start exam. Please try again.');
         return;
       }
 
-      const exam = examResponse.data.data[0];
-
-      // Get questions for the exam
-      const questionsResponse = await api.get(`/exams/${exam.id}/questions`);
-
-      if (!questionsResponse.data.success) {
-        Alert.alert('Error', 'Failed to load questions. Please try again.');
-        return;
-      }
-
-      const questionsData = questionsResponse.data.data;
-      const allQuestions = questionsData.questions || [];
-
-      // Limit questions to selected count for first subject
-      const limitedQuestions = allQuestions.slice(
-        0,
-        parseInt(questionCounts[selection.subjects[0]]) || allQuestions.length
-      );
-
-      // Start exam attempt
-      const attemptResponse = await api.post(`/exams/${exam.id}/start`);
+      // Start exam attempt (use first exam ID for now - API will need to support multi-subject)
+      const attemptResponse = await api.post(`/exams/${firstExamId}/start`);
 
       if (!attemptResponse.data.success) {
         Alert.alert('Error', 'Failed to start exam. Please try again.');
@@ -143,17 +183,23 @@ export function QuestionCountSelection() {
 
       const attempt = attemptResponse.data.data.attempt;
 
-      // Navigate to exam screen
+      // Calculate total questions
+      const totalQuestions = Object.values(subjectsQuestions).reduce(
+        (sum, qs) => sum + qs.length,
+        0
+      );
+
+      // Navigate to exam screen with all subjects' questions
       // @ts-ignore
       navigation.navigate('ExamScreen', {
         attemptId: attempt.id,
-        examId: exam.id,
-        questions: limitedQuestions,
+        examId: firstExamId,
+        subjectsQuestions: subjectsQuestions, // Pass all subjects' questions
         exam: {
-          id: exam.id,
-          title: exam.title || `${selection.examType} ${selection.subjects.join(', ')} Practice`,
+          id: firstExamId,
+          title: `${selection.examType} ${selection.subjects.join(', ')} Practice`,
           duration: selection.timeMinutes || 30,
-          total_questions: limitedQuestions.length,
+          total_questions: totalQuestions,
         },
         timeMinutes: selection.timeMinutes || 30,
       });
