@@ -1,7 +1,7 @@
 import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { ActivityIndicator } from "react-native";
+import { ActivityIndicator, StatusBar } from "react-native";
 
 import { Home } from "@/screens/Home";
 import { NotFound } from "./screens/NotFound";
@@ -14,6 +14,8 @@ import { SubjectSelection } from "@/screens/exam/SubjectSelection";
 import { QuestionModeSelection } from "@/screens/exam/QuestionModeSelection";
 import { QuestionCountSelection } from "@/screens/exam/QuestionCountSelection";
 import { TimeSelection } from "@/screens/exam/TimeSelection";
+import { ExamScreen } from "@/screens/exam/ExamScreen";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { ThemedView } from "@/components/ThemedView";
@@ -55,6 +57,7 @@ function AppNavigator() {
         component={QuestionCountSelection}
       />
       <AppStack.Screen name="TimeSelection" component={TimeSelection} />
+      <AppStack.Screen name="ExamScreen" component={ExamScreen} />
       <AppStack.Screen name="NotFound" component={NotFound} />
     </AppStack.Navigator>
   );
@@ -74,14 +77,19 @@ export function Navigation({ theme, linking, onReady }: any) {
   }
 
   return (
-    <NavigationContainer theme={theme} linking={linking} onReady={onReady}>
-      {isAuthenticated ? (
-        <AppNavigator />
-      ) : hasSeenOnboarding ? (
-        <AuthNavigator />
-      ) : (
-        <OnboardingNavigator />
-      )}
-    </NavigationContainer>
+    <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
+      <StatusBar
+        barStyle={theme.mode === "dark" ? "light-content" : "dark-content"}
+      />
+      <NavigationContainer theme={theme} linking={linking} onReady={onReady}>
+        {isAuthenticated ? (
+          <AppNavigator />
+        ) : hasSeenOnboarding ? (
+          <AuthNavigator />
+        ) : (
+          <OnboardingNavigator />
+        )}
+      </NavigationContainer>
+    </SafeAreaView>
   );
 }

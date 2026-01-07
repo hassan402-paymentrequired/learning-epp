@@ -14,15 +14,17 @@ import { Button } from '@/components/ui/Button';
 import { useExamSelection } from '@/contexts/ExamSelectionContext';
 import { useNavigation } from '@react-navigation/native';
 import { useThemeColor } from '@/hooks/useThemeColor';
+import api from '@/services/api';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 export function TimeSelection() {
   const { selection, setTimeMinutes } = useExamSelection();
   const navigation = useNavigation();
   const [minutes, setMinutes] = useState<string>('');
+  const [loading, setLoading] = useState(false);
   const backgroundColor = useThemeColor({}, 'background');
   const tintColor = useThemeColor({}, 'tint');
-  const cardBackground = useThemeColor({}, 'card');
+  const cardBackground = useThemeColor({}, 'backgroundSecondary');
 
   const quickOptions = [30, 60, 90, 120];
 
@@ -35,7 +37,7 @@ export function TimeSelection() {
     return `${mins}m`;
   };
 
-  const handleStartExam = () => {
+  const handleStartExam = async () => {
     const numMinutes = parseInt(minutes);
     
     if (!minutes || isNaN(numMinutes) || numMinutes < 1) {
@@ -49,17 +51,69 @@ export function TimeSelection() {
     }
 
     setTimeMinutes(numMinutes);
-    // TODO: Navigate to exam screen
-    Alert.alert(
-      'Ready to Start',
-      `Starting exam with:\n\n` +
-      `Exam Type: ${selection.examType}\n` +
-      `Subject: ${selection.subject}\n` +
-      `Mode: ${selection.questionMode === 'practice' ? 'Practice' : 'Past Questions'}\n` +
-      `Questions: ${selection.questionCount}\n` +
-      `Duration: ${formatTime(numMinutes)}\n\n` +
-      `Exam screen will be implemented next.`
-    );
+
+    // Find matching exam
+    try {
+      setLoading(true);
+      
+      const examResponse = await api.get('/exams', {
+        params: {
+          exam_type: selection.examType,
+          type: selection.questionMode,
+          subject: selection.subject,
+        },
+      });
+
+      if (!examResponse.data.success || examResponse.data.data.length === 0) {
+        Alert.alert('No Exam Found', 'No exam matches your selection. Please try different options.');
+        return;
+      }
+
+      // Get the first matching exam
+      const exam = examResponse.data.data[0];
+
+      // Get questions for the exam
+      const questionsResponse = await api.get(`/exams/${exam.id}/questions`);
+      
+      if (!questionsResponse.data.success) {
+        Alert.alert('Error', 'Failed to load questions. Please try again.');
+        return;
+      }
+
+      const questionsData = questionsResponse.data.data;
+      const allQuestions = questionsData.questions || [];
+      
+      // Limit questions to selected count
+      const limitedQuestions = allQuestions.slice(0, selection.questionCount || allQuestions.length);
+
+      // Start exam attempt
+      const attemptResponse = await api.post(`/exams/${exam.id}/start`);
+      
+      if (!attemptResponse.data.success) {
+        Alert.alert('Error', 'Failed to start exam. Please try again.');
+        return;
+      }
+
+      const attempt = attemptResponse.data.data.attempt;
+
+      // Navigate to exam screen
+      // @ts-ignore
+      navigation.navigate('ExamScreen', {
+        attemptId: attempt.id,
+        examId: exam.id,
+        questions: limitedQuestions,
+        exam: questionsData.exam,
+        timeMinutes: numMinutes,
+      });
+    } catch (error: any) {
+      console.error('Error starting exam:', error);
+      Alert.alert(
+        'Error',
+        error.response?.data?.message || 'Failed to start exam. Please check your connection and try again.'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleQuickSelect = (value: number) => {
@@ -156,9 +210,11 @@ export function TimeSelection() {
         </View>
 
         <Button
-          title="Start Exam"
+          title={loading ? "Starting..." : "Start Exam"}
           onPress={handleStartExam}
           style={styles.startButton}
+          disabled={loading}
+          loading={loading}
         />
       </ScrollView>
     </AppLayout>
