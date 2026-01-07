@@ -5,6 +5,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -20,12 +21,35 @@ export function QuestionModeSelection() {
   const navigation = useNavigation();
   const backgroundColor = useThemeColor({}, 'background');
   const tintColor = useThemeColor({}, 'tint');
+  
+  // DLI can only practice past questions
+  const isDLI = selection.examType === 'DLI';
 
   const handleSelectMode = (mode: 'past_question' | 'practice') => {
     setQuestionMode(mode);
     // @ts-ignore
     navigation.navigate('SubjectSelection');
   };
+  
+  // For DLI, automatically select past_question mode and navigate
+  React.useEffect(() => {
+    if (isDLI && !selection.questionMode) {
+      setQuestionMode('past_question');
+      // @ts-ignore
+      navigation.navigate('SubjectSelection');
+    }
+  }, [isDLI, selection.questionMode, setQuestionMode, navigation]);
+  
+  // If DLI, don't show this screen - redirect will happen via useEffect
+  if (isDLI) {
+    return (
+      <AppLayout showBackButton={true} headerTitle="Question Mode">
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={tintColor} />
+        </View>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout showBackButton={true} headerTitle="Question Mode">
@@ -160,5 +184,10 @@ const styles = StyleSheet.create({
     opacity: 0.9,
     textAlign: 'center',
     paddingHorizontal: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

@@ -91,13 +91,28 @@ export function SubjectSelection() {
         return newCounts;
       });
     } else {
-      if (canAddMoreSubjects()) {
+        if (canAddMoreSubjects()) {
+        // For DLI, remove any previously selected subject first (only 1 allowed)
+        if (isDLI && selection.subjects.length > 0) {
+          const previousSubject = selection.subjects[0];
+          removeSubject(previousSubject);
+          setExpandedSubjects((prev) => {
+            const newSet = new Set(prev);
+            newSet.delete(previousSubject);
+            return newSet;
+          });
+          setQuestionCounts((prev) => {
+            const newCounts = { ...prev };
+            delete newCounts[previousSubject];
+            return newCounts;
+          });
+        }
         addSubject(subject);
         setExpandedSubjects((prev) => new Set(prev).add(subject));
       } else {
         Alert.alert(
-          'Maximum Subjects Reached',
-          `You can select a maximum of ${getMaxSubjects()} ${getMaxSubjects() === 1 ? 'subject' : 'subjects'} for ${selection.examType} practice.`,
+          `Maximum ${isDLI ? 'Course' : 'Subject'}${getMaxSubjects() === 1 ? '' : 's'} Reached`,
+          `You can select a maximum of ${getMaxSubjects()} ${isDLI ? 'course' : getMaxSubjects() === 1 ? 'subject' : 'subjects'} for ${selection.examType}.`,
           [{ text: 'OK' }]
         );
       }
@@ -131,10 +146,10 @@ export function SubjectSelection() {
   };
 
   const handleContinue = () => {
-    if (selection.subjects.length === 0) {
+      if (selection.subjects.length === 0) {
       Alert.alert(
-        'No Subject Selected',
-        'Please select at least one subject to continue.',
+        `No ${isDLI ? 'Course' : 'Subject'} Selected`,
+        `Please select at least one ${isDLI ? 'course' : 'subject'} to continue.`,
         [{ text: 'OK' }]
       );
       return;
@@ -157,14 +172,25 @@ export function SubjectSelection() {
       );
       return;
     }
+    
+    // For DLI, ensure question mode is past_question
+    if (isDLI && selection.questionMode !== 'past_question') {
+      Alert.alert(
+        'Invalid Mode',
+        'DLI can only practice past questions. Please select past questions mode.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
 
     // Validate question counts
     for (const subject of selection.subjects) {
       const count = parseInt(questionCounts[subject]);
-      if (count > 100) {
+      const maxAllowed = isDLI ? 50 : 100;
+      if (count > maxAllowed) {
         Alert.alert(
           'Too Many Questions',
-          `Maximum allowed is 100 questions per subject. ${subject} has ${count} questions.`,
+          `Maximum allowed is ${maxAllowed} questions per ${isDLI ? 'course' : 'subject'}. ${subject} has ${count} questions.`,
           [{ text: 'OK' }]
         );
         return;
@@ -198,6 +224,8 @@ export function SubjectSelection() {
 
   const maxSubjects = getMaxSubjects();
   const isJAMB = selection.examType === 'JAMB';
+  const isDLI = selection.examType === 'DLI';
+  const maxQuestionsPerSubject = isDLI ? 50 : 100; // DLI: max 50, others: max 100
   const totalQuestions = selection.subjects.reduce((sum, subject) => {
     const count = parseInt(questionCounts[subject] || '0');
     return sum + count;
@@ -211,14 +239,21 @@ export function SubjectSelection() {
       >
         <View style={styles.header}>
           <ThemedText type="title" style={styles.title}>
-            Select {isJAMB ? 'Subjects' : 'Subject'}
+            Select {isDLI ? 'Course' : isJAMB ? 'Subjects' : 'Subject'}
           </ThemedText>
           <ThemedText style={styles.subtitle}>
-            {isJAMB 
+            {isDLI
+              ? 'Choose the course you want to practice (past questions only)'
+              : isJAMB 
               ? `Choose up to ${maxSubjects} subjects and set question count for each (${selection.subjects.length}/${maxSubjects} selected)`
               : 'Choose the subject you want to practice'
             }
           </ThemedText>
+          {isDLI && (
+            <ThemedText style={styles.hint}>
+              DLI courses can only practice past questions. Maximum 50 questions per course.
+            </ThemedText>
+          )}
           {isJAMB && (
             <ThemedText style={styles.hint}>
               Each subject takes 30 minutes. Total time will be calculated automatically.
@@ -309,7 +344,19 @@ export function SubjectSelection() {
                           onChangeText={(text) => {
                             handleCountChange(subject, text);
                             if (text && !isNaN(parseInt(text)) && parseInt(text) > 0) {
-                              setQuestionCount(subject, parseInt(text));
+                              const numValue = parseInt(text);
+                              // Enforce max limit based on exam type
+                              const maxAllowed = isDLI ? 50 : 100;
+                              if (numValue <= maxAllowed) {
+                                setQuestionCount(subject, numValue);
+                              } else {
+                                Alert.alert(
+                                  'Maximum Limit',
+                                  `Maximum allowed is ${maxAllowed} questions per ${isDLI ? 'course' : 'subject'}.`
+                                );
+                                handleCountChange(subject, maxAllowed.toString());
+                                setQuestionCount(subject, maxAllowed);
+                              }
                             }
                           }}
                           placeholder="e.g., 25"
@@ -317,14 +364,14 @@ export function SubjectSelection() {
                           placeholderTextColor={placeholderColor}
                         />
                         <ThemedText style={styles.hint}>
-                          Minimum: 1, Maximum: 100
+                          Minimum: 1, Maximum: {maxQuestionsPerSubject} {isDLI ? '(DLI courses)' : ''}
                         </ThemedText>
                       </View>
 
                       <View style={styles.quickOptionsContainer}>
                         <ThemedText style={styles.quickOptionsTitle}>Quick Select</ThemedText>
                         <View style={styles.quickOptionsGrid}>
-                          {quickOptions.map((value) => (
+                          {quickOptions.filter(value => value <= maxQuestionsPerSubject).map((value) => (
                             <TouchableOpacity
                               key={value}
                               style={[
@@ -359,7 +406,7 @@ export function SubjectSelection() {
           ) : (
             <View style={styles.emptyContainer}>
               <ThemedText style={styles.emptyText}>
-                No subjects available for {selection.examType} {selection.questionMode === 'practice' ? 'practice' : 'past questions'}
+                No {isDLI ? 'courses' : 'subjects'} available for {selection.examType} {isDLI ? 'past questions' : selection.questionMode === 'practice' ? 'practice' : 'past questions'}
               </ThemedText>
             </View>
           )}
@@ -369,7 +416,9 @@ export function SubjectSelection() {
           <View style={[styles.summaryCard, { backgroundColor: cardBackground }]}>
             <ThemedText style={styles.summaryTitle}>Summary</ThemedText>
             <View style={styles.summaryRow}>
-              <ThemedText style={styles.summaryLabel}>Selected Subjects:</ThemedText>
+              <ThemedText style={styles.summaryLabel}>
+                Selected {isDLI ? 'Course' : isJAMB ? 'Subjects' : 'Subject'}:
+              </ThemedText>
               <ThemedText style={styles.summaryValue}>
                 {selection.subjects.length}
               </ThemedText>
@@ -386,7 +435,7 @@ export function SubjectSelection() {
 
       <View style={styles.footer}>
         <Button
-          title={`Continue (${selection.subjects.length} ${selection.subjects.length === 1 ? 'subject' : 'subjects'})`}
+          title={`Continue (${selection.subjects.length} ${isDLI ? 'course' : selection.subjects.length === 1 ? 'subject' : 'subjects'})`}
           onPress={handleContinue}
           disabled={selection.subjects.length === 0}
         />

@@ -43,10 +43,11 @@ export function TimeSelection() {
   // Calculate default time based on number of subjects (30 min per subject)
   // For JAMB, allow 30 minutes to 2 hours (120 minutes) regardless of subject count
   const isJAMB = selection.examType === 'JAMB';
+  const isDLI = selection.examType === 'DLI';
   const defaultMinutes = selection.subjects.length * 30;
   const maxMinutes = isJAMB 
     ? 120 // JAMB: maximum 2 hours (120 minutes)
-    : selection.subjects.length * 30; // Other exams: 30 min per subject
+    : selection.subjects.length * 30; // Other exams: 30 min per subject/course
   const minMinutes = isJAMB 
     ? 30 // JAMB: minimum 30 minutes
     : 1; // Other exams: minimum 1 minute
@@ -320,6 +321,8 @@ export function TimeSelection() {
           <ThemedText style={styles.subtitle}>
             {isJAMB
               ? `For JAMB (UTME), you can choose any duration between 30 minutes and 2 hours.`
+              : isDLI
+              ? `Each course takes 30 minutes`
               : selection.subjects.length === 1
               ? `Each subject takes 30 minutes`
               : `You've selected ${selection.subjects.length} subjects. Each subject takes 30 minutes.`}
@@ -411,7 +414,9 @@ export function TimeSelection() {
             </ThemedText>
           </View>
           <View style={styles.summaryRow}>
-            <ThemedText style={styles.summaryLabel}>Subjects:</ThemedText>
+            <ThemedText style={styles.summaryLabel}>
+              {isDLI ? 'Course' : isJAMB ? 'Subjects' : 'Subject'}:
+            </ThemedText>
             <ThemedText style={styles.summaryValue}>
               {selection.subjects.join(", ")}
             </ThemedText>
