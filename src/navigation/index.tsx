@@ -1,22 +1,22 @@
-import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { ActivityIndicator } from 'react-native';
+import React from "react";
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { ActivityIndicator } from "react-native";
 
-import { Home } from '@/screens/Home';
-import { NotFound } from './screens/NotFound';
-import { Onboarding } from '@/screens/Onboarding';
-import { Login } from '@/screens/auth/Login';
-import { Signup } from '@/screens/auth/Signup';
-import { Profile } from '@/screens/Profile';
-import { ExamTypeSelection } from '@/screens/exam/ExamTypeSelection';
-import { SubjectSelection } from '@/screens/exam/SubjectSelection';
-import { QuestionModeSelection } from '@/screens/exam/QuestionModeSelection';
-import { QuestionCountSelection } from '@/screens/exam/QuestionCountSelection';
-import { TimeSelection } from '@/screens/exam/TimeSelection';
+import { Home } from "@/screens/Home";
+import { NotFound } from "./screens/NotFound";
+import { Onboarding } from "@/screens/Onboarding";
+import { Login } from "@/screens/auth/Login";
+import { Signup } from "@/screens/auth/Signup";
+import { Profile } from "@/screens/Profile";
+import { ExamTypeSelection } from "@/screens/exam/ExamTypeSelection";
+import { SubjectSelection } from "@/screens/exam/SubjectSelection";
+import { QuestionModeSelection } from "@/screens/exam/QuestionModeSelection";
+import { QuestionCountSelection } from "@/screens/exam/QuestionCountSelection";
+import { TimeSelection } from "@/screens/exam/TimeSelection";
 
-import { useAuth } from '@/contexts/AuthContext';
-import { ThemedView } from '@/components/ThemedView';
+import { useAuth } from "@/contexts/AuthContext";
+import { ThemedView } from "@/components/ThemedView";
 
 const AuthStack = createNativeStackNavigator();
 const AppStack = createNativeStackNavigator();
@@ -46,8 +46,14 @@ function AppNavigator() {
       <AppStack.Screen name="Home" component={Home} />
       <AppStack.Screen name="Profile" component={Profile} />
       <AppStack.Screen name="SubjectSelection" component={SubjectSelection} />
-      <AppStack.Screen name="QuestionModeSelection" component={QuestionModeSelection} />
-      <AppStack.Screen name="QuestionCountSelection" component={QuestionCountSelection} />
+      <AppStack.Screen
+        name="QuestionModeSelection"
+        component={QuestionModeSelection}
+      />
+      <AppStack.Screen
+        name="QuestionCountSelection"
+        component={QuestionCountSelection}
+      />
       <AppStack.Screen name="TimeSelection" component={TimeSelection} />
       <AppStack.Screen name="NotFound" component={NotFound} />
     </AppStack.Navigator>
@@ -59,7 +65,9 @@ export function Navigation({ theme, linking, onReady }: any) {
 
   if (isLoading) {
     return (
-      <ThemedView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <ThemedView
+        style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+      >
         <ActivityIndicator size="large" />
       </ThemedView>
     );
