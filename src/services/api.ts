@@ -6,7 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // For iOS simulator, use: http://localhost:8000/api
 // For physical device, use your computer's IP: http://YOUR_IP:8000/api
 const API_BASE_URL = __DEV__
-  ? 'https://9a7f7f574b1b.ngrok-free.app/api'   // iOS simulator
+  ? 'https://e03b0f144cbd.ngrok-free.app/api'   // iOS simulator
   : 'https://your-api-domain.com/api'; // Production
 
 const api = axios.create({

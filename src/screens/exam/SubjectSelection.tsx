@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  TextInput,
 } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -21,18 +22,24 @@ export function SubjectSelection() {
   const { 
     selection, 
     addSubject, 
-    removeSubject, 
-    setSubjects,
+    removeSubject,
+    setQuestionCount,
     canAddMoreSubjects,
     getMaxSubjects,
   } = useExamSelection();
   const navigation = useNavigation();
   const [subjects, setSubjectsList] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
+  const [questionCounts, setQuestionCounts] = useState<Record<string, string>>({});
+  
   const backgroundColor = useThemeColor({}, 'background');
   const tintColor = useThemeColor({}, 'tint');
-  const cardBackground = useThemeColor({}, 'backgroundSecondary');
+  const cardBackground = useThemeColor({}, 'cardBackground');
   const borderColor = useThemeColor({}, 'border');
+  const textColor = useThemeColor({}, 'text');
+
+  const quickOptions = [10, 20, 30, 40, 50];
 
   useEffect(() => {
     loadSubjects();
@@ -53,7 +60,6 @@ export function SubjectSelection() {
       }
     } catch (error: any) {
       console.error('Error loading subjects:', error);
-      // Fallback to common subjects if API fails
       setSubjectsList([
         'Mathematics',
         'English',
@@ -72,9 +78,21 @@ export function SubjectSelection() {
   const handleToggleSubject = (subject: string) => {
     if (selection.subjects.includes(subject)) {
       removeSubject(subject);
+      setExpandedSubjects((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(subject);
+        return newSet;
+      });
+      // Remove question count when subject is deselected
+      setQuestionCounts((prev) => {
+        const newCounts = { ...prev };
+        delete newCounts[subject];
+        return newCounts;
+      });
     } else {
       if (canAddMoreSubjects()) {
         addSubject(subject);
+        setExpandedSubjects((prev) => new Set(prev).add(subject));
       } else {
         Alert.alert(
           'Maximum Subjects Reached',
@@ -83,6 +101,32 @@ export function SubjectSelection() {
         );
       }
     }
+  };
+
+  const toggleAccordion = (subject: string) => {
+    if (!selection.subjects.includes(subject)) return;
+    
+    setExpandedSubjects((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(subject)) {
+        newSet.delete(subject);
+      } else {
+        newSet.add(subject);
+      }
+      return newSet;
+    });
+  };
+
+  const handleCountChange = (subject: string, count: string) => {
+    setQuestionCounts((prev) => ({
+      ...prev,
+      [subject]: count,
+    }));
+  };
+
+  const handleQuickSelect = (subject: string, value: number) => {
+    handleCountChange(subject, value.toString());
+    setQuestionCount(subject, value);
   };
 
   const handleContinue = () => {
@@ -95,6 +139,40 @@ export function SubjectSelection() {
       return;
     }
 
+    // Validate all selected subjects have question counts
+    const missingSubjects: string[] = [];
+    selection.subjects.forEach((subject) => {
+      const count = questionCounts[subject];
+      if (!count || isNaN(parseInt(count)) || parseInt(count) < 1) {
+        missingSubjects.push(subject);
+      }
+    });
+
+    if (missingSubjects.length > 0) {
+      Alert.alert(
+        'Incomplete Selection',
+        `Please enter question count for: ${missingSubjects.join(', ')}`,
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    // Validate question counts
+    for (const subject of selection.subjects) {
+      const count = parseInt(questionCounts[subject]);
+      if (count > 100) {
+        Alert.alert(
+          'Too Many Questions',
+          `Maximum allowed is 100 questions per subject. ${subject} has ${count} questions.`,
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+      // Set question count in context
+      setQuestionCount(subject, count);
+    }
+
+    // Navigate to time selection
     // @ts-ignore
     navigation.navigate('TimeSelection');
   };
@@ -112,6 +190,10 @@ export function SubjectSelection() {
 
   const maxSubjects = getMaxSubjects();
   const isJAMB = selection.examType === 'JAMB';
+  const totalQuestions = selection.subjects.reduce((sum, subject) => {
+    const count = parseInt(questionCounts[subject] || '0');
+    return sum + count;
+  }, 0);
 
   return (
     <AppLayout showBackButton={true} headerTitle="Select Subjects">
@@ -125,7 +207,7 @@ export function SubjectSelection() {
           </ThemedText>
           <ThemedText style={styles.subtitle}>
             {isJAMB 
-              ? `Choose up to ${maxSubjects} subjects to practice (${selection.subjects.length}/${maxSubjects} selected)`
+              ? `Choose up to ${maxSubjects} subjects and set question count for each (${selection.subjects.length}/${maxSubjects} selected)`
               : 'Choose the subject you want to practice'
             }
           </ThemedText>
@@ -140,44 +222,130 @@ export function SubjectSelection() {
           {subjects.length > 0 ? (
             subjects.map((subject) => {
               const isSelected = selection.subjects.includes(subject);
+              const isExpanded = expandedSubjects.has(subject);
+              const count = questionCounts[subject] || '';
+              
               return (
-                <TouchableOpacity
+                <View
                   key={subject}
                   style={[
                     styles.subjectCard,
                     {
-                      backgroundColor: isSelected ? tintColor + '20' : cardBackground,
+                      backgroundColor: isSelected ? tintColor + '10' : cardBackground,
                       borderColor: isSelected ? tintColor : borderColor,
-                      borderWidth: 2,
+                      borderWidth: isSelected ? 2 : 1,
                     },
                   ]}
-                  onPress={() => handleToggleSubject(subject)}
-                  activeOpacity={0.7}
                 >
-                  <View style={styles.subjectContent}>
-                    <View
-                      style={[
-                        styles.checkbox,
-                        {
-                          backgroundColor: isSelected ? tintColor : 'transparent',
-                          borderColor: isSelected ? tintColor : borderColor,
-                        },
-                      ]}
-                    >
-                      {isSelected && (
-                        <MaterialIcons name="check" size={20} color="#fff" />
-                      )}
-                    </View>
-                    <View style={styles.subjectInfo}>
-                      <ThemedText type="subtitle" style={styles.subjectName}>
-                        {subject}
-                      </ThemedText>
+                  {/* Subject Header - Clickable to select/deselect */}
+                  <TouchableOpacity
+                    style={styles.subjectHeader}
+                    onPress={() => handleToggleSubject(subject)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.subjectHeaderLeft}>
+                      <View
+                        style={[
+                          styles.checkbox,
+                          {
+                            backgroundColor: isSelected ? tintColor : 'transparent',
+                            borderColor: isSelected ? tintColor : borderColor,
+                          },
+                        ]}
+                      >
+                        {isSelected && (
+                          <MaterialIcons name="check" size={20} color="#fff" />
+                        )}
+                      </View>
+                      <View style={styles.subjectInfo}>
+                        <ThemedText type="subtitle" style={styles.subjectName}>
+                          {subject}
+                        </ThemedText>
+                        {isSelected && count && (
+                          <ThemedText style={styles.questionCountPreview}>
+                            {count} question{parseInt(count) !== 1 ? 's' : ''}
+                          </ThemedText>
+                        )}
+                      </View>
                     </View>
                     {isSelected && (
-                      <MaterialIcons name="check-circle" size={24} color={tintColor} />
+                      <TouchableOpacity
+                        onPress={() => toggleAccordion(subject)}
+                        style={styles.expandButton}
+                      >
+                        <MaterialIcons
+                          name={isExpanded ? 'expand-less' : 'expand-more'}
+                          size={24}
+                          color={tintColor}
+                        />
+                      </TouchableOpacity>
                     )}
-                  </View>
-                </TouchableOpacity>
+                  </TouchableOpacity>
+
+                  {/* Accordion Content - Question Count Selection */}
+                  {isSelected && isExpanded && (
+                    <View style={styles.accordionContent}>
+                      <View style={styles.inputSection}>
+                        <ThemedText style={styles.inputLabel}>
+                          Number of questions
+                        </ThemedText>
+                        <TextInput
+                          style={[
+                            styles.input,
+                            {
+                              borderColor: count && parseInt(count) > 0 ? tintColor : borderColor,
+                              color: textColor,
+                            },
+                          ]}
+                          value={count}
+                          onChangeText={(text) => {
+                            handleCountChange(subject, text);
+                            if (text && !isNaN(parseInt(text)) && parseInt(text) > 0) {
+                              setQuestionCount(subject, parseInt(text));
+                            }
+                          }}
+                          placeholder="e.g., 25"
+                          keyboardType="number-pad"
+                          placeholderTextColor={useThemeColor({}, 'placeholder')}
+                        />
+                        <ThemedText style={styles.hint}>
+                          Minimum: 1, Maximum: 100
+                        </ThemedText>
+                      </View>
+
+                      <View style={styles.quickOptionsContainer}>
+                        <ThemedText style={styles.quickOptionsTitle}>Quick Select</ThemedText>
+                        <View style={styles.quickOptionsGrid}>
+                          {quickOptions.map((value) => (
+                            <TouchableOpacity
+                              key={value}
+                              style={[
+                                styles.quickOption,
+                                {
+                                  backgroundColor:
+                                    count === value.toString() ? tintColor : cardBackground,
+                                  borderColor: tintColor,
+                                },
+                              ]}
+                              onPress={() => handleQuickSelect(subject, value)}
+                            >
+                              <ThemedText
+                                style={[
+                                  styles.quickOptionText,
+                                  {
+                                    color: count === value.toString() ? '#fff' : textColor,
+                                  },
+                                ]}
+                              >
+                                {value}
+                              </ThemedText>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </View>
+                    </View>
+                  )}
+                </View>
               );
             })
           ) : (
@@ -190,17 +358,19 @@ export function SubjectSelection() {
         </View>
 
         {selection.subjects.length > 0 && (
-          <View style={styles.selectedContainer}>
-            <ThemedText style={styles.selectedTitle}>Selected Subjects:</ThemedText>
-            <View style={styles.selectedTags}>
-              {selection.subjects.map((subject) => (
-                <View
-                  key={subject}
-                  style={[styles.tag, { backgroundColor: tintColor }]}
-                >
-                  <ThemedText style={styles.tagText}>{subject}</ThemedText>
-                </View>
-              ))}
+          <View style={[styles.summaryCard, { backgroundColor: cardBackground }]}>
+            <ThemedText style={styles.summaryTitle}>Summary</ThemedText>
+            <View style={styles.summaryRow}>
+              <ThemedText style={styles.summaryLabel}>Selected Subjects:</ThemedText>
+              <ThemedText style={styles.summaryValue}>
+                {selection.subjects.length}
+              </ThemedText>
+            </View>
+            <View style={styles.summaryRow}>
+              <ThemedText style={styles.summaryLabel}>Total Questions:</ThemedText>
+              <ThemedText style={styles.summaryValue}>
+                {totalQuestions || 'Not set'}
+              </ThemedText>
             </View>
           </View>
         )}
@@ -221,7 +391,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     padding: 24,
-    paddingBottom: 100, // Space for footer button
+    paddingBottom: 100,
   },
   loadingContainer: {
     flex: 1,
@@ -255,17 +425,24 @@ const styles = StyleSheet.create({
   },
   subjectCard: {
     borderRadius: 12,
-    padding: 16,
+    overflow: 'hidden',
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-  subjectContent: {
+  subjectHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+  },
+  subjectHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
+    flex: 1,
   },
   checkbox: {
     width: 24,
@@ -282,6 +459,60 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
+  questionCountPreview: {
+    fontSize: 14,
+    opacity: 0.7,
+    marginTop: 4,
+  },
+  expandButton: {
+    padding: 4,
+  },
+  accordionContent: {
+    padding: 16,
+    paddingTop: 0,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  inputSection: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 2,
+    borderRadius: 8,
+    padding: 16,
+    fontSize: 18,
+    marginBottom: 8,
+  },
+  quickOptionsContainer: {
+    marginTop: 8,
+  },
+  quickOptionsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  quickOptionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  quickOption: {
+    width: 60,
+    height: 60,
+    borderRadius: 12,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  quickOptionText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
   emptyContainer: {
     padding: 32,
     alignItems: 'center',
@@ -291,30 +522,34 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     textAlign: 'center',
   },
-  selectedContainer: {
+  summaryCard: {
     marginTop: 24,
-    padding: 16,
+    padding: 20,
     borderRadius: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  selectedTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
+  summaryTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
   },
-  selectedTags: {
+  summaryRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
   },
-  tag: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+  summaryLabel: {
+    fontSize: 16,
+    opacity: 0.7,
   },
-  tagText: {
-    color: '#fff',
-    fontSize: 14,
+  summaryValue: {
+    fontSize: 16,
     fontWeight: '600',
   },
   footer: {

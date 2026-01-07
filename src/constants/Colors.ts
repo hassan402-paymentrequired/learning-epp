@@ -23,6 +23,7 @@ export const Colors = {
     gradientStart: '#E0E7FF',
     gradientEnd: '#F3F4F6',
     card: '#FFFFFF',
+    cardBackground: '#F9FAFB',
   },
   dark: {
     text: '#FFFFFF',
@@ -40,5 +41,6 @@ export const Colors = {
     gradientStart: '#1A1A1A',
     gradientEnd: '#000000',
     card: '#1A1A1A',
+    cardBackground: '#1F1F1F',
   },
 };

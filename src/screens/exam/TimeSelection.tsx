@@ -6,6 +6,7 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { AppLayout } from "@/components/AppLayout";
@@ -14,11 +15,28 @@ import { useExamSelection } from "@/contexts/ExamSelectionContext";
 import { useNavigation } from "@react-navigation/native";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import api from "@/services/api";
+
+interface Question {
+  id: number;
+  question_text: string;
+  question_type: string;
+  points: number;
+  order: number;
+  answers: Answer[];
+}
+
+interface Answer {
+  id: number;
+  answer_text: string;
+  order: string;
+}
 
 export function TimeSelection() {
   const { selection, setTimeMinutes } = useExamSelection();
   const navigation = useNavigation();
   const [minutes, setMinutes] = useState<string>("");
+  const [loading, setLoading] = useState(false);
   const tintColor = useThemeColor({}, "tint");
   const cardBackground = useThemeColor({}, "backgroundSecondary");
 
@@ -51,7 +69,7 @@ export function TimeSelection() {
     return `${mins}m`;
   };
 
-  const handleContinue = () => {
+  const handleStartExam = async () => {
     const numMinutes = parseInt(minutes);
 
     if (!minutes || isNaN(numMinutes) || numMinutes < 1) {
@@ -74,9 +92,139 @@ export function TimeSelection() {
       return;
     }
 
+    // Validate all subjects have question counts
+    const missingSubjects: string[] = [];
+    selection.subjects.forEach((subject) => {
+      const count = selection.questionCounts[subject];
+      if (!count || count < 1) {
+        missingSubjects.push(subject);
+      }
+    });
+
+    if (missingSubjects.length > 0) {
+      Alert.alert(
+        'Incomplete Selection',
+        `Please set question count for: ${missingSubjects.join(', ')}. Go back to subject selection.`,
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     setTimeMinutes(numMinutes);
-    // @ts-ignore
-    navigation.navigate("QuestionCountSelection");
+
+    try {
+      setLoading(true);
+
+      // Fetch questions for all subjects
+      const subjectsQuestions: Record<string, Question[]> = {};
+      let firstExamId: number | null = null;
+
+      for (const subject of selection.subjects) {
+        try {
+          const examResponse = await api.get('/exams', {
+            params: {
+              exam_type: selection.examType,
+              type: selection.questionMode,
+              subject: subject,
+            },
+          });
+
+          if (!examResponse.data.success || examResponse.data.data.length === 0) {
+            Alert.alert(
+              'No Exam Found',
+              `No exam found for ${subject}. Please try different options.`
+            );
+            return;
+          }
+
+          const exam = examResponse.data.data[0];
+          if (!firstExamId) {
+            firstExamId = exam.id;
+          }
+
+          // Get questions for this subject's exam
+          const questionsResponse = await api.get(`/exams/${exam.id}/questions`);
+
+          if (!questionsResponse.data.success) {
+            Alert.alert('Error', `Failed to load questions for ${subject}. Please try again.`);
+            return;
+          }
+
+          const questionsData = questionsResponse.data.data;
+          const allQuestions = questionsData.questions || [];
+
+          // Limit questions to selected count for this subject
+          const questionCount = selection.questionCounts[subject] || allQuestions.length;
+          const limitedQuestions = allQuestions.slice(0, questionCount);
+
+          // Add subject identifier to questions
+          const questionsWithSubject = limitedQuestions.map((q: any) => ({
+            ...q,
+            subject: subject,
+          }));
+
+          subjectsQuestions[subject] = questionsWithSubject;
+        } catch (error: any) {
+          console.error(`Error loading questions for ${subject}:`, error);
+          Alert.alert('Error', `Failed to load questions for ${subject}. Please try again.`);
+          return;
+        }
+      }
+
+      if (!firstExamId) {
+        Alert.alert('Error', 'Failed to start exam. Please try again.');
+        return;
+      }
+
+      // Prepare subjects data
+      const subjectsData = selection.subjects.map((subject) => ({
+        subject: subject,
+        question_count: selection.questionCounts[subject] || 0,
+      }));
+
+      // Start exam attempt with subjects and duration
+      const attemptResponse = await api.post(`/exams/${firstExamId}/start`, {
+        subjects: subjectsData,
+        duration_minutes: numMinutes,
+      });
+
+      if (!attemptResponse.data.success) {
+        Alert.alert('Error', 'Failed to start exam. Please try again.');
+        return;
+      }
+
+      const attempt = attemptResponse.data.data.attempt;
+
+      // Calculate total questions
+      const totalQuestions = Object.values(subjectsQuestions).reduce(
+        (sum, qs) => sum + qs.length,
+        0
+      );
+
+      // Navigate to exam screen with all subjects' questions
+      // @ts-ignore
+      navigation.navigate('ExamScreen', {
+        attemptId: attempt.id,
+        examId: firstExamId,
+        subjectsQuestions: subjectsQuestions, // Pass all subjects' questions
+        exam: {
+          id: firstExamId,
+          title: `${selection.examType} ${selection.subjects.join(', ')} Practice`,
+          duration: numMinutes,
+          total_questions: totalQuestions,
+        },
+        timeMinutes: numMinutes,
+      });
+    } catch (error: any) {
+      console.error('Error starting exam:', error);
+      Alert.alert(
+        'Error',
+        error.response?.data?.message ||
+          'Failed to start exam. Please check your connection and try again.'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleQuickSelect = (value: number) => {
@@ -118,6 +266,7 @@ export function TimeSelection() {
             placeholder={`e.g., ${defaultMinutes}`}
             keyboardType="number-pad"
             placeholderTextColor={useThemeColor({}, "placeholder")}
+            editable={!loading}
           />
           <ThemedText style={styles.hint}>
             Minimum: 1 minute, Maximum: {maxMinutes} minutes (
@@ -145,6 +294,7 @@ export function TimeSelection() {
                     },
                   ]}
                   onPress={() => handleQuickSelect(value)}
+                  disabled={loading}
                 >
                   <ThemedText
                     style={[
@@ -185,6 +335,14 @@ export function TimeSelection() {
               {selection.subjects.join(", ")}
             </ThemedText>
           </View>
+          <View style={styles.summaryRow}>
+            <ThemedText style={styles.summaryLabel}>Total Questions:</ThemedText>
+            <ThemedText style={styles.summaryValue}>
+              {selection.subjects.reduce((sum, subject) => {
+                return sum + (selection.questionCounts[subject] || 0);
+              }, 0)}
+            </ThemedText>
+          </View>
           {minutes && (
             <View style={styles.summaryRow}>
               <ThemedText style={styles.summaryLabel}>Duration:</ThemedText>
@@ -198,11 +356,12 @@ export function TimeSelection() {
 
       <View style={styles.footer}>
         <Button
-          title="Continue"
-          onPress={handleContinue}
+          title={loading ? "Starting Exam..." : "Start Exam"}
+          onPress={handleStartExam}
           disabled={
-            !minutes || parseInt(minutes) < 1 || parseInt(minutes) > maxMinutes
+            !minutes || parseInt(minutes) < 1 || parseInt(minutes) > maxMinutes || loading
           }
+          loading={loading}
         />
       </View>
     </AppLayout>
