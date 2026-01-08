@@ -8,6 +8,9 @@ import { NotFound } from "./screens/NotFound";
 import { Onboarding } from "@/screens/Onboarding";
 import { Login } from "@/screens/auth/Login";
 import { Signup } from "@/screens/auth/Signup";
+import { EmailVerification } from "@/screens/auth/EmailVerification";
+import { ForgotPassword } from "@/screens/auth/ForgotPassword";
+import { EditProfile } from "@/screens/EditProfile";
 import { Profile } from "@/screens/Profile";
 import { SubjectSelection } from "@/screens/exam/SubjectSelection";
 import { QuestionModeSelection } from "@/screens/exam/QuestionModeSelection";
@@ -42,6 +45,8 @@ function AuthNavigator() {
     <AuthStack.Navigator screenOptions={{ headerShown: false }}>
       <AuthStack.Screen name="Login" component={Login} />
       <AuthStack.Screen name="Signup" component={Signup} />
+      <AuthStack.Screen name="EmailVerification" component={EmailVerification} />
+      <AuthStack.Screen name="ForgotPassword" component={ForgotPassword} />
     </AuthStack.Navigator>
   );
 }
@@ -65,6 +70,7 @@ function AppNavigator() {
       <AppStack.Screen name="Leaderboard" component={Leaderboard} />
       <AppStack.Screen name="Subscription" component={Subscription} />
       <AppStack.Screen name="Referral" component={Referral} />
+      <AppStack.Screen name="EditProfile" component={EditProfile} />
       <AppStack.Screen name="NotFound" component={NotFound} />
     </AppStack.Navigator>
   );

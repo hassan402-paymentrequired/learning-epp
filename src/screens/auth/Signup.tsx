@@ -99,6 +99,10 @@ export function Signup() {
         passwordConfirmation,
         referralCode.trim() || undefined
       );
+
+      // Redirect to email verification screen
+      // @ts-ignore
+      navigation.navigate("EmailVerification", { email: email.trim() });
     } catch (error: any) {
       Alert.alert("Registration Failed", error.message || "Please try again");
     } finally {

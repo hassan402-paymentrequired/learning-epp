@@ -110,6 +110,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       setToken(newToken);
       setUser(userData);
     } catch (error: any) {
+      // Re-throw with response data for better error handling
+      if (error.response?.data) {
+        const customError: any = new Error(error.response.data.message || "Login failed. Please try again.");
+        customError.response = error.response;
+        throw customError;
+      }
       const message =
         error.response?.data?.message || "Login failed. Please try again.";
       throw new Error(message);

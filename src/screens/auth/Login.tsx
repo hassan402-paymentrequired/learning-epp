@@ -65,15 +65,36 @@ export function Login() {
         // Implementation can be added later
       }
     } catch (error: any) {
-      Alert.alert("Login Failed", error.message || "Invalid email or password");
+      // Check if error is due to unverified email
+      if (error.response?.status === 403 && error.response?.data?.data?.email_verified === false) {
+        Alert.alert(
+          "Email Not Verified",
+          "Please verify your email before logging in.",
+          [
+            {
+              text: "Cancel",
+              style: "cancel",
+            },
+            {
+              text: "Verify Email",
+              onPress: () => {
+                // @ts-ignore
+                navigation.navigate("EmailVerification", { email: email.trim() });
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert("Login Failed", error.message || "Invalid email or password");
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const handleForgotPassword = () => {
-    // TODO: Implement forgot password flow
-    Alert.alert("Forgot Password", "This feature will be available soon.");
+    // @ts-ignore
+    navigation.navigate("ForgotPassword");
   };
 
   const handleSocialLogin = (provider: "google" | "facebook") => {

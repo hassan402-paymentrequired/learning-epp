@@ -112,7 +112,7 @@ export function Profile() {
           >
             <View style={styles.settingLeft}>
               <MaterialIcons
-                name="card-giftcard"
+                name="gift"
                 size={24}
                 color={tintColor}
                 style={styles.settingIcon}
@@ -125,8 +125,27 @@ export function Profile() {
 
         <View style={styles.section}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Settings
+            Account
           </ThemedText>
+
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={() => {
+              // @ts-ignore
+              navigation.navigate("EditProfile");
+            }}
+          >
+            <View style={styles.settingLeft}>
+              <MaterialIcons
+                name="edit"
+                size={24}
+                color={tintColor}
+                style={styles.settingIcon}
+              />
+              <ThemedText style={styles.settingLabel}>Edit Profile</ThemedText>
+            </View>
+            <MaterialIcons name="chevron-right" size={20} color={tintColor} />
+          </TouchableOpacity>
 
           <TouchableOpacity style={styles.settingItem}>
             <ThemedText style={styles.settingLabel}>Notifications</ThemedText>
