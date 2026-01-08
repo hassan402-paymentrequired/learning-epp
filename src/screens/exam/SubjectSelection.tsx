@@ -199,14 +199,14 @@ export function SubjectSelection() {
       setQuestionCount(subject, count);
     }
 
-    // Navigate based on question mode
-    // For past questions, go to year selection first
-    // For practice, go directly to time selection
-    if (selection.questionMode === 'past_question') {
+    // Navigate based on question mode and exam type
+    // Only JAMB past questions need year selection
+    // DLI past questions and practice questions skip year selection
+    if (selection.questionMode === 'past_question' && selection.examType === 'JAMB') {
       // @ts-ignore
       navigation.navigate('YearSelection');
     } else {
-      // @ts-ignore
+      // @ts-ignore - DLI past questions and practice go directly to time selection
       navigation.navigate('TimeSelection');
     }
   };

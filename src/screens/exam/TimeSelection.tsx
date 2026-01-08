@@ -178,41 +178,68 @@ export function TimeSelection() {
 
             subjectsQuestions[subject] = questionsWithSubject;
 
-            // For practice, we still need an exam_id for the attempt
-            // Create a dummy exam or use the first available exam
+            // For practice, we need an exam_id for the attempt
+            // Since practice questions are standalone, we can use any exam of this type
+            // Or handle this differently in the backend (maybe allow null exam_id for practice attempts)
             if (!firstExamId) {
+              // Try to get any exam for this exam type (as a placeholder for the attempt)
               const examResponse = await api.get('/exams', {
                 params: {
                   exam_type: selection.examType,
-                  type: 'practice',
                   subject: subject,
                 },
               });
 
               if (examResponse.data.success && examResponse.data.data.length > 0) {
+                // Use the first available exam as a placeholder
+                // Note: In the future, we might want to allow null exam_id for practice attempts
                 firstExamId = examResponse.data.data[0].id;
+              } else {
+                // If no exam found, we'll need to handle this - maybe create a temporary exam
+                // For now, use a default or handle error
+                Alert.alert(
+                  'Error',
+                  'Unable to create exam attempt. Please contact support.'
+                );
+                return;
               }
             }
           } else {
-            // For past questions: Get questions from specific exam with year
+            // For past questions: Get questions from specific exam
+            // For JAMB: Use selected year
+            // For DLI: Use latest available year (no year selection)
+            const params: any = {
+              exam_type: selection.examType,
+              subject: subject,
+            };
+
+            // Only include year for JAMB (DLI doesn't select year)
+            if (selection.examType === 'JAMB' && selection.selectedYear) {
+              params.year = selection.selectedYear;
+            }
+
             const examResponse = await api.get('/exams', {
-              params: {
-                exam_type: selection.examType,
-                type: 'past_question',
-                subject: subject,
-                year: selection.selectedYear,
-              },
+              params: params,
             });
 
             if (!examResponse.data.success || examResponse.data.data.length === 0) {
-              Alert.alert(
-                'No Exam Found',
-                `No past questions found for ${subject} in ${selection.selectedYear}. Please try a different year.`
-              );
+              const errorMsg = selection.examType === 'JAMB'
+                ? `No past questions found for ${subject} in ${selection.selectedYear}. Please try a different year.`
+                : `No past questions found for ${subject}. Please try a different course.`;
+              Alert.alert('No Exam Found', errorMsg);
               return;
             }
 
-            const exam = examResponse.data.data[0];
+            // For DLI, sort by year descending to get the latest year automatically
+            const exams = examResponse.data.data;
+            let exam;
+            if (selection.examType === 'DLI') {
+              // Sort by year descending to get the latest year
+              exams.sort((a: any, b: any) => (b.year || 0) - (a.year || 0));
+              exam = exams[0]; // Use the latest year exam
+            } else {
+              exam = exams[0]; // For JAMB, use the selected year exam
+            }
             if (!firstExamId) {
               firstExamId = exam.id;
             }
@@ -285,7 +312,11 @@ export function TimeSelection() {
         exam: {
           id: firstExamId,
           title: `${selection.examType} ${selection.subjects.join(', ')} ${
-            selection.questionMode === 'practice' ? 'Practice' : `${selection.selectedYear} Past Questions`
+            selection.questionMode === 'practice' 
+              ? 'Practice' 
+              : selection.examType === 'JAMB'
+              ? `${selection.selectedYear} Past Questions`
+              : 'Past Questions'
           }`,
           duration: numMinutes,
           total_questions: totalQuestions,
