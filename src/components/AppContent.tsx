@@ -51,7 +51,17 @@ export function AppContent() {
           theme={theme}
           linking={{
             enabled: "auto",
-            prefixes: ["helloworld://"],
+            prefixes: ["learningapp://"],
+            config: {
+              screens: {
+                Subscription: {
+                  path: "subscription/callback",
+                  parse: {
+                    reference: (reference: string) => reference,
+                  },
+                },
+              },
+            },
           }}
           onReady={() => {
             SplashScreen.hideAsync();

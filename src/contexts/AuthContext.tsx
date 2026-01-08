@@ -26,7 +26,8 @@ interface AuthContextType {
     name: string,
     email: string,
     password: string,
-    passwordConfirmation: string
+    passwordConfirmation: string,
+    referralCode?: string
   ) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -119,7 +120,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     name: string,
     email: string,
     password: string,
-    passwordConfirmation: string
+    passwordConfirmation: string,
+    referralCode?: string
   ) => {
     try {
       const response = await api.post("/register", {
@@ -127,6 +129,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         email,
         password,
         password_confirmation: passwordConfirmation,
+        referral_code: referralCode,
       });
       const { token: newToken, user: userData } = response.data.data;
 

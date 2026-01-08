@@ -30,6 +30,11 @@ export function AppHeader({
     navigation.navigate("Profile");
   };
 
+  const handleLeaderboardPress = () => {
+    // @ts-ignore
+    navigation.navigate("Leaderboard");
+  };
+
   const handleBackPress = () => {
     if (onBackPress) {
       onBackPress();
@@ -51,16 +56,12 @@ export function AppHeader({
             <MaterialIcons name="arrow-back" size={24} color={textColor} />
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity
-            onPress={handleProfilePress}
-            style={styles.iconButton}
-          >
-            <View style={[styles.avatar, { backgroundColor: tintColor }]}>
-              <ThemedText style={styles.avatarText}>
-                {user?.name?.charAt(0).toUpperCase() || "U"}
-              </ThemedText>
-            </View>
-          </TouchableOpacity>
+          <>
+            <MaterialIcons name="code" size={24} color={tintColor} />
+            <ThemedText type="subtitle" style={styles.appName}>
+              Exam Prep
+            </ThemedText>
+          </>
         )}
       </View>
 
@@ -73,9 +74,26 @@ export function AppHeader({
       </View>
 
       <View style={styles.rightSection}>
-        <ThemedText type="subtitle" style={styles.appName}>
-          Exam Prep
-        </ThemedText>
+        {!showBackButton && (
+          <>
+            <TouchableOpacity
+              onPress={handleLeaderboardPress}
+              style={styles.iconButton}
+            >
+              <MaterialIcons name="leaderboard" size={24} color={textColor} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleProfilePress}
+              style={styles.iconButton}
+            >
+              <View style={[styles.avatar, { backgroundColor: tintColor }]}>
+                <ThemedText style={styles.avatarText}>
+                  {user?.name?.charAt(0).toUpperCase() || "U"}
+                </ThemedText>
+              </View>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
     </View>
   );
@@ -92,16 +110,21 @@ const styles = StyleSheet.create({
     minHeight: 56,
   },
   leftSection: {
-    width: 80,
-    alignItems: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
   },
   centerSection: {
     flex: 1,
     alignItems: "center",
   },
   rightSection: {
-    width: 80,
-    alignItems: "flex-end",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    justifyContent: "flex-end",
+    flex: 1,
   },
   iconButton: {
     padding: 4,
@@ -150,5 +173,6 @@ const styles = StyleSheet.create({
       default: "normal",
     }),
     opacity: 0.9,
+    marginLeft: 4,
   },
 });

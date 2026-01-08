@@ -24,6 +24,7 @@ export function Signup() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
+  const [referralCode, setReferralCode] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirmation, setShowPasswordConfirmation] =
     useState(false);
@@ -33,6 +34,7 @@ export function Signup() {
     email?: string;
     password?: string;
     passwordConfirmation?: string;
+    referralCode?: string;
     terms?: string;
   }>({});
   const [loading, setLoading] = useState(false);
@@ -90,7 +92,13 @@ export function Signup() {
 
     setLoading(true);
     try {
-      await register(name.trim(), email.trim(), password, passwordConfirmation);
+      await register(
+        name.trim(),
+        email.trim(),
+        password,
+        passwordConfirmation,
+        referralCode.trim() || undefined
+      );
     } catch (error: any) {
       Alert.alert("Registration Failed", error.message || "Please try again");
     } finally {
@@ -204,6 +212,16 @@ export function Signup() {
               onRightIconPress={() =>
                 setShowPasswordConfirmation(!showPasswordConfirmation)
               }
+            />
+
+            <Input
+              label="Referral Code (Optional)"
+              placeholder="Enter referral code if you have one"
+              value={referralCode}
+              onChangeText={setReferralCode}
+              autoCapitalize="characters"
+              error={errors.referralCode}
+              leftIcon="gift-outline"
             />
 
             {/* Terms and Conditions */}
