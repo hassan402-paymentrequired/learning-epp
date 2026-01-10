@@ -1,26 +1,31 @@
-import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { AppLayout } from '@/components/AppLayout';
-import { ThemedView } from '@/components/ThemedView';
-import { StreakCarousel } from '@/components/home/StreakCarousel';
-import { AnnouncementBanner } from '@/components/home/AnnouncementBanner';
-import { StatsCards } from '@/components/home/StatsCards';
-import { QuickActionCards } from '@/components/home/QuickActionCards';
-import { ContinuePracticeCard } from '@/components/home/ContinuePracticeCard';
-import { RecentPerformance } from '@/components/home/RecentPerformance';
-import { useExamSelection } from '@/contexts/ExamSelectionContext';
-import api from '@/services/api';
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  RefreshControl,
+  ActivityIndicator,
+} from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { AppLayout } from "@/components/AppLayout";
+import { StreakCarousel } from "@/components/home/StreakCarousel";
+import { AnnouncementBanner } from "@/components/home/AnnouncementBanner";
+import { StatsCards } from "@/components/home/StatsCards";
+import { QuickActionCards } from "@/components/home/QuickActionCards";
+import { ContinuePracticeCard } from "@/components/home/ContinuePracticeCard";
+import { RecentPerformance } from "@/components/home/RecentPerformance";
+import { useExamSelection } from "@/contexts/ExamSelectionContext";
+import api from "@/services/api";
 
 interface StreakData {
   current_streak: number;
   longest_streak: number;
-  streak_days: Array<{
+  streak_days: {
     date: string;
     has_streak: boolean;
     day_name: string;
     day_number: number;
-  }>;
+  }[];
   all_streaks: string[];
 }
 
@@ -28,7 +33,7 @@ interface Announcement {
   id: number;
   title: string;
   message: string;
-  type: 'info' | 'warning' | 'success' | 'error';
+  type: "info" | "warning" | "success" | "error";
   link?: string;
   link_text?: string;
   created_at: string;
@@ -41,18 +46,18 @@ interface AnalyticsData {
     average_score: number;
     total_time_spent: number;
   };
-  recent_attempts: Array<{
+  recent_attempts: {
     id: number;
     exam_title: string;
     score: number;
     percentage: number;
     completed_at: string;
-  }>;
-  subject_performance: Array<{
+  }[];
+  subject_performance: {
     subject: string;
     avg_score: number;
     attempts: number;
-  }>;
+  }[];
 }
 
 interface InProgressAttempt {
@@ -74,17 +79,22 @@ export function Home() {
   const [streakData, setStreakData] = useState<StreakData | null>(null);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
-  const [inProgressAttempt, setInProgressAttempt] = useState<InProgressAttempt | null>(null);
+  const [inProgressAttempt, setInProgressAttempt] =
+    useState<InProgressAttempt | null>(null);
 
   const fetchData = async () => {
     try {
-      const [streakResponse, announcementsResponse, analyticsResponse, attemptsResponse] =
-        await Promise.all([
-          api.get('/streaks'),
-          api.get('/announcements'),
-          api.get('/analytics'),
-          api.get('/exam-attempts?status=in_progress'),
-        ]);
+      const [
+        streakResponse,
+        announcementsResponse,
+        analyticsResponse,
+        attemptsResponse,
+      ] = await Promise.all([
+        api.get("/streaks"),
+        api.get("/announcements"),
+        api.get("/analytics"),
+        api.get("/exam-attempts?status=in_progress"),
+      ]);
 
       if (streakResponse.data.success) {
         setStreakData(streakResponse.data.data);
@@ -98,13 +108,16 @@ export function Home() {
         setAnalytics(analyticsResponse.data.data);
       }
 
-      if (attemptsResponse.data.success && attemptsResponse.data.data.length > 0) {
+      if (
+        attemptsResponse.data.success &&
+        attemptsResponse.data.data.length > 0
+      ) {
         setInProgressAttempt(attemptsResponse.data.data[0]);
       } else {
         setInProgressAttempt(null);
       }
     } catch (error) {
-      console.error('Error fetching home data:', error);
+      console.error("Error fetching home data:", error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -121,21 +134,21 @@ export function Home() {
   };
 
   const handleJambPress = () => {
-    setExamType('JAMB');
+    setExamType("JAMB");
     // @ts-ignore
-    navigation.navigate('QuestionModeSelection');
+    navigation.navigate("JAMBModeSelection");
   };
 
   const handleDliPress = () => {
-    setExamType('DLI');
+    setExamType("DLI");
     // @ts-ignore
-    navigation.navigate('QuestionModeSelection');
+    navigation.navigate("DLIPracticeSelection");
   };
 
   const handleContinuePractice = () => {
     if (inProgressAttempt) {
       // @ts-ignore
-      navigation.navigate('ExamScreen', {
+      navigation.navigate("ExamScreen", {
         attemptId: inProgressAttempt.id,
         exam: inProgressAttempt.exam,
       });
@@ -158,7 +171,9 @@ export function Home() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       >
         {/* Streak Carousel */}
         {streakData && (
@@ -199,7 +214,10 @@ export function Home() {
         )}
 
         {/* Quick Action Cards */}
-        <QuickActionCards onJambPress={handleJambPress} onDliPress={handleDliPress} />
+        <QuickActionCards
+          onJambPress={handleJambPress}
+          onDliPress={handleDliPress}
+        />
 
         {/* Recent Performance */}
         {analytics && (
@@ -219,7 +237,7 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
 });

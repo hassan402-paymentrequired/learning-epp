@@ -17,6 +17,12 @@ import { QuestionModeSelection } from "@/screens/exam/QuestionModeSelection";
 import { YearSelection } from "@/screens/exam/YearSelection";
 import { TimeSelection } from "@/screens/exam/TimeSelection";
 import { ExamScreen } from "@/screens/exam/ExamScreen";
+// JAMB screens
+import { JAMBModeSelection } from "@/screens/exam/jamb/ModeSelection";
+import { JAMBPastQuestionsSelection } from "@/screens/exam/jamb/PastQuestionsSelection";
+import { JAMBPracticeQuestionsSelection } from "@/screens/exam/jamb/PracticeQuestionsSelection";
+// DLI screens
+import { DLIPracticeSelection } from "@/screens/exam/dli/PracticeSelection";
 import { ExamResults } from "@/screens/exam/ExamResults";
 import { CorrectionsScreen } from "@/screens/exam/CorrectionsScreen";
 import { Leaderboard } from "@/screens/Leaderboard";
@@ -56,7 +62,13 @@ function AppNavigator() {
     <AppStack.Navigator screenOptions={{ headerShown: false }}>
       <AppStack.Screen name="Home" component={Home} />
       <AppStack.Screen name="Profile" component={Profile} />
-      {/* Updated flow order: Question Mode → Subjects (with question count) → Year (for past questions) → Time → Exam */}
+      {/* JAMB screens */}
+      <AppStack.Screen name="JAMBModeSelection" component={JAMBModeSelection} />
+      <AppStack.Screen name="JAMBPastQuestionsSelection" component={JAMBPastQuestionsSelection} />
+      <AppStack.Screen name="JAMBPracticeQuestionsSelection" component={JAMBPracticeQuestionsSelection} />
+      {/* DLI screens */}
+      <AppStack.Screen name="DLIPracticeSelection" component={DLIPracticeSelection} />
+      {/* Legacy screens (kept for backward compatibility, can be removed later) */}
       <AppStack.Screen
         name="QuestionModeSelection"
         component={QuestionModeSelection}
