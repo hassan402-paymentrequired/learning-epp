@@ -1,52 +1,49 @@
-import React from 'react';
+import React from "react";
 import {
   View,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
-} from 'react-native';
-import { ThemedView } from '@/components/ThemedView';
-import { ThemedText } from '@/components/ThemedText';
-import { AppLayout } from '@/components/AppLayout';
-import { useExamSelection } from '@/contexts/ExamSelectionContext';
-import { useNavigation } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useThemeColor } from '@/hooks/useThemeColor';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+} from "react-native";
+import { ThemedText } from "@/components/ThemedText";
+import { AppLayout } from "@/components/AppLayout";
+import { useExamSelection } from "@/contexts/ExamSelectionContext";
+import { useNavigation } from "@react-navigation/native";
+import { LinearGradient } from "expo-linear-gradient";
+import { useThemeColor } from "@/hooks/useThemeColor";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 export function QuestionModeSelection() {
   const { selection, setQuestionMode } = useExamSelection();
   const navigation = useNavigation();
-  const backgroundColor = useThemeColor({}, 'background');
-  const tintColor = useThemeColor({}, 'tint');
-  
-  // DLI can only practice past questions
-  const isDLI = selection.examType === 'DLI';
+  const tintColor = useThemeColor({}, "tint");
 
-  const handleSelectMode = (mode: 'past_question' | 'practice') => {
+  // DLI can only practice past questions
+  const isDLI = selection.examType === "DLI";
+
+  const handleSelectMode = (mode: "past_question" | "practice") => {
     setQuestionMode(mode);
     // @ts-ignore
-    navigation.navigate('SubjectSelection');
+    navigation.navigate("SubjectSelection");
   };
-  
+
   // For DLI, automatically select past_question mode and navigate
   React.useEffect(() => {
     if (isDLI) {
       // Set question mode first, then navigate after a brief delay to ensure state is updated
       if (!selection.questionMode) {
-        setQuestionMode('past_question');
+        setQuestionMode("past_question");
       }
       // Use setTimeout to ensure state is updated before navigation
       const timer = setTimeout(() => {
         // @ts-ignore
-        navigation.navigate('SubjectSelection');
+        navigation.navigate("SubjectSelection");
       }, 100);
       return () => clearTimeout(timer);
     }
   }, [isDLI, selection.questionMode, setQuestionMode, navigation]);
-  
+
   // If DLI, don't show this screen - redirect will happen via useEffect
   if (isDLI) {
     return (
@@ -76,11 +73,11 @@ export function QuestionModeSelection() {
         <View style={styles.optionsContainer}>
           <TouchableOpacity
             style={styles.optionCard}
-            onPress={() => handleSelectMode('past_question')}
+            onPress={() => handleSelectMode("past_question")}
             activeOpacity={0.8}
           >
             <LinearGradient
-              colors={[tintColor, tintColor + 'DD']}
+              colors={[tintColor, tintColor + "DD"]}
               style={styles.gradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
@@ -99,11 +96,11 @@ export function QuestionModeSelection() {
 
           <TouchableOpacity
             style={styles.optionCard}
-            onPress={() => handleSelectMode('practice')}
+            onPress={() => handleSelectMode("practice")}
             activeOpacity={0.8}
           >
             <LinearGradient
-              colors={[tintColor, tintColor + 'DD']}
+              colors={[tintColor, tintColor + "DD"]}
               style={styles.gradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
@@ -135,7 +132,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 8,
   },
   subtitle: {
@@ -143,12 +140,12 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   warningCard: {
-    flexDirection: 'row',
+    flexDirection: "row",
     padding: 16,
     borderRadius: 12,
     marginBottom: 24,
     gap: 12,
-    alignItems: 'center',
+    alignItems: "center",
   },
   warningText: {
     flex: 1,
@@ -160,9 +157,9 @@ const styles = StyleSheet.create({
   },
   optionCard: {
     borderRadius: 16,
-    overflow: 'hidden',
+    overflow: "hidden",
     elevation: 4,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
@@ -172,29 +169,29 @@ const styles = StyleSheet.create({
   },
   gradient: {
     padding: 32,
-    alignItems: 'center',
+    alignItems: "center",
     minHeight: 180,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   iconContainer: {
     marginBottom: 16,
   },
   optionTitle: {
     fontSize: 22,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontWeight: "bold",
+    color: "#fff",
     marginBottom: 8,
   },
   optionDescription: {
     fontSize: 14,
-    color: '#fff',
+    color: "#fff",
     opacity: 0.9,
-    textAlign: 'center',
+    textAlign: "center",
     paddingHorizontal: 20,
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
 });

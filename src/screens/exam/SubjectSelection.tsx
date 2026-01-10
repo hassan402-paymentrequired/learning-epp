@@ -43,26 +43,20 @@ export function SubjectSelection() {
   const quickOptions = [10, 20, 30, 40, 50];
 
   useEffect(() => {
-    // Wait for questionMode to be set before loading subjects
-    // For DLI, questionMode is automatically set to 'past_question' in QuestionModeSelection
-    if (selection.examType && selection.questionMode) {
+    // Only load subjects if examType is set
+    if (selection.examType) {
       loadSubjects();
-    } else if (selection.examType === 'DLI' && !selection.questionMode) {
-      // If DLI but questionMode not set yet, wait a bit and retry
-      const timer = setTimeout(() => {
-        if (selection.examType === 'DLI') {
-          loadSubjects(); // Will use default 'past_question'
-        }
-      }, 100);
-      return () => clearTimeout(timer);
     }
   }, [selection.examType, selection.questionMode]);
 
   const loadSubjects = async () => {
     try {
       setLoading(true);
-      // For DLI, always use 'past_question' mode
-      const questionMode = selection.examType === 'DLI' ? 'past_question' : (selection.questionMode || 'past_question');
+      // For DLI, always use 'past_question' mode (DLI only supports past questions)
+      // For other exam types, use the selected questionMode or default to 'past_question'
+      const questionMode = selection.examType === 'DLI' 
+        ? 'past_question' 
+        : (selection.questionMode || 'past_question');
       
       const response = await api.get('/exams/subjects', {
         params: {
@@ -72,17 +66,27 @@ export function SubjectSelection() {
       });
       
       if (response.data.success) {
-        setSubjectsList(response.data.data || []);
+        const subjects = response.data.data || [];
+        setSubjectsList(subjects);
+        
+        // If no subjects found for DLI, show an error
+        if (subjects.length === 0 && selection.examType === 'DLI') {
+          Alert.alert(
+            'No Subjects Available',
+            'No DLI past question subjects are available at the moment. Please try again later.',
+            [{ text: 'OK', onPress: () => navigation.goBack() }]
+          );
+        }
       } else {
         setSubjectsList([]);
       }
     } catch (error: any) {
       console.error('Error loading subjects:', error);
-      // Show error message but don't set fallback subjects
       setSubjectsList([]);
       Alert.alert(
         'Error',
-        error.response?.data?.message || 'Failed to load subjects. Please try again.'
+        error.response?.data?.message || 'Failed to load subjects. Please try again.',
+        [{ text: 'OK' }]
       );
     } finally {
       setLoading(false);
