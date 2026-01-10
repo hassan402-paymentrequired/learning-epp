@@ -12,6 +12,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/Button";
 import { useExamSelection } from "@/contexts/ExamSelectionContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useNavigation } from "@react-navigation/native";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import api from "@/services/api";
@@ -25,6 +26,7 @@ export function DLIPracticeSelection() {
     setQuestionCount,
     setTimeMinutes,
   } = useExamSelection();
+  const { user } = useAuth();
   const navigation = useNavigation();
   const [subjects, setSubjectsList] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,8 +44,18 @@ export function DLIPracticeSelection() {
   const textColor = useThemeColor({}, "text");
   const placeholderColor = useThemeColor({}, "placeholder");
 
-  // Generate question count options (1-50 for DLI)
-  const questionCountOptions = Array.from({ length: 50 }, (_, i) => i + 1);
+  // Check if user has active subscription
+  const hasActiveSubscription =
+    user?.subscription_status === "active" &&
+    user?.subscription_expires_at &&
+    new Date(user.subscription_expires_at) > new Date();
+
+  const maxQuestionsPerSubject = hasActiveSubscription ? 50 : 5;
+  // Generate question count options based on subscription (1-50 for DLI, but limited for free users)
+  const questionCountOptions = Array.from(
+    { length: maxQuestionsPerSubject },
+    (_, i) => i + 1
+  );
   // Generate time options (1-120 minutes)
   const timeOptions = Array.from({ length: 120 }, (_, i) => i + 1);
 
@@ -136,10 +148,10 @@ export function DLIPracticeSelection() {
       return;
     }
 
-    if (questionCount > 50) {
+    if (questionCount > maxQuestionsPerSubject) {
       Alert.alert(
         "Too Many Questions",
-        "Maximum allowed is 50 questions per course for DLI."
+        `Maximum allowed is ${maxQuestionsPerSubject} questions per course for DLI.`
       );
       return;
     }
@@ -297,6 +309,14 @@ export function DLIPracticeSelection() {
             Select your course, number of questions, and time. Practice with
             random questions.
           </ThemedText>
+          {!hasActiveSubscription && (
+            <ThemedText
+              style={[styles.hint, { color: tintColor, fontWeight: "600" }]}
+            >
+              ⚠️ Non-subscribed users are limited to 5 questions per practice
+              session. Subscribe to unlock up to 50 questions per session.
+            </ThemedText>
+          )}
         </View>
 
         {/* Course Selection */}
@@ -369,8 +389,16 @@ export function DLIPracticeSelection() {
               />
             </TouchableOpacity>
             <ThemedText style={styles.hint}>
-              Minimum: 1, Maximum: 50 (DLI courses)
+              Minimum: 1, Maximum: {maxQuestionsPerSubject}{" "}
+              {!hasActiveSubscription ? "(Free users)" : "(DLI courses)"}
             </ThemedText>
+            {!hasActiveSubscription && (
+              <ThemedText
+                style={[styles.hint, { color: tintColor, marginTop: 4 }]}
+              >
+                💡 Subscribe to practice up to 50 questions per session
+              </ThemedText>
+            )}
           </View>
         )}
 

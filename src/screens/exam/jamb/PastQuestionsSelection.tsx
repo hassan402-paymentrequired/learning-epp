@@ -8,11 +8,11 @@ import {
   Alert,
   Modal,
 } from "react-native";
-import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/Button";
 import { useExamSelection } from "@/contexts/ExamSelectionContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useNavigation } from "@react-navigation/native";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import api from "@/services/api";
@@ -48,6 +48,7 @@ export function JAMBPastQuestionsSelection() {
     setSelectedYear,
     setTimeMinutes,
   } = useExamSelection();
+  const { user } = useAuth();
   const navigation = useNavigation();
   const [subjects, setSubjectsList] = useState<string[]>([]);
   const [years, setYears] = useState<number[]>([]);
@@ -71,8 +72,18 @@ export function JAMBPastQuestionsSelection() {
     useState<string | null>(null);
   const [startingExam, setStartingExam] = useState(false);
 
-  // Generate question count options (1-100)
-  const questionCountOptions = Array.from({ length: 100 }, (_, i) => i + 1);
+  // Check if user has active subscription
+  const hasActiveSubscription =
+    user?.subscription_status === "active" &&
+    user?.subscription_expires_at &&
+    new Date(user.subscription_expires_at) > new Date();
+
+  const maxQuestionsPerSubject = hasActiveSubscription ? 100 : 5;
+  // Generate question count options based on subscription
+  const questionCountOptions = Array.from(
+    { length: maxQuestionsPerSubject },
+    (_, i) => i + 1
+  );
 
   const tintColor = useThemeColor({}, "tint");
   const cardBackground = useThemeColor({}, "cardBackground");
@@ -290,13 +301,13 @@ export function JAMBPastQuestionsSelection() {
       return;
     }
 
-    // Validate question counts (max 100 per subject for JAMB)
+    // Validate question counts based on subscription
     for (const subject of selection.subjects) {
       const subjectSelection = subjectSelections[subject];
-      if (subjectSelection.questionCount > 100) {
+      if (subjectSelection.questionCount > maxQuestionsPerSubject) {
         Alert.alert(
           "Too Many Questions",
-          `Maximum allowed is 100 questions per subject. ${subject} has ${subjectSelection.questionCount} questions.`,
+          `Maximum allowed is ${maxQuestionsPerSubject} questions per subject. ${subject} has ${subjectSelection.questionCount} questions.`,
           [{ text: "OK" }]
         );
         return;
@@ -470,6 +481,14 @@ export function JAMBPastQuestionsSelection() {
             Choose up to 4 subjects and set question count and year for each (
             {selection.subjects.length}/4 selected)
           </ThemedText>
+          {!hasActiveSubscription && (
+            <ThemedText
+              style={[styles.hint, { color: tintColor, fontWeight: "600" }]}
+            >
+              ⚠️ Non-subscribed users are limited to 5 questions per subject.
+              Subscribe to unlock up to 100 questions per subject.
+            </ThemedText>
+          )}
           <ThemedText style={styles.hint}>
             Each subject takes 30 minutes. Total time will be calculated
             automatically.
@@ -592,8 +611,20 @@ export function JAMBPastQuestionsSelection() {
                           />
                         </TouchableOpacity>
                         <ThemedText style={styles.hint}>
-                          Minimum: 1, Maximum: 100
+                          Minimum: 1, Maximum: {maxQuestionsPerSubject}{" "}
+                          {!hasActiveSubscription ? "(Free users)" : ""}
                         </ThemedText>
+                        {!hasActiveSubscription && (
+                          <ThemedText
+                            style={[
+                              styles.hint,
+                              { color: tintColor, marginTop: 4 },
+                            ]}
+                          >
+                            💡 Subscribe to practice up to 100 questions per
+                            subject
+                          </ThemedText>
+                        )}
                       </View>
 
                       {/* Year Selection */}
@@ -960,7 +991,7 @@ const styles = StyleSheet.create({
   summaryCard: {
     marginVertical: 24,
     padding: 20,
-    borderRadius: 5
+    borderRadius: 5,
   },
   summaryTitle: {
     fontSize: 18,
