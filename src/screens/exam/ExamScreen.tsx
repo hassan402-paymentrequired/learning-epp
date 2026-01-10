@@ -22,6 +22,342 @@ import { useThemeColor } from "@/hooks/useThemeColor";
 import api from "@/services/api";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
+// Calculator Component
+interface CalculatorModalProps {
+  visible: boolean;
+  onClose: () => void;
+  cardBackground: string;
+  textColor: string;
+  tintColor: string;
+  borderColor: string;
+}
+
+function CalculatorModal({
+  visible,
+  onClose,
+  cardBackground,
+  textColor,
+  tintColor,
+  borderColor,
+}: CalculatorModalProps) {
+  const [display, setDisplay] = useState("0");
+  const [previousValue, setPreviousValue] = useState<number | null>(null);
+  const [operation, setOperation] = useState<string | null>(null);
+  const [waitingForNewValue, setWaitingForNewValue] = useState(false);
+
+  const handleNumber = (num: string) => {
+    if (waitingForNewValue) {
+      setDisplay(num);
+      setWaitingForNewValue(false);
+    } else {
+      setDisplay(display === "0" ? num : display + num);
+    }
+  };
+
+  const calculate = (
+    firstValue: number,
+    secondValue: number,
+    operation: string
+  ): number => {
+    switch (operation) {
+      case "+":
+        return firstValue + secondValue;
+      case "-":
+        return firstValue - secondValue;
+      case "×":
+        return firstValue * secondValue;
+      case "÷":
+        return secondValue !== 0 ? firstValue / secondValue : 0;
+      default:
+        return secondValue;
+    }
+  };
+
+  const handleOperation = (op: string) => {
+    const inputValue = parseFloat(display);
+
+    if (previousValue === null) {
+      setPreviousValue(inputValue);
+    } else if (operation) {
+      const currentValue = previousValue || 0;
+      const newValue = calculate(currentValue, inputValue, operation);
+      setDisplay(String(newValue));
+      setPreviousValue(newValue);
+    }
+
+    setWaitingForNewValue(true);
+    setOperation(op);
+  };
+
+  const handleEquals = () => {
+    if (previousValue !== null && operation) {
+      const inputValue = parseFloat(display);
+      const newValue = calculate(previousValue, inputValue, operation);
+      setDisplay(String(newValue));
+      setPreviousValue(null);
+      setOperation(null);
+      setWaitingForNewValue(true);
+    }
+  };
+
+  const handleClear = () => {
+    setDisplay("0");
+    setPreviousValue(null);
+    setOperation(null);
+    setWaitingForNewValue(false);
+  };
+
+  const handleDecimal = () => {
+    if (waitingForNewValue) {
+      setDisplay("0.");
+      setWaitingForNewValue(false);
+    } else if (display.indexOf(".") === -1) {
+      setDisplay(display + ".");
+    }
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={calculatorStyles.modalOverlay}>
+        <View
+          style={[
+            calculatorStyles.modalContent,
+            { backgroundColor: cardBackground },
+          ]}
+        >
+          <View style={calculatorStyles.modalHeader}>
+            <ThemedText type="subtitle" style={calculatorStyles.modalTitle}>
+              Calculator
+            </ThemedText>
+            <TouchableOpacity onPress={onClose}>
+              <MaterialIcons name="close" size={24} color={textColor} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Display */}
+          <View
+            style={[
+              calculatorStyles.display,
+              { backgroundColor: borderColor + "20", borderColor },
+            ]}
+          >
+            <ThemedText
+              style={[calculatorStyles.displayText, { color: textColor }]}
+              numberOfLines={1}
+            >
+              {display}
+            </ThemedText>
+          </View>
+
+          {/* Buttons */}
+          <View style={calculatorStyles.buttonsContainer}>
+            <TouchableOpacity
+              style={[
+                calculatorStyles.button,
+                calculatorStyles.buttonClear,
+                { backgroundColor: "#EF4444", borderColor: "#EF4444" },
+              ]}
+              onPress={handleClear}
+            >
+              <ThemedText
+                style={[calculatorStyles.buttonText, { color: "#fff" }]}
+              >
+                C
+              </ThemedText>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                calculatorStyles.button,
+                calculatorStyles.buttonOperator,
+                { borderColor },
+              ]}
+              onPress={() => handleOperation("÷")}
+            >
+              <ThemedText
+                style={[calculatorStyles.buttonText, { color: tintColor }]}
+              >
+                ÷
+              </ThemedText>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                calculatorStyles.button,
+                calculatorStyles.buttonOperator,
+                { borderColor },
+              ]}
+              onPress={() => handleOperation("×")}
+            >
+              <ThemedText
+                style={[calculatorStyles.buttonText, { color: tintColor }]}
+              >
+                ×
+              </ThemedText>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                calculatorStyles.button,
+                calculatorStyles.buttonOperator,
+                { borderColor },
+              ]}
+              onPress={() => handleOperation("-")}
+            >
+              <ThemedText
+                style={[calculatorStyles.buttonText, { color: tintColor }]}
+              >
+                −
+              </ThemedText>
+            </TouchableOpacity>
+
+            {/* Number buttons */}
+            {[7, 8, 9, 4, 5, 6, 1, 2, 3, 0].map((num) => (
+              <TouchableOpacity
+                key={num}
+                style={[
+                  calculatorStyles.button,
+                  calculatorStyles.buttonNumber,
+                  num === 0 && calculatorStyles.buttonZero,
+                  { borderColor },
+                ]}
+                onPress={() => handleNumber(String(num))}
+              >
+                <ThemedText
+                  style={[calculatorStyles.buttonText, { color: textColor }]}
+                >
+                  {num}
+                </ThemedText>
+              </TouchableOpacity>
+            ))}
+
+            <TouchableOpacity
+              style={[
+                calculatorStyles.button,
+                calculatorStyles.buttonNumber,
+                { borderColor },
+              ]}
+              onPress={handleDecimal}
+            >
+              <ThemedText
+                style={[calculatorStyles.buttonText, { color: textColor }]}
+              >
+                .
+              </ThemedText>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                calculatorStyles.button,
+                calculatorStyles.buttonOperator,
+                { borderColor },
+              ]}
+              onPress={() => handleOperation("+")}
+            >
+              <ThemedText
+                style={[calculatorStyles.buttonText, { color: tintColor }]}
+              >
+                +
+              </ThemedText>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                calculatorStyles.button,
+                calculatorStyles.buttonEquals,
+                { backgroundColor: tintColor, borderColor: tintColor },
+              ]}
+              onPress={handleEquals}
+            >
+              <ThemedText
+                style={[calculatorStyles.buttonText, { color: "#fff" }]}
+              >
+                =
+              </ThemedText>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const calculatorStyles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    width: "85%",
+    maxWidth: 400,
+    borderRadius: 20,
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+  },
+  display: {
+    borderWidth: 2,
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 20,
+    minHeight: 70,
+    justifyContent: "center",
+    alignItems: "flex-end",
+  },
+  displayText: {
+    fontSize: 32,
+    fontWeight: "600",
+  },
+  buttonsContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  button: {
+    width: "21%",
+    aspectRatio: 1,
+    borderRadius: 12,
+    borderWidth: 2,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "transparent",
+  },
+  buttonZero: {
+    width: "46%",
+  },
+  buttonNumber: {
+    backgroundColor: "transparent",
+  },
+  buttonOperator: {
+    backgroundColor: "transparent",
+  },
+  buttonClear: {
+    backgroundColor: "#EF4444",
+  },
+  buttonEquals: {
+    backgroundColor: "transparent",
+  },
+  buttonText: {
+    fontSize: 24,
+    fontWeight: "600",
+  },
+});
+
 interface Question {
   id: number;
   question_text: string;
@@ -83,6 +419,7 @@ export function ExamScreen() {
   ); // in seconds
   const [loading, setLoading] = useState(false);
   const [showSubjectModal, setShowSubjectModal] = useState(false);
+  const [showCalculator, setShowCalculator] = useState(false);
 
   const backgroundColor = useThemeColor({}, "background");
   const tintColor = useThemeColor({}, "tint");
@@ -364,20 +701,28 @@ export function ExamScreen() {
               />
             </TouchableOpacity>
 
-            <View style={styles.timerContainer}>
-              <MaterialIcons
-                name="access-time"
-                size={20}
-                color={timeRemaining < 300 ? "#EF4444" : tintColor}
-              />
-              <ThemedText
-                style={[
-                  styles.timer,
-                  { color: timeRemaining < 300 ? "#EF4444" : undefined },
-                ]}
+            <View style={styles.headerRight}>
+              <TouchableOpacity
+                onPress={() => setShowCalculator(true)}
+                style={styles.calculatorButton}
               >
-                {formatTime(timeRemaining)}
-              </ThemedText>
+                <MaterialIcons name="calculate" size={20} color={tintColor} />
+              </TouchableOpacity>
+              <View style={styles.timerContainer}>
+                <MaterialIcons
+                  name="access-time"
+                  size={20}
+                  color={timeRemaining < 300 ? "#EF4444" : tintColor}
+                />
+                <ThemedText
+                  style={[
+                    styles.timer,
+                    { color: timeRemaining < 300 ? "#EF4444" : undefined },
+                  ]}
+                >
+                  {formatTime(timeRemaining)}
+                </ThemedText>
+              </View>
             </View>
           </View>
 
@@ -473,6 +818,16 @@ export function ExamScreen() {
             </View>
           </View>
         </Modal>
+
+        {/* Calculator Modal */}
+        <CalculatorModal
+          visible={showCalculator}
+          onClose={() => setShowCalculator(false)}
+          cardBackground={cardBackground}
+          textColor={textColor}
+          tintColor={tintColor}
+          borderColor={borderColor}
+        />
 
         {/* Question */}
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -675,6 +1030,14 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 16,
     fontWeight: "600",
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  calculatorButton: {
+    padding: 6,
   },
   timerContainer: {
     flexDirection: "row",
