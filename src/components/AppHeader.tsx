@@ -67,7 +67,12 @@ export function AppHeader({
 
       <View style={styles.centerSection}>
         {title && (
-          <ThemedText type="subtitle" style={styles.title}>
+          <ThemedText
+            type="subtitle"
+            style={styles.title}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
             {title}
           </ThemedText>
         )}
@@ -113,18 +118,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    flex: 1,
+    flex: 0,
+    minWidth: 100,
   },
   centerSection: {
     flex: 1,
     alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8,
   },
   rightSection: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     justifyContent: "flex-end",
-    flex: 1,
+    flex: 0,
+    minWidth: 100,
   },
   iconButton: {
     padding: 4,
@@ -160,6 +169,8 @@ const styles = StyleSheet.create({
       web: "600",
       default: "normal",
     }),
+    textAlign: "center",
+    maxWidth: "100%",
   },
   appName: {
     fontSize: 16,

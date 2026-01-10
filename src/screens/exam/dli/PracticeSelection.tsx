@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -6,134 +6,154 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  TextInput,
-} from 'react-native';
-import { ThemedView } from '@/components/ThemedView';
-import { ThemedText } from '@/components/ThemedText';
-import { AppLayout } from '@/components/AppLayout';
-import { Button } from '@/components/ui/Button';
-import { useExamSelection } from '@/contexts/ExamSelectionContext';
-import { useNavigation } from '@react-navigation/native';
-import { useThemeColor } from '@/hooks/useThemeColor';
-import api from '@/services/api';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-
-interface Question {
-  id: number;
-  question_text: string;
-  question_type: string;
-  points: number;
-  order: number;
-  answers: Answer[];
-}
-
-interface Answer {
-  id: number;
-  answer_text: string;
-  order: string;
-}
+  Modal,
+} from "react-native";
+import { ThemedText } from "@/components/ThemedText";
+import { AppLayout } from "@/components/AppLayout";
+import { Button } from "@/components/ui/Button";
+import { useExamSelection } from "@/contexts/ExamSelectionContext";
+import { useNavigation } from "@react-navigation/native";
+import { useThemeColor } from "@/hooks/useThemeColor";
+import api from "@/services/api";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 export function DLIPracticeSelection() {
-  const { selection, setQuestionMode, addSubject, removeSubject, setQuestionCount, setTimeMinutes } = useExamSelection();
+  const {
+    setQuestionMode,
+    addSubject,
+    removeSubject,
+    setQuestionCount,
+    setTimeMinutes,
+  } = useExamSelection();
   const navigation = useNavigation();
   const [subjects, setSubjectsList] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
-  const [questionCount, setQuestionCountLocal] = useState<string>('');
-  const [timeMinutes, setTimeMinutesLocal] = useState<string>('');
+  const [questionCount, setQuestionCountLocal] = useState<number | null>(null);
+  const [timeMinutes, setTimeMinutesLocal] = useState<number | null>(null);
+  const [showSubjectModal, setShowSubjectModal] = useState(false);
+  const [showQuestionCountModal, setShowQuestionCountModal] = useState(false);
+  const [showTimeModal, setShowTimeModal] = useState(false);
   const [startingExam, setStartingExam] = useState(false);
-  
-  const tintColor = useThemeColor({}, 'tint');
-  const cardBackground = useThemeColor({}, 'cardBackground');
-  const borderColor = useThemeColor({}, 'border');
-  const textColor = useThemeColor({}, 'text');
-  const placeholderColor = useThemeColor({}, 'placeholder');
 
-  const quickQuestionOptions = [10, 20, 30, 40, 50];
-  const quickTimeOptions = [30, 45, 60];
+  const tintColor = useThemeColor({}, "tint");
+  const cardBackground = useThemeColor({}, "cardBackground");
+  const borderColor = useThemeColor({}, "border");
+  const textColor = useThemeColor({}, "text");
+  const placeholderColor = useThemeColor({}, "placeholder");
+
+  // Generate question count options (1-50 for DLI)
+  const questionCountOptions = Array.from({ length: 50 }, (_, i) => i + 1);
+  // Generate time options (1-120 minutes)
+  const timeOptions = Array.from({ length: 120 }, (_, i) => i + 1);
 
   useEffect(() => {
     // Set DLI to practice mode
-    setQuestionMode('practice');
+    setQuestionMode("practice");
     loadSubjects();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadSubjects = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/exams/subjects', {
+      const response = await api.get("/exams/subjects", {
         params: {
-          exam_type: 'DLI',
-          type: 'practice',
+          exam_type: "DLI",
+          type: "practice",
         },
       });
-      
+
       if (response.data.success) {
         const subjectsList = response.data.data || [];
         setSubjectsList(subjectsList);
-        
+
         if (subjectsList.length === 0) {
           Alert.alert(
-            'No Subjects Available',
-            'No DLI practice subjects are available at the moment. Please try again later.',
-            [{ text: 'OK', onPress: () => navigation.goBack() }]
+            "No Subjects Available",
+            "No DLI practice subjects are available at the moment. Please try again later.",
+            [{ text: "OK", onPress: () => navigation.goBack() }]
           );
         }
       } else {
         setSubjectsList([]);
       }
     } catch (error: any) {
-      console.error('Error loading subjects:', error);
+      console.error("Error loading subjects:", error);
       setSubjectsList([]);
       Alert.alert(
-        'Error',
-        error.response?.data?.message || 'Failed to load subjects. Please try again.',
-        [{ text: 'OK' }]
+        "Error",
+        error.response?.data?.message ||
+          "Failed to load subjects. Please try again.",
+        [{ text: "OK" }]
       );
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubjectSelect = (subject: string) => {
+  const selectSubject = (subject: string) => {
     if (selectedSubject === subject) {
+      // If clicking the same subject, deselect it
       setSelectedSubject(null);
       removeSubject(subject);
     } else {
+      // Remove previous subject if any
       if (selectedSubject) {
         removeSubject(selectedSubject);
       }
+      // Select new subject
       setSelectedSubject(subject);
       addSubject(subject);
+      // Reset dependent fields
+      setQuestionCountLocal(null);
+      setTimeMinutesLocal(null);
     }
+    setShowSubjectModal(false);
+  };
+
+  const selectQuestionCount = (count: number) => {
+    setQuestionCountLocal(count);
+    setShowQuestionCountModal(false);
+  };
+
+  const selectTime = (minutes: number) => {
+    setTimeMinutesLocal(minutes);
+    setShowTimeModal(false);
   };
 
   const handleStartPractice = async () => {
     if (!selectedSubject) {
-      Alert.alert('No Course Selected', 'Please select a course to continue.');
+      Alert.alert("No Course Selected", "Please select a course to continue.");
       return;
     }
 
-    const questionCountNum = parseInt(questionCount);
-    const timeMinutesNum = parseInt(timeMinutes);
-
-    if (!questionCount || isNaN(questionCountNum) || questionCountNum < 1) {
-      Alert.alert('Invalid Question Count', 'Please enter a valid number of questions (minimum 1).');
+    if (!questionCount || questionCount < 1) {
+      Alert.alert(
+        "Invalid Question Count",
+        "Please select a valid number of questions."
+      );
       return;
     }
 
-    if (questionCountNum > 50) {
-      Alert.alert('Too Many Questions', 'Maximum allowed is 50 questions per course for DLI.');
+    if (questionCount > 50) {
+      Alert.alert(
+        "Too Many Questions",
+        "Maximum allowed is 50 questions per course for DLI."
+      );
       return;
     }
 
-    if (!timeMinutes || isNaN(timeMinutesNum) || timeMinutesNum < 1) {
-      Alert.alert('Invalid Time', 'Please enter a valid duration in minutes (minimum 1 minute).');
+    if (!timeMinutes || timeMinutes < 1) {
+      Alert.alert("Invalid Time", "Please select a valid duration in minutes.");
       return;
     }
 
-    if (timeMinutesNum > 120) {
-      Alert.alert('Time Limit Exceeded', 'Maximum allowed time is 120 minutes (2 hours).');
+    if (timeMinutes > 120) {
+      Alert.alert(
+        "Time Limit Exceeded",
+        "Maximum allowed time is 120 minutes (2 hours)."
+      );
       return;
     }
 
@@ -141,20 +161,23 @@ export function DLIPracticeSelection() {
       setStartingExam(true);
 
       // Set values in context
-      setQuestionCount(selectedSubject, questionCountNum);
-      setTimeMinutes(timeMinutesNum);
+      setQuestionCount(selectedSubject, questionCount);
+      setTimeMinutes(timeMinutes);
 
       // Fetch practice questions
-      const questionsResponse = await api.get('/questions/practice', {
+      const questionsResponse = await api.get("/questions/practice", {
         params: {
-          exam_type: 'DLI',
+          exam_type: "DLI",
           subject: selectedSubject,
-          count: questionCountNum,
+          count: questionCount,
         },
       });
 
       if (!questionsResponse.data.success) {
-        Alert.alert('Error', `Failed to load questions for ${selectedSubject}. Please try again.`);
+        Alert.alert(
+          "Error",
+          `Failed to load questions for ${selectedSubject}. Please try again.`
+        );
         return;
       }
 
@@ -162,16 +185,16 @@ export function DLIPracticeSelection() {
 
       if (allQuestions.length === 0) {
         Alert.alert(
-          'No Questions Found',
+          "No Questions Found",
           `No practice questions available for ${selectedSubject}. Please try a different course.`
         );
         return;
       }
 
-      if (allQuestions.length < questionCountNum) {
+      if (allQuestions.length < questionCount) {
         Alert.alert(
-          'Limited Questions',
-          `Only ${allQuestions.length} questions available for ${selectedSubject} (requested ${questionCountNum}).`
+          "Limited Questions",
+          `Only ${allQuestions.length} questions available for ${selectedSubject} (requested ${questionCount}).`
         );
       }
 
@@ -182,9 +205,9 @@ export function DLIPracticeSelection() {
       }));
 
       // Get an exam for the attempt (placeholder)
-      const examResponse = await api.get('/exams', {
+      const examResponse = await api.get("/exams", {
         params: {
-          exam_type: 'DLI',
+          exam_type: "DLI",
           subject: selectedSubject,
         },
       });
@@ -194,26 +217,28 @@ export function DLIPracticeSelection() {
         examId = examResponse.data.data[0].id;
       } else {
         Alert.alert(
-          'Error',
-          'Unable to create exam attempt. Please contact support.'
+          "Error",
+          "Unable to create exam attempt. Please contact support."
         );
         return;
       }
 
       // Prepare subjects data
-      const subjectsData = [{
-        subject: selectedSubject,
-        question_count: questionCountNum,
-      }];
+      const subjectsData = [
+        {
+          subject: selectedSubject,
+          question_count: questionCount,
+        },
+      ];
 
       // Start exam attempt
       const attemptResponse = await api.post(`/exams/${examId}/start`, {
         subjects: subjectsData,
-        duration_minutes: timeMinutesNum,
+        duration_minutes: timeMinutes,
       });
 
       if (!attemptResponse.data.success) {
-        Alert.alert('Error', 'Failed to start exam. Please try again.');
+        Alert.alert("Error", "Failed to start exam. Please try again.");
         return;
       }
 
@@ -221,7 +246,7 @@ export function DLIPracticeSelection() {
 
       // Navigate to exam screen
       // @ts-ignore
-      navigation.navigate('ExamScreen', {
+      navigation.navigate("ExamScreen", {
         attemptId: attempt.id,
         examId: examId,
         subjectsQuestions: {
@@ -230,17 +255,17 @@ export function DLIPracticeSelection() {
         exam: {
           id: examId,
           title: `DLI ${selectedSubject} Practice Questions`,
-          duration: timeMinutesNum,
+          duration: timeMinutes,
           total_questions: questionsWithSubject.length,
         },
-        timeMinutes: timeMinutesNum,
+        timeMinutes: timeMinutes,
       });
     } catch (error: any) {
-      console.error('Error starting practice:', error);
+      console.error("Error starting practice:", error);
       Alert.alert(
-        'Error',
+        "Error",
         error.response?.data?.message ||
-          'Failed to start practice. Please check your connection and try again.'
+          "Failed to start practice. Please check your connection and try again."
       );
     } finally {
       setStartingExam(false);
@@ -269,206 +294,346 @@ export function DLIPracticeSelection() {
             DLI Practice
           </ThemedText>
           <ThemedText style={styles.subtitle}>
-            Select your course, number of questions, and time. Practice with random questions.
+            Select your course, number of questions, and time. Practice with
+            random questions.
           </ThemedText>
         </View>
 
         {/* Course Selection */}
         <View style={styles.section}>
           <ThemedText style={styles.sectionTitle}>Select Course</ThemedText>
-          {subjects.length > 0 ? (
-            <View style={styles.subjectsContainer}>
-              {subjects.map((subject) => {
-                const isSelected = selectedSubject === subject;
-                return (
-                  <TouchableOpacity
-                    key={subject}
-                    style={[
-                      styles.subjectCard,
-                      {
-                        backgroundColor: isSelected ? tintColor + '10' : cardBackground,
-                        borderColor: isSelected ? tintColor : borderColor,
-                        borderWidth: isSelected ? 2 : 1,
-                      },
-                    ]}
-                    onPress={() => handleSubjectSelect(subject)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.subjectHeaderLeft}>
-                      <View
-                        style={[
-                          styles.checkbox,
-                          {
-                            backgroundColor: isSelected ? tintColor : 'transparent',
-                            borderColor: isSelected ? tintColor : borderColor,
-                          },
-                        ]}
-                      >
-                        {isSelected && (
-                          <MaterialIcons name="check" size={20} color="#fff" />
-                        )}
-                      </View>
-                      <ThemedText type="subtitle" style={styles.subjectName}>
-                        {subject}
-                      </ThemedText>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          ) : (
-            <View style={styles.emptyContainer}>
-              <ThemedText style={styles.emptyText}>
-                No courses available for DLI practice
-              </ThemedText>
-            </View>
+          <TouchableOpacity
+            style={[
+              styles.yearSelector,
+              {
+                borderColor: selectedSubject ? tintColor : borderColor,
+                backgroundColor: cardBackground,
+              },
+            ]}
+            onPress={() => setShowSubjectModal(true)}
+            disabled={subjects.length === 0}
+          >
+            <ThemedText
+              style={{
+                color: selectedSubject ? textColor : placeholderColor,
+                fontSize: 16,
+              }}
+            >
+              {selectedSubject || "Select a course"}
+            </ThemedText>
+            <MaterialIcons name="arrow-drop-down" size={24} color={textColor} />
+          </TouchableOpacity>
+          {subjects.length === 0 && (
+            <ThemedText style={styles.hint}>
+              No courses available for DLI practice
+            </ThemedText>
           )}
         </View>
 
         {/* Number of Questions Selection */}
         {selectedSubject && (
           <View style={styles.section}>
-            <ThemedText style={styles.sectionTitle}>Number of Questions</ThemedText>
-            <View style={[styles.inputCard, { backgroundColor: cardBackground }]}>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    borderColor: questionCount && parseInt(questionCount) > 0 ? tintColor : borderColor,
-                    color: textColor,
-                  },
-                ]}
-                value={questionCount}
-                onChangeText={(text) => {
-                  setQuestionCountLocal(text);
+            <ThemedText style={styles.sectionTitle}>
+              Number of Questions
+            </ThemedText>
+            <TouchableOpacity
+              style={[
+                styles.yearSelector,
+                {
+                  borderColor:
+                    questionCount && questionCount > 0
+                      ? tintColor
+                      : borderColor,
+                  backgroundColor: cardBackground,
+                },
+              ]}
+              onPress={() => setShowQuestionCountModal(true)}
+            >
+              <ThemedText
+                style={{
+                  color:
+                    questionCount && questionCount > 0
+                      ? textColor
+                      : placeholderColor,
+                  fontSize: 16,
                 }}
-                placeholder="e.g., 25"
-                keyboardType="number-pad"
-                placeholderTextColor={placeholderColor}
-                maxLength={3}
-              />
-              <ThemedText style={styles.hint}>
-                Minimum: 1, Maximum: 50 (DLI courses)
+              >
+                {questionCount
+                  ? `${questionCount}`
+                  : "Select number of questions"}
               </ThemedText>
-            </View>
-            <View style={styles.quickOptionsContainer}>
-              <View style={styles.quickOptionsGrid}>
-                {quickQuestionOptions.map((value) => (
-                  <TouchableOpacity
-                    key={value}
-                    style={[
-                      styles.quickOption,
-                      {
-                        backgroundColor: questionCount === value.toString() ? tintColor : cardBackground,
-                        borderColor: tintColor,
-                      },
-                    ]}
-                    onPress={() => setQuestionCountLocal(value.toString())}
-                  >
-                    <ThemedText
-                      style={[
-                        styles.quickOptionText,
-                        {
-                          color: questionCount === value.toString() ? '#fff' : textColor,
-                        },
-                      ]}
-                    >
-                      {value}
-                    </ThemedText>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
+              <MaterialIcons
+                name="arrow-drop-down"
+                size={24}
+                color={textColor}
+              />
+            </TouchableOpacity>
+            <ThemedText style={styles.hint}>
+              Minimum: 1, Maximum: 50 (DLI courses)
+            </ThemedText>
           </View>
         )}
 
         {/* Time Selection */}
-        {selectedSubject && questionCount && parseInt(questionCount) > 0 && (
+        {selectedSubject && questionCount && questionCount > 0 && (
           <View style={styles.section}>
             <ThemedText style={styles.sectionTitle}>Time (Minutes)</ThemedText>
-            <View style={[styles.inputCard, { backgroundColor: cardBackground }]}>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    borderColor: timeMinutes && parseInt(timeMinutes) > 0 ? tintColor : borderColor,
-                    color: textColor,
-                  },
-                ]}
-                value={timeMinutes}
-                onChangeText={(text) => {
-                  setTimeMinutesLocal(text);
+            <TouchableOpacity
+              style={[
+                styles.yearSelector,
+                {
+                  borderColor:
+                    timeMinutes && timeMinutes > 0 ? tintColor : borderColor,
+                  backgroundColor: cardBackground,
+                },
+              ]}
+              onPress={() => setShowTimeModal(true)}
+            >
+              <ThemedText
+                style={{
+                  color:
+                    timeMinutes && timeMinutes > 0
+                      ? textColor
+                      : placeholderColor,
+                  fontSize: 16,
                 }}
-                placeholder="e.g., 30"
-                keyboardType="number-pad"
-                placeholderTextColor={placeholderColor}
-                maxLength={3}
-              />
-              <ThemedText style={styles.hint}>
-                Minimum: 1 minute, Maximum: 120 minutes (2 hours)
+              >
+                {timeMinutes ? `${timeMinutes}` : "Select time in minutes"}
               </ThemedText>
-            </View>
-            <View style={styles.quickOptionsContainer}>
-              <View style={styles.quickOptionsGrid}>
-                {quickTimeOptions.map((value) => (
-                  <TouchableOpacity
-                    key={value}
-                    style={[
-                      styles.quickOption,
-                      {
-                        backgroundColor: timeMinutes === value.toString() ? tintColor : cardBackground,
-                        borderColor: tintColor,
-                      },
-                    ]}
-                    onPress={() => setTimeMinutesLocal(value.toString())}
-                  >
-                    <ThemedText
-                      style={[
-                        styles.quickOptionText,
-                        {
-                          color: timeMinutes === value.toString() ? '#fff' : textColor,
-                        },
-                      ]}
-                    >
-                      {value}m
-                    </ThemedText>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
+              <MaterialIcons
+                name="arrow-drop-down"
+                size={24}
+                color={textColor}
+              />
+            </TouchableOpacity>
+            <ThemedText style={styles.hint}>
+              Minimum: 1 minute, Maximum: 120 minutes (2 hours)
+            </ThemedText>
           </View>
         )}
 
         {/* Summary */}
         {selectedSubject && questionCount && timeMinutes && (
-          <View style={[styles.summaryCard, { backgroundColor: cardBackground }]}>
+          <View
+            style={[styles.summaryCard, { backgroundColor: cardBackground }]}
+          >
             <ThemedText style={styles.summaryTitle}>Summary</ThemedText>
             <View style={styles.summaryRow}>
               <ThemedText style={styles.summaryLabel}>Course:</ThemedText>
-              <ThemedText style={styles.summaryValue}>{selectedSubject}</ThemedText>
+              <ThemedText style={styles.summaryValue}>
+                {selectedSubject}
+              </ThemedText>
             </View>
             <View style={styles.summaryRow}>
               <ThemedText style={styles.summaryLabel}>Questions:</ThemedText>
-              <ThemedText style={styles.summaryValue}>{questionCount}</ThemedText>
+              <ThemedText style={styles.summaryValue}>
+                {questionCount || "Not set"}
+              </ThemedText>
             </View>
             <View style={styles.summaryRow}>
               <ThemedText style={styles.summaryLabel}>Time:</ThemedText>
-              <ThemedText style={styles.summaryValue}>{timeMinutes} minutes</ThemedText>
+              <ThemedText style={styles.summaryValue}>
+                {timeMinutes ? `${timeMinutes} minutes` : "Not set"}
+              </ThemedText>
             </View>
           </View>
         )}
       </ScrollView>
 
+      {/* Subject Selection Modal */}
+      <Modal
+        visible={showSubjectModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowSubjectModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[styles.modalContent, { backgroundColor: cardBackground }]}
+          >
+            <View style={styles.modalHeader}>
+              <ThemedText type="subtitle" style={styles.modalTitle}>
+                Select Course
+              </ThemedText>
+              <TouchableOpacity
+                onPress={() => setShowSubjectModal(false)}
+                style={styles.closeButton}
+              >
+                <MaterialIcons name="close" size={24} color={textColor} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalScrollView}>
+              {subjects.length > 0 ? (
+                subjects.map((subject) => (
+                  <TouchableOpacity
+                    key={subject}
+                    style={[
+                      styles.yearOption,
+                      {
+                        backgroundColor:
+                          selectedSubject === subject
+                            ? tintColor + "20"
+                            : "transparent",
+                      },
+                    ]}
+                    onPress={() => selectSubject(subject)}
+                  >
+                    <ThemedText
+                      style={[
+                        styles.yearOptionText,
+                        {
+                          color:
+                            selectedSubject === subject ? tintColor : textColor,
+                          fontWeight:
+                            selectedSubject === subject ? "600" : "400",
+                        },
+                      ]}
+                    >
+                      {subject}
+                    </ThemedText>
+                    {selectedSubject === subject && (
+                      <MaterialIcons name="check" size={24} color={tintColor} />
+                    )}
+                  </TouchableOpacity>
+                ))
+              ) : (
+                <View style={styles.emptyContainer}>
+                  <ThemedText style={styles.emptyText}>
+                    No courses available
+                  </ThemedText>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Question Count Selection Modal */}
+      <Modal
+        visible={showQuestionCountModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowQuestionCountModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[styles.modalContent, { backgroundColor: cardBackground }]}
+          >
+            <View style={styles.modalHeader}>
+              <ThemedText type="subtitle" style={styles.modalTitle}>
+                Select Number of Questions
+              </ThemedText>
+              <TouchableOpacity
+                onPress={() => setShowQuestionCountModal(false)}
+                style={styles.closeButton}
+              >
+                <MaterialIcons name="close" size={24} color={textColor} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalScrollView}>
+              {questionCountOptions.map((count) => (
+                <TouchableOpacity
+                  key={count}
+                  style={[
+                    styles.yearOption,
+                    {
+                      backgroundColor:
+                        questionCount === count
+                          ? tintColor + "20"
+                          : "transparent",
+                    },
+                  ]}
+                  onPress={() => selectQuestionCount(count)}
+                >
+                  <ThemedText
+                    style={[
+                      styles.yearOptionText,
+                      {
+                        color: questionCount === count ? tintColor : textColor,
+                        fontWeight: questionCount === count ? "600" : "400",
+                      },
+                    ]}
+                  >
+                    {count}
+                  </ThemedText>
+                  {questionCount === count && (
+                    <MaterialIcons name="check" size={24} color={tintColor} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Time Selection Modal */}
+      <Modal
+        visible={showTimeModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowTimeModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[styles.modalContent, { backgroundColor: cardBackground }]}
+          >
+            <View style={styles.modalHeader}>
+              <ThemedText type="subtitle" style={styles.modalTitle}>
+                Select Time (Minutes)
+              </ThemedText>
+              <TouchableOpacity
+                onPress={() => setShowTimeModal(false)}
+                style={styles.closeButton}
+              >
+                <MaterialIcons name="close" size={24} color={textColor} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalScrollView}>
+              {timeOptions.map((minutes) => (
+                <TouchableOpacity
+                  key={minutes}
+                  style={[
+                    styles.yearOption,
+                    {
+                      backgroundColor:
+                        timeMinutes === minutes
+                          ? tintColor + "20"
+                          : "transparent",
+                    },
+                  ]}
+                  onPress={() => selectTime(minutes)}
+                >
+                  <ThemedText
+                    style={[
+                      styles.yearOptionText,
+                      {
+                        color: timeMinutes === minutes ? tintColor : textColor,
+                        fontWeight: timeMinutes === minutes ? "600" : "400",
+                      },
+                    ]}
+                  >
+                    {minutes}
+                  </ThemedText>
+                  {timeMinutes === minutes && (
+                    <MaterialIcons name="check" size={24} color={tintColor} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       <View style={styles.footer}>
         <Button
-          title={startingExam ? 'Starting Practice...' : 'Start Practice'}
+          title={startingExam ? "Starting Practice..." : "Start Practice"}
           onPress={handleStartPractice}
           disabled={
             !selectedSubject ||
             !questionCount ||
             !timeMinutes ||
-            parseInt(questionCount) < 1 ||
-            parseInt(timeMinutes) < 1 ||
+            questionCount < 1 ||
+            timeMinutes < 1 ||
             startingExam
           }
           loading={startingExam}
@@ -486,8 +651,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingText: {
     marginTop: 16,
@@ -498,7 +663,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 8,
   },
   subtitle: {
@@ -509,7 +674,7 @@ const styles = StyleSheet.create({
   hint: {
     fontSize: 14,
     opacity: 0.6,
-    fontStyle: 'italic',
+    fontStyle: "italic",
     marginTop: 8,
   },
   section: {
@@ -517,109 +682,48 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 16,
-  },
-  subjectsContainer: {
-    gap: 12,
-  },
-  subjectCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderRadius: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  subjectHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    flex: 1,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  subjectName: {
-    fontSize: 18,
-    fontWeight: '600',
   },
   emptyContainer: {
     padding: 32,
-    alignItems: 'center',
+    alignItems: "center",
   },
   emptyText: {
     fontSize: 16,
     opacity: 0.7,
-    textAlign: 'center',
+    textAlign: "center",
   },
-  inputCard: {
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  input: {
+  yearSelector: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     borderWidth: 2,
     borderRadius: 8,
     padding: 16,
-    fontSize: 18,
     marginBottom: 8,
-  },
-  quickOptionsContainer: {
-    marginTop: 8,
-  },
-  quickOptionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  quickOption: {
-    width: 70,
-    height: 60,
-    borderRadius: 12,
-    borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  quickOptionText: {
-    fontSize: 18,
-    fontWeight: 'bold',
   },
   summaryCard: {
     borderRadius: 12,
     padding: 20,
     marginBottom: 24,
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
   summaryTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 16,
   },
   summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: "#E5E7EB",
   },
   summaryLabel: {
     fontSize: 16,
@@ -627,16 +731,57 @@ const styles = StyleSheet.create({
   },
   summaryValue: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 20,
+    maxHeight: "70%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+  closeButton: {
+    padding: 4,
+  },
+  modalScrollView: {
+    maxHeight: 400,
+  },
+  yearOption: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+  },
+  yearOptionText: {
+    fontSize: 18,
   },
   footer: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
     padding: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
     borderTopWidth: 1,
-    borderTopColor: '#e9ecef',
+    borderTopColor: "#e9ecef",
   },
 });
