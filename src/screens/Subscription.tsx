@@ -5,6 +5,7 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Modal,
 } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { AppLayout } from "@/components/AppLayout";
@@ -13,10 +14,10 @@ import { Input } from "@/components/ui/Input";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import api from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigation , useFocusEffect} from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
+import { SubscriptionWebView } from "./SubscriptionWebView";
 
 type SubscriptionPlan = {
   id: number;
@@ -47,10 +48,11 @@ export function Subscription() {
   const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(false);
   const [plan, setPlan] = useState<SubscriptionPlan | null>(null);
   const [status, setStatus] = useState<SubscriptionStatus | null>(null);
   const [referralCode, setReferralCode] = useState("");
+  const [showWebView, setShowWebView] = useState(false);
+  const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
 
   const backgroundColor = useThemeColor({}, "background");
   const textColor = useThemeColor({}, "text");
@@ -146,13 +148,9 @@ export function Subscription() {
       if (response.data.success) {
         const { authorization_url } = response.data.data;
 
-        // Open Paystack payment page in browser
-        // Paystack will redirect to backend callback (/api/subscriptions/callback)
-        // Backend verifies payment and redirects to app via deep link
-        await WebBrowser.openBrowserAsync(authorization_url, {
-          showTitle: true,
-          enableBarCollapsing: false,
-        });
+        // Show WebView for payment (per Paystack mobile webview recommendation)
+        setPaymentUrl(authorization_url);
+        setShowWebView(true);
       }
     } catch (error: any) {
       console.error("Error initializing payment:", error);
@@ -166,50 +164,50 @@ export function Subscription() {
     }
   };
 
-  const verifyPayment = async (reference: string) => {
-    // Prevent duplicate verification
-    if (isVerifying) {
-      return;
+  const handlePaymentComplete = async (
+    success: boolean,
+    reference?: string,
+    message?: string
+  ) => {
+    setShowWebView(false);
+    setPaymentUrl(null);
+
+    if (success) {
+      // Refresh user data to get updated subscription status
+      await refreshUser();
+      await fetchStatus();
+      Alert.alert("Success", "Your subscription has been activated!", [
+        {
+          text: "OK",
+        },
+      ]);
+    } else {
+      Alert.alert(
+        "Payment Failed",
+        message || "Your payment could not be completed. Please try again."
+      );
     }
+  };
 
-    setIsVerifying(true);
-    try {
-      const response = await api.post("/subscriptions/verify-payment", {
-        reference,
-      });
-
-      if (response.data.success) {
-        // Clear pending reference
-        setPendingReference(null);
-
-        Alert.alert("Success", "Your subscription has been activated!", [
-          {
-            text: "OK",
-            onPress: async () => {
-              await refreshUser();
-              await fetchStatus();
-            },
+  const handleCloseWebView = () => {
+    Alert.alert(
+      "Cancel Payment?",
+      "Are you sure you want to cancel the payment process?",
+      [
+        {
+          text: "Continue Payment",
+          style: "cancel",
+        },
+        {
+          text: "Cancel",
+          style: "destructive",
+          onPress: () => {
+            setShowWebView(false);
+            setPaymentUrl(null);
           },
-        ]);
-      } else {
-        Alert.alert("Payment Failed", "Your payment could not be verified.");
-      }
-    } catch (error: any) {
-      console.error("Error verifying payment:", error);
-      // Only show error if payment wasn't already verified
-      if (
-        error.response?.status !== 400 ||
-        !error.response?.data?.message?.includes("already")
-      ) {
-        Alert.alert(
-          "Verification Error",
-          error.response?.data?.message ||
-            "Failed to verify payment. Please contact support."
-        );
-      }
-    } finally {
-      setIsVerifying(false);
-    }
+        },
+      ]
+    );
   };
 
   if (loading) {
@@ -383,6 +381,22 @@ export function Subscription() {
           </ThemedText>
         </View>
       </ScrollView>
+
+      {/* WebView Modal for Paystack Payment */}
+      <Modal
+        visible={showWebView}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={handleCloseWebView}
+      >
+        {paymentUrl && (
+          <SubscriptionWebView
+            authorizationUrl={paymentUrl}
+            onPaymentComplete={handlePaymentComplete}
+            onClose={handleCloseWebView}
+          />
+        )}
+      </Modal>
     </AppLayout>
   );
 }

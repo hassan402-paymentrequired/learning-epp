@@ -12,6 +12,8 @@ interface User {
   id: number;
   name: string;
   email: string;
+  subscription_status?: string;
+  subscription_expires_at?: string | null;
 }
 
 interface AuthContextType {
