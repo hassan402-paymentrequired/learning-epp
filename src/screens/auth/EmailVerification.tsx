@@ -13,7 +13,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/Button";
 import { useThemeColor } from "@/hooks/useThemeColor";
-import { api } from "@/services/api";
+import api from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -104,13 +104,20 @@ export function EmailVerification() {
       });
 
       if (response.data.success) {
+        // Refresh user to update email_verified_at
+        await refreshUser();
+
+        // Show success message - user can navigate manually or the app will handle it
         Alert.alert("Success", "Email verified successfully!", [
           {
             text: "OK",
-            onPress: async () => {
-              await refreshUser();
-              // @ts-ignore
-              navigation.navigate("Home");
+            onPress: () => {
+              // Navigation will be handled by the Navigation component
+              // based on isAuthenticated state (user already has token)
+              // Just go back if possible
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              }
             },
           },
         ]);
@@ -118,7 +125,8 @@ export function EmailVerification() {
     } catch (error: any) {
       Alert.alert(
         "Verification Failed",
-        error.response?.data?.message || "Invalid verification code. Please try again."
+        error.response?.data?.message ||
+          "Invalid verification code. Please try again."
       );
       // Clear OTP on error
       setOtp(["", "", "", "", "", ""]);
@@ -153,7 +161,8 @@ export function EmailVerification() {
     } catch (error: any) {
       Alert.alert(
         "Error",
-        error.response?.data?.message || "Failed to resend code. Please try again."
+        error.response?.data?.message ||
+          "Failed to resend code. Please try again."
       );
     } finally {
       setResending(false);
@@ -187,7 +196,7 @@ export function EmailVerification() {
             </ThemedText>
 
             <ThemedText style={styles.description}>
-              We've sent a 6-digit verification code to{'\n'}
+              We&rsquo;ve sent a 6-digit verification code to{"\n"}
               <ThemedText type="defaultSemiBold">{email}</ThemedText>
             </ThemedText>
 
@@ -195,7 +204,9 @@ export function EmailVerification() {
               {otp.map((digit, index) => (
                 <TextInput
                   key={index}
-                  ref={(ref) => (inputRefs.current[index] = ref)}
+                  ref={(ref) => {
+                    inputRefs.current[index] = ref;
+                  }}
                   style={[
                     styles.otpInput,
                     {
@@ -224,7 +235,7 @@ export function EmailVerification() {
 
             <View style={styles.resendContainer}>
               <ThemedText style={styles.resendText}>
-                Didn't receive the code?{" "}
+                Didn&rsquo;t receive the code?{" "}
               </ThemedText>
               {countdown > 0 ? (
                 <ThemedText style={[styles.resendText, { color: tintColor }]}>
@@ -233,10 +244,10 @@ export function EmailVerification() {
               ) : (
                 <ThemedText
                   type="link"
-                  onPress={handleResend}
-                  style={{ color: tintColor }}
+                  onPress={resending ? undefined : handleResend}
+                  style={{ color: tintColor, opacity: resending ? 0.5 : 1 }}
                 >
-                  Resend Code
+                  {resending ? "Resending..." : "Resend Code"}
                 </ThemedText>
               )}
             </View>

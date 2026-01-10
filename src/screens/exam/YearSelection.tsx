@@ -41,15 +41,17 @@ export function YearSelection() {
       const response = await api.get("/exams/years", {
         params: {
           exam_type: selection.examType,
-          type: "past_question",
-          subject: selection.subjects[0], // Get years for first subject (or all if not specified)
+          subjects: selection.subjects, // Send subjects as array
         },
       });
 
       if (response.data.success) {
         setYears(response.data.data);
       } else {
-        Alert.alert("Error", "Failed to load available years. Please try again.");
+        Alert.alert(
+          "Error",
+          "Failed to load available years. Please try again."
+        );
       }
     } catch (error: any) {
       console.error("Error loading years:", error);
@@ -116,9 +118,7 @@ export function YearSelection() {
                   style={[
                     styles.yearCard,
                     {
-                      backgroundColor: isSelected
-                        ? tintColor
-                        : cardBackground,
+                      backgroundColor: isSelected ? tintColor : cardBackground,
                       borderColor: isSelected ? tintColor : borderColor,
                       borderWidth: isSelected ? 2 : 1,
                     },
@@ -169,7 +169,9 @@ export function YearSelection() {
             </ThemedText>
           </View>
           <View style={styles.summaryRow}>
-            <ThemedText style={styles.summaryLabel}>Total Questions:</ThemedText>
+            <ThemedText style={styles.summaryLabel}>
+              Total Questions:
+            </ThemedText>
             <ThemedText style={styles.summaryValue}>
               {selection.subjects.reduce((sum, subject) => {
                 return sum + (selection.questionCounts[subject] || 0);
@@ -179,7 +181,9 @@ export function YearSelection() {
           {selectedYear && (
             <View style={styles.summaryRow}>
               <ThemedText style={styles.summaryLabel}>Year:</ThemedText>
-              <ThemedText style={styles.summaryValue}>{selectedYear}</ThemedText>
+              <ThemedText style={styles.summaryValue}>
+                {selectedYear}
+              </ThemedText>
             </View>
           )}
         </View>
@@ -187,7 +191,11 @@ export function YearSelection() {
 
       <View style={styles.footer}>
         <Button
-          title={selectedYear ? `Continue with ${selectedYear}` : "Select Year to Continue"}
+          title={
+            selectedYear
+              ? `Continue with ${selectedYear}`
+              : "Select Year to Continue"
+          }
           onPress={handleContinue}
           disabled={!selectedYear}
         />

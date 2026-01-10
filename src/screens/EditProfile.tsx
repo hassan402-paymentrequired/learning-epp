@@ -13,7 +13,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useThemeColor } from "@/hooks/useThemeColor";
-import { api } from "@/services/api";
+import  api from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigation } from "@react-navigation/native";
 

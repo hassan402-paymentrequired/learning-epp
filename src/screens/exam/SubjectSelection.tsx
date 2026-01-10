@@ -43,34 +43,47 @@ export function SubjectSelection() {
   const quickOptions = [10, 20, 30, 40, 50];
 
   useEffect(() => {
-    loadSubjects();
-  }, [selection.examType]);
+    // Wait for questionMode to be set before loading subjects
+    // For DLI, questionMode is automatically set to 'past_question' in QuestionModeSelection
+    if (selection.examType && selection.questionMode) {
+      loadSubjects();
+    } else if (selection.examType === 'DLI' && !selection.questionMode) {
+      // If DLI but questionMode not set yet, wait a bit and retry
+      const timer = setTimeout(() => {
+        if (selection.examType === 'DLI') {
+          loadSubjects(); // Will use default 'past_question'
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [selection.examType, selection.questionMode]);
 
   const loadSubjects = async () => {
     try {
       setLoading(true);
+      // For DLI, always use 'past_question' mode
+      const questionMode = selection.examType === 'DLI' ? 'past_question' : (selection.questionMode || 'past_question');
+      
       const response = await api.get('/exams/subjects', {
         params: {
           exam_type: selection.examType,
-          type: selection.questionMode === 'practice' ? 'practice' : 'past_question',
+          type: questionMode === 'practice' ? 'practice' : 'past_question',
         },
       });
       
       if (response.data.success) {
-        setSubjectsList(response.data.data);
+        setSubjectsList(response.data.data || []);
+      } else {
+        setSubjectsList([]);
       }
     } catch (error: any) {
       console.error('Error loading subjects:', error);
-      setSubjectsList([
-        'Mathematics',
-        'English',
-        'Physics',
-        'Chemistry',
-        'Biology',
-        'Economics',
-        'Government',
-        'Literature',
-      ]);
+      // Show error message but don't set fallback subjects
+      setSubjectsList([]);
+      Alert.alert(
+        'Error',
+        error.response?.data?.message || 'Failed to load subjects. Please try again.'
+      );
     } finally {
       setLoading(false);
     }

@@ -14,7 +14,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useThemeColor } from "@/hooks/useThemeColor";
-import { api } from "@/services/api";
+import api  from "@/services/api";
 import { useNavigation } from "@react-navigation/native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
@@ -88,6 +88,7 @@ export function ForgotPassword() {
         Alert.alert("Success", "Reset code sent to your email");
       }
     } catch (error: any) {
+      console.log(error)
       Alert.alert(
         "Error",
         error.response?.data?.message || "Failed to send reset code"
@@ -203,7 +204,7 @@ export function ForgotPassword() {
             {!otpSent ? (
               <>
                 <ThemedText style={styles.description}>
-                  Enter your email address and we'll send you a code to reset
+                  Enter your email address and we&rsquo;ll send you a code to reset
                   your password.
                 </ThemedText>
 
@@ -243,7 +244,7 @@ export function ForgotPassword() {
                       style={[
                         styles.otpInput,
                         {
-                          backgroundColor,
+                          backgroundColor: "red",
                           borderColor: digit ? tintColor : textColor + "40",
                           color: textColor,
                         },

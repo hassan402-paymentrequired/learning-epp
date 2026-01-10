@@ -33,10 +33,17 @@ export function QuestionModeSelection() {
   
   // For DLI, automatically select past_question mode and navigate
   React.useEffect(() => {
-    if (isDLI && !selection.questionMode) {
-      setQuestionMode('past_question');
-      // @ts-ignore
-      navigation.navigate('SubjectSelection');
+    if (isDLI) {
+      // Set question mode first, then navigate after a brief delay to ensure state is updated
+      if (!selection.questionMode) {
+        setQuestionMode('past_question');
+      }
+      // Use setTimeout to ensure state is updated before navigation
+      const timer = setTimeout(() => {
+        // @ts-ignore
+        navigation.navigate('SubjectSelection');
+      }, 100);
+      return () => clearTimeout(timer);
     }
   }, [isDLI, selection.questionMode, setQuestionMode, navigation]);
   
