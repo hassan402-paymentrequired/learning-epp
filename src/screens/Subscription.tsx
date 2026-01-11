@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   StyleSheet,
@@ -14,9 +14,8 @@ import { Input } from "@/components/ui/Input";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import api from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect } from "@react-navigation/native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import * as Linking from "expo-linking";
 import { SubscriptionWebView } from "./SubscriptionWebView";
 
 type SubscriptionPlan = {
@@ -44,8 +43,7 @@ type SubscriptionStatus = {
 };
 
 export function Subscription() {
-  const { user, refreshUser } = useAuth();
-  const navigation = useNavigation();
+  const { refreshUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [plan, setPlan] = useState<SubscriptionPlan | null>(null);
@@ -53,9 +51,9 @@ export function Subscription() {
   const [referralCode, setReferralCode] = useState("");
   const [showWebView, setShowWebView] = useState(false);
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
+  const [callbackUrl, setCallbackUrl] = useState<string | null>(null);
+  const [cancelUrl, setCancelUrl] = useState<string | null>(null);
 
-  const backgroundColor = useThemeColor({}, "background");
-  const textColor = useThemeColor({}, "text");
   const tintColor = useThemeColor({}, "tint");
   const borderColor = useThemeColor({}, "border");
   const cardBackground = useThemeColor({}, "cardBackground");
@@ -66,46 +64,6 @@ export function Subscription() {
       fetchStatus();
     }, [])
   );
-
-  // Handle deep link when returning from payment (backend redirects here after verification)
-  useEffect(() => {
-    const handleDeepLink = async (event: { url: string }) => {
-      const { path, queryParams } = Linking.parse(event.url);
-
-      if (path === "subscription/callback") {
-        const status = queryParams?.status as string;
-        const reference = queryParams?.reference as string;
-
-        if (status === "success" && reference) {
-          // Backend already verified payment, just refresh status
-          await refreshUser();
-          await fetchStatus();
-          Alert.alert("Success", "Your subscription has been activated!", [
-            {
-              text: "OK",
-            },
-          ]);
-        } else if (status === "error") {
-          const message = (queryParams?.message as string) || "Payment failed";
-          Alert.alert("Payment Error", message);
-        }
-      }
-    };
-
-    // Check if app was opened via deep link
-    Linking.getInitialURL().then((url) => {
-      if (url) {
-        handleDeepLink({ url });
-      }
-    });
-
-    // Listen for deep links while app is running
-    const subscription = Linking.addEventListener("url", handleDeepLink);
-
-    return () => {
-      subscription.remove();
-    };
-  }, []);
 
   const fetchPlan = async () => {
     try {
@@ -146,10 +104,13 @@ export function Subscription() {
       });
 
       if (response.data.success) {
-        const { authorization_url } = response.data.data;
+        const { authorization_url, callback_url, cancel_url } =
+          response.data.data;
 
         // Show WebView for payment (per Paystack mobile webview recommendation)
         setPaymentUrl(authorization_url);
+        setCallbackUrl(callback_url || null);
+        setCancelUrl(cancel_url || null);
         setShowWebView(true);
       }
     } catch (error: any) {
@@ -164,50 +125,27 @@ export function Subscription() {
     }
   };
 
-  const handlePaymentComplete = async (
-    success: boolean,
-    reference?: string,
-    message?: string
-  ) => {
+  const handlePaymentComplete = async (reference?: string) => {
     setShowWebView(false);
     setPaymentUrl(null);
+    setCallbackUrl(null);
+    setCancelUrl(null);
 
-    if (success) {
-      // Refresh user data to get updated subscription status
-      await refreshUser();
-      await fetchStatus();
-      Alert.alert("Success", "Your subscription has been activated!", [
-        {
-          text: "OK",
-        },
-      ]);
-    } else {
-      Alert.alert(
-        "Payment Failed",
-        message || "Your payment could not be completed. Please try again."
-      );
-    }
+    // Refresh user data to get updated subscription status
+    await refreshUser();
+    await fetchStatus();
+    Alert.alert("Success", "Your subscription has been activated!", [
+      {
+        text: "OK",
+      },
+    ]);
   };
 
-  const handleCloseWebView = () => {
-    Alert.alert(
-      "Cancel Payment?",
-      "Are you sure you want to cancel the payment process?",
-      [
-        {
-          text: "Continue Payment",
-          style: "cancel",
-        },
-        {
-          text: "Cancel",
-          style: "destructive",
-          onPress: () => {
-            setShowWebView(false);
-            setPaymentUrl(null);
-          },
-        },
-      ]
-    );
+  const handlePaymentCancel = () => {
+    setShowWebView(false);
+    setPaymentUrl(null);
+    setCallbackUrl(null);
+    setCancelUrl(null);
   };
 
   if (loading) {
@@ -387,13 +325,15 @@ export function Subscription() {
         visible={showWebView}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={handleCloseWebView}
+        onRequestClose={handlePaymentCancel}
       >
-        {paymentUrl && (
+        {paymentUrl && callbackUrl && cancelUrl && (
           <SubscriptionWebView
             authorizationUrl={paymentUrl}
+            callbackUrl={callbackUrl}
+            cancelUrl={cancelUrl}
             onPaymentComplete={handlePaymentComplete}
-            onClose={handleCloseWebView}
+            onCancel={handlePaymentCancel}
           />
         )}
       </Modal>
