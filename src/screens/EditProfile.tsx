@@ -128,7 +128,7 @@ export function EditProfile() {
             }}
             error={errors.name}
             leftIcon="person-outline"
-            style={styles.input}
+            
           />
 
           <Input
@@ -143,7 +143,7 @@ export function EditProfile() {
             autoCapitalize="none"
             error={errors.email}
             leftIcon="mail-outline"
-            style={styles.input}
+            
           />
 
           <ThemedText type="subtitle" style={[styles.sectionTitle, styles.marginTop]}>
@@ -165,7 +165,7 @@ export function EditProfile() {
             secureTextEntry
             error={errors.currentPassword}
             leftIcon="lock-closed-outline"
-            style={styles.input}
+            
           />
 
           <Input
@@ -179,7 +179,7 @@ export function EditProfile() {
             secureTextEntry
             error={errors.password}
             leftIcon="lock-closed-outline"
-            style={styles.input}
+            
           />
 
           <Input
@@ -193,7 +193,7 @@ export function EditProfile() {
             secureTextEntry
             error={errors.password}
             leftIcon="lock-closed-outline"
-            style={styles.input}
+            
           />
 
           <Button

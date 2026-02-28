@@ -10,6 +10,8 @@ import { Login } from "@/screens/auth/Login";
 import { Signup } from "@/screens/auth/Signup";
 import { EmailVerification } from "@/screens/auth/EmailVerification";
 import { ForgotPassword } from "@/screens/auth/ForgotPassword";
+import { VerifyResetOtp } from "@/screens/auth/VerifyResetOtp";
+import { ResetPassword } from "@/screens/auth/ResetPassword";
 import { EditProfile } from "@/screens/EditProfile";
 import { Profile } from "@/screens/Profile";
 import { SubjectSelection } from "@/screens/exam/SubjectSelection";
@@ -23,6 +25,9 @@ import { JAMBPastQuestionsSelection } from "@/screens/exam/jamb/PastQuestionsSel
 import { JAMBPracticeQuestionsSelection } from "@/screens/exam/jamb/PracticeQuestionsSelection";
 // DLI screens
 import { DLIPracticeSelection } from "@/screens/exam/dli/PracticeSelection";
+// Unilag/Department flow
+import { DepartmentsList } from "@/screens/unilag/DepartmentsList";
+import { DepartmentSubjects } from "@/screens/unilag/DepartmentSubjects";
 import { ExamResults } from "@/screens/exam/ExamResults";
 import { CorrectionsScreen } from "@/screens/exam/CorrectionsScreen";
 import { Leaderboard } from "@/screens/Leaderboard";
@@ -53,6 +58,8 @@ function AuthNavigator() {
       <AuthStack.Screen name="Signup" component={Signup} />
       <AuthStack.Screen name="EmailVerification" component={EmailVerification} />
       <AuthStack.Screen name="ForgotPassword" component={ForgotPassword} />
+      <AuthStack.Screen name="VerifyResetOtp" component={VerifyResetOtp} />
+      <AuthStack.Screen name="ResetPassword" component={ResetPassword} />
     </AuthStack.Navigator>
   );
 }
@@ -66,7 +73,9 @@ function AppNavigator() {
       <AppStack.Screen name="JAMBModeSelection" component={JAMBModeSelection} />
       <AppStack.Screen name="JAMBPastQuestionsSelection" component={JAMBPastQuestionsSelection} />
       <AppStack.Screen name="JAMBPracticeQuestionsSelection" component={JAMBPracticeQuestionsSelection} />
-      {/* DLI screens */}
+      {/* DLI / Unilag screens */}
+      <AppStack.Screen name="DepartmentsList" component={DepartmentsList} />
+      <AppStack.Screen name="DepartmentSubjects" component={DepartmentSubjects} />
       <AppStack.Screen name="DLIPracticeSelection" component={DLIPracticeSelection} />
       {/* Legacy screens (kept for backward compatibility, can be removed later) */}
       <AppStack.Screen
@@ -89,7 +98,10 @@ function AppNavigator() {
 }
 
 export function Navigation({ theme, linking, onReady }: any) {
-  const { isAuthenticated, isLoading, hasSeenOnboarding } = useAuth();
+  const { isAuthenticated, isLoading, hasSeenOnboarding, user } = useAuth();
+
+  // Email verified check: null means not verified
+  const emailVerified = !!user?.email_verified_at;
 
   if (isLoading) {
     return (
@@ -107,8 +119,18 @@ export function Navigation({ theme, linking, onReady }: any) {
         barStyle={theme.mode === "dark" ? "light-content" : "dark-content"}
       />
       <NavigationContainer theme={theme} linking={linking} onReady={onReady}>
-        {isAuthenticated ? (
+        {isAuthenticated && emailVerified ? (
           <AppNavigator />
+        ) : isAuthenticated && !emailVerified ? (
+          // Authenticated but email not verified — lock to verification screen
+          // Using a minimal stack so the user cannot navigate away
+          <AuthStack.Navigator screenOptions={{ headerShown: false }}>
+            <AuthStack.Screen
+              name="EmailVerification"
+              component={EmailVerification}
+              initialParams={{ email: user?.email }}
+            />
+          </AuthStack.Navigator>
         ) : hasSeenOnboarding ? (
           <AuthNavigator />
         ) : (

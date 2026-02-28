@@ -92,7 +92,7 @@ export function Signup() {
 
     setLoading(true);
     try {
-      await register(
+      const pendingSession = await register(
         name.trim(),
         email.trim(),
         password,
@@ -100,9 +100,14 @@ export function Signup() {
         referralCode.trim() || undefined
       );
 
-      // Redirect to email verification screen
+      // Navigate to email verification — pass the pending token & user
+      // so we can activate the session only AFTER OTP is confirmed.
       // @ts-ignore
-      navigation.navigate("EmailVerification", { email: email.trim() });
+      navigation.navigate("EmailVerification", {
+        email: email.trim(),
+        pendingToken: pendingSession.token,
+        pendingUser: pendingSession.user,
+      });
     } catch (error: any) {
       Alert.alert("Registration Failed", error.message || "Please try again");
     } finally {
@@ -133,23 +138,6 @@ export function Signup() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Header */}
-          <View style={styles.header}>
-            <IconButton
-              name="arrow-back"
-              onPress={() => navigation.goBack()}
-              size={24}
-            />
-            <ThemedText
-              type="link"
-              onPress={() =>
-                Alert.alert("Help", "Contact support for assistance")
-              }
-              style={styles.helpLink}
-            >
-              Need Help?
-            </ThemedText>
-          </View>
 
           {/* Title Section */}
           <View style={styles.titleSection}>
@@ -157,8 +145,7 @@ export function Signup() {
               Register your account!
             </ThemedText>
             <ThemedText style={styles.description}>
-              Hello, you must login first to be able to use the application and
-              enjoy all the features in Exam Prep
+              provider your information to continue
             </ThemedText>
           </View>
 
@@ -268,54 +255,9 @@ export function Signup() {
             />
 
             {/* Social Login Separator */}
-            <View style={styles.separator}>
-              <View
-                style={[styles.separatorLine, { backgroundColor: borderColor }]}
-              />
-              <ThemedText style={styles.separatorText}>
-                Or sign in with
-              </ThemedText>
-              <View
-                style={[styles.separatorLine, { backgroundColor: borderColor }]}
-              />
-            </View>
 
-            {/* Social Login Buttons */}
-            <View style={styles.socialButtons}>
-              <TouchableOpacity
-                style={[styles.socialButton, { backgroundColor }]}
-                onPress={() => handleSocialLogin("google")}
-                activeOpacity={0.7}
-              >
-                <ThemedText
-                  style={[styles.socialButtonText, { color: "#4285F4" }]}
-                >
-                  G
-                </ThemedText>
-                <ThemedText
-                  style={[styles.socialButtonLabel, { color: textColor }]}
-                >
-                  Continue With Google
-                </ThemedText>
-              </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.socialButton, { backgroundColor }]}
-                onPress={() => handleSocialLogin("facebook")}
-                activeOpacity={0.7}
-              >
-                <ThemedText
-                  style={[styles.socialButtonText, { color: "#1877F2" }]}
-                >
-                  f
-                </ThemedText>
-                <ThemedText
-                  style={[styles.socialButtonLabel, { color: textColor }]}
-                >
-                  Continue With Facebook
-                </ThemedText>
-              </TouchableOpacity>
-            </View>
+
 
             {/* Footer */}
             <View style={styles.footer}>

@@ -7,6 +7,6 @@
 
 export const API_BASE_URL = __DEV__
   ? Platform.OS === 'android'
-    ? 'http://10.0.2.2:8000/api' // Android emulator
-    : 'http://localhost:8000/api' // iOS simulator
-  : 'https://your-api-domain.com/api'; // Production
+    ? 'http://api.test/api' // Android emulator
+    : 'http://api.test/api' // iOS simulator
+  : 'https://admin.stepra.com/api'; // Production

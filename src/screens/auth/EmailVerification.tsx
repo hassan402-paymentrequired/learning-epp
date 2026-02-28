@@ -21,12 +21,14 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 export function EmailVerification() {
   const navigation = useNavigation();
   const route = useRoute();
-  const { refreshUser } = useAuth();
+  const { activateSession } = useAuth();
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [email, setEmail] = useState("");
   const [countdown, setCountdown] = useState(0);
+  const [pendingToken, setPendingToken] = useState<string | null>(null);
+  const [pendingUser, setPendingUser] = useState<any>(null);
 
   const inputRefs = useRef<(TextInput | null)[]>([]);
   const gradientStart = useThemeColor({}, "gradientStart");
@@ -36,10 +38,17 @@ export function EmailVerification() {
   const backgroundColor = useThemeColor({}, "background");
 
   useEffect(() => {
-    // Get email from route params or auth context
-    const routeEmail = (route.params as any)?.email;
+    // Get email and pending session from route params
+    const params = route.params as any;
+    const routeEmail = params?.email;
     if (routeEmail) {
       setEmail(routeEmail);
+    }
+    if (params?.pendingToken) {
+      setPendingToken(params.pendingToken);
+    }
+    if (params?.pendingUser) {
+      setPendingUser(params.pendingUser);
     }
   }, [route]);
 
@@ -104,29 +113,24 @@ export function EmailVerification() {
       });
 
       if (response.data.success) {
-        // Refresh user to update email_verified_at
-        await refreshUser();
-
-        // Show success message - user can navigate manually or the app will handle it
-        Alert.alert("Success", "Email verified successfully!", [
-          {
-            text: "OK",
-            onPress: () => {
-              // Navigation will be handled by the Navigation component
-              // based on isAuthenticated state (user already has token)
-              // Just go back if possible
-              if (navigation.canGoBack()) {
-                navigation.goBack();
-              }
-            },
-          },
-        ]);
+        if (pendingToken && pendingUser) {
+          // New signup flow: activate session to log user in directly
+          await activateSession(pendingToken, pendingUser);
+          // Navigation is handled automatically by the Navigation component
+          // since isAuthenticated becomes true → AppNavigator loads
+        } else {
+          // Already-logged-in user verifying email (e.g. resend flow)
+          // Navigation will be handled by the Navigation component
+          if (navigation.canGoBack()) {
+            navigation.goBack();
+          }
+        }
       }
     } catch (error: any) {
       Alert.alert(
         "Verification Failed",
         error.response?.data?.message ||
-          "Invalid verification code. Please try again."
+        "Invalid verification code. Please try again."
       );
       // Clear OTP on error
       setOtp(["", "", "", "", "", ""]);
@@ -162,7 +166,7 @@ export function EmailVerification() {
       Alert.alert(
         "Error",
         error.response?.data?.message ||
-          "Failed to resend code. Please try again."
+        "Failed to resend code. Please try again."
       );
     } finally {
       setResending(false);

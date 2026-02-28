@@ -31,34 +31,32 @@ export function SubscriptionWebView({
 
     if (!url) return;
 
-    console.log("WebView navigation state changed:", url);
+    console.log("WebView navigation:", url);
 
-    // Handle callback URL - payment successful
-    // Check if URL matches callback URL (with or without query parameters)
-    if (url.startsWith(callbackUrl.split("?")[0])) {
+    // Extract the base path from the callback URL for matching
+    // Paystack redirects to: {callbackUrl}?reference=xxx&trxref=xxx
+    const callbackBase = callbackUrl.split("?")[0];
+    const cancelBase = cancelUrl.split("?")[0];
+
+    // Extract reference from URL query params regardless of how URL is matched
+    const extractReference = (fullUrl: string): string | undefined => {
+      const queryPart = fullUrl.split("?")[1];
+      if (!queryPart) return undefined;
+      const params = new URLSearchParams(queryPart);
+      return params.get("reference") || params.get("trxref") || undefined;
+    };
+
+    // Handle callback URL — payment successful
+    // Use includes() so slight domain/protocol variations still match
+    if (url.includes("/subscriptions/callback") || url.startsWith(callbackBase)) {
       console.log("Callback URL reached - payment successful");
-
-      // Extract transaction reference from URL if available
-      const urlParts = url.split("?");
-      let reference: string | undefined = undefined;
-
-      if (urlParts.length > 1) {
-        const params = urlParts[1].split("&");
-        for (const param of params) {
-          const [key, value] = param.split("=");
-          if (key === "reference" || key === "trxref") {
-            reference = decodeURIComponent(value);
-            break;
-          }
-        }
-      }
-
-      // Verify transaction with backend and handle success
+      const reference = extractReference(url);
       onPaymentComplete(reference);
+      return;
     }
 
-    // Handle cancel URL - user cancelled payment
-    if (url.startsWith(cancelUrl.split("?")[0])) {
+    // Handle cancel URL — user cancelled payment
+    if (url.includes("/subscriptions/cancel") || url.startsWith(cancelBase)) {
       console.log("Cancel URL reached - payment cancelled");
       onCancel();
     }

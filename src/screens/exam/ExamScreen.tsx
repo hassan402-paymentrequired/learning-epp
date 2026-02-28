@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
   StyleSheet,
@@ -8,7 +8,9 @@ import {
   Alert,
   Modal,
   BackHandler,
+  TextInput,
 } from "react-native";
+import * as ScreenCapture from 'expo-screen-capture';
 import { ThemedText } from "@/components/ThemedText";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/Button";
@@ -23,6 +25,7 @@ import api from "@/services/api";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { CalculatorModal } from "@/components/CalculatorModal";
 
+// Types
 interface Question {
   id: number;
   question_text: string;
@@ -52,6 +55,9 @@ interface RouteParams {
   subjectsQuestions: Record<string, Question[]>; // Subject -> Questions mapping
   exam: ExamData;
   timeMinutes: number;
+  subjects?: string[];
+  questionCounts?: Record<string, number>;
+  isPractice?: boolean;
 }
 
 export function ExamScreen() {
@@ -60,8 +66,20 @@ export function ExamScreen() {
   const { incrementPracticeSession, selection } = useExamSelection();
   const params = route.params as RouteParams;
 
+  const routeSubjects = params?.subjects || selection.subjects || [];
+  const routeQuestionCounts = params?.questionCounts || selection.questionCounts || {};
+  const routeTimeMinutes = params?.timeMinutes || selection.timeMinutes || 30;
+  const routeIsPractice = params?.isPractice ?? (selection.questionMode === "practice");
+
+  const [currentSubjectForQuestionCount, setCurrentSubjectForQuestionCount] =
+    useState<string | null>(null);
+
+  const hasSubmittedRef = useRef(false);
+  const selectedAnswersRef = useRef<Record<number, number>>({});
+  const textInputAnswersRef = useRef<Record<number, string>>({});
+
   const [currentSubject, setCurrentSubject] = useState<string>(
-    selection.subjects[0] || ""
+    routeSubjects[0] || ""
   );
   const [subjectsQuestions, setSubjectsQuestions] = useState<
     Record<string, Question[]>
@@ -71,7 +89,7 @@ export function ExamScreen() {
   >(() => {
     // Initialize current index for each subject to 0
     const indices: Record<string, number> = {};
-    selection.subjects.forEach((subject) => {
+    routeSubjects.forEach((subject) => {
       indices[subject] = 0;
     });
     return indices;
@@ -79,12 +97,20 @@ export function ExamScreen() {
   const [selectedAnswers, setSelectedAnswers] = useState<
     Record<number, number>
   >({});
+  const [textInputAnswers, setTextInputAnswers] = useState<
+    Record<number, string>
+  >({});
   const [timeRemaining, setTimeRemaining] = useState(
-    (params?.timeMinutes || 30) * 60
+    routeTimeMinutes * 60
   ); // in seconds
   const [loading, setLoading] = useState(false);
   const [showSubjectModal, setShowSubjectModal] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
+
+  useEffect(() => {
+    selectedAnswersRef.current = selectedAnswers;
+    textInputAnswersRef.current = textInputAnswers;
+  }, [selectedAnswers, textInputAnswers]);
 
   const backgroundColor = useThemeColor({}, "background");
   const tintColor = useThemeColor({}, "tint");
@@ -107,33 +133,37 @@ export function ExamScreen() {
   const totalAnswered = Object.keys(selectedAnswers).length;
 
   // Check if all subjects are completed
-  const allSubjectsCompleted = selection.subjects.every((subject) => {
+  const allSubjectsCompleted = routeSubjects.every((subject) => {
     const questions = subjectsQuestions[subject] || [];
-    return questions.every((q) => selectedAnswers[q.id] !== undefined);
+    return questions.every((q) => {
+      if (q.question_type === 'text_input' || q.question_type === 'numeric_input') {
+        return textInputAnswers[q.id] !== undefined && textInputAnswers[q.id].trim() !== '';
+      }
+      return selectedAnswers[q.id] !== undefined;
+    });
   });
 
-  // Handle back button press - warn user before leaving
+  // Handle back button press - prevent screen departure and auto-submit
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (hasSubmittedRef.current) return;
+
+      e.preventDefault();
+
+      // We explicitly bypass handleCompleteExam to reliably trigger submit without stale closures
+      submitExam().then(() => {
+        navigation.dispatch(e.data.action);
+      });
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
   useFocusEffect(
-    React.useCallback(() => {
+    useCallback(() => {
       const onBackPress = () => {
-        Alert.alert(
-          "Leave Exam?",
-          "Are you sure you want to leave? Your progress will be saved, but you should submit your exam first.",
-          [
-            {
-              text: "Cancel",
-              style: "cancel",
-            },
-            {
-              text: "Leave",
-              style: "destructive",
-              onPress: () => {
-                navigation.goBack();
-              },
-            },
-          ]
-        );
-        return true; // Prevent default back behavior
+        navigation.goBack();
+        return true;
       };
 
       const backHandler = BackHandler.addEventListener(
@@ -145,39 +175,55 @@ export function ExamScreen() {
     }, [navigation])
   );
 
+  // Screen Security
+  useEffect(() => {
+    ScreenCapture.preventScreenCaptureAsync();
+    return () => {
+      ScreenCapture.allowScreenCaptureAsync();
+    };
+  }, []);
+
   // Define submitExam function
   const submitExam = useCallback(async () => {
-    if (!params?.attemptId) return;
+    if (!params?.attemptId || hasSubmittedRef.current) return;
+    hasSubmittedRef.current = true;
 
     try {
       setLoading(true);
 
-      // Submit all answers
-      for (const [questionId, answerId] of Object.entries(selectedAnswers)) {
-        await api.post(`/exam-attempts/${params.attemptId}/submit-answer`, {
-          question_id: parseInt(questionId),
-          answer_id: answerId,
-        });
+      const promises = [];
+
+      // Submit all text answers in parallel
+      for (const [questionId, textValue] of Object.entries(textInputAnswersRef.current)) {
+        if (!textValue || textValue.trim() === '') continue;
+        promises.push(
+          api.post(`/exam-attempts/${params.attemptId}/submit-answer`, {
+            question_id: parseInt(questionId),
+            answer_text: textValue.trim(),
+          })
+        );
       }
 
+      await Promise.all(promises);
+
       // Prepare subjects data for multi-subject exams
-      const subjectsData = selection.subjects.map((subject) => ({
+      const subjectsData = routeSubjects.map((subject) => ({
         subject: subject,
-        question_count: selection.questionCounts[subject] || 0,
+        question_count: routeQuestionCounts[subject] || 0,
       }));
 
       // Complete the exam with subjects and duration
       await api.post(`/exam-attempts/${params.attemptId}/complete`, {
         subjects: subjectsData,
-        duration_minutes: selection.timeMinutes,
+        duration_minutes: routeTimeMinutes,
       });
 
       // Increment practice session if it was a practice exam
       if (
-        selection.questionMode === "practice" &&
-        selection.subjects.length > 0
+        routeIsPractice &&
+        routeSubjects.length > 0
       ) {
-        selection.subjects.forEach((subject) => {
+        routeSubjects.forEach((subject) => {
           incrementPracticeSession(subject);
         });
       }
@@ -190,13 +236,16 @@ export function ExamScreen() {
     } catch (error: any) {
       console.error("Error submitting exam:", error);
       Alert.alert("Error", "Failed to submit exam. Please try again.");
+      hasSubmittedRef.current = false;
     } finally {
       setLoading(false);
     }
   }, [
     params,
-    selectedAnswers,
-    selection,
+    routeSubjects,
+    routeQuestionCounts,
+    routeTimeMinutes,
+    routeIsPractice,
     incrementPracticeSession,
     navigation,
   ]);
@@ -246,10 +295,29 @@ export function ExamScreen() {
       .padStart(2, "0")}`;
   };
 
-  const handleSelectAnswer = (answerId: number) => {
+  const handleSelectAnswer = async (answerId: number) => {
+    if (!currentQuestion || !params?.attemptId) return;
+
     setSelectedAnswers({
       ...selectedAnswers,
       [currentQuestion.id]: answerId,
+    });
+
+    // Auto-submit immediately in background
+    try {
+      await api.post(`/exam-attempts/${params.attemptId}/submit-answer`, {
+        question_id: currentQuestion.id,
+        answer_id: answerId,
+      });
+    } catch (e) {
+      console.error("Auto submit answer failed:", e);
+    }
+  };
+
+  const handleTextInputChange = (value: string) => {
+    setTextInputAnswers({
+      ...textInputAnswers,
+      [currentQuestion.id]: value,
     });
   };
 
@@ -285,16 +353,20 @@ export function ExamScreen() {
   };
 
   const handleCompleteExam = async (autoSubmit = false) => {
-    const unansweredSubjects = selection.subjects.filter((subject) => {
+    const unansweredSubjects = routeSubjects.filter((subject) => {
       const questions = subjectsQuestions[subject] || [];
-      return questions.some((q) => selectedAnswers[q.id] === undefined);
+      return questions.some((q) => {
+        if (q.question_type === 'text_input' || q.question_type === 'numeric_input') {
+          return textInputAnswers[q.id] === undefined || textInputAnswers[q.id].trim() === '';
+        }
+        return selectedAnswers[q.id] === undefined;
+      });
     });
 
     if (!autoSubmit && unansweredSubjects.length > 0) {
       Alert.alert(
         "Complete Exam",
-        `You have unanswered questions in ${unansweredSubjects.length} ${
-          unansweredSubjects.length === 1 ? "subject" : "subjects"
+        `You have unanswered questions in ${unansweredSubjects.length} ${unansweredSubjects.length === 1 ? "subject" : "subjects"
         }. Are you sure you want to submit?`,
         [
           { text: "Cancel", style: "cancel" },
@@ -347,10 +419,6 @@ export function ExamScreen() {
           ]}
         >
           <View style={styles.headerTop}>
-            <TouchableOpacity onPress={() => navigation.goBack()}>
-              <MaterialIcons name="arrow-back" size={24} color={textColor} />
-            </TouchableOpacity>
-
             {/* Subject Selector */}
             <TouchableOpacity
               style={styles.subjectSelector}
@@ -390,34 +458,6 @@ export function ExamScreen() {
               </View>
             </View>
           </View>
-
-          {/* Subject Progress */}
-          <View style={styles.subjectProgress}>
-            <ThemedText style={styles.subjectProgressText}>
-              {currentSubjectProgress.answered} / {currentSubjectProgress.total}{" "}
-              answered
-            </ThemedText>
-          </View>
-
-          <View style={styles.progressBar}>
-            <View
-              style={[
-                styles.progressFill,
-                {
-                  width: `${
-                    (currentSubjectProgress.answered /
-                      currentSubjectProgress.total) *
-                    100
-                  }%`,
-                  backgroundColor: tintColor,
-                },
-              ]}
-            />
-          </View>
-          <ThemedText style={styles.progressText}>
-            Question {currentQuestionIndex + 1} of {totalQuestionsForSubject} (
-            {currentSubject})
-          </ThemedText>
         </View>
 
         {/* Subject Selection Modal */}
@@ -441,7 +481,7 @@ export function ExamScreen() {
               </View>
 
               <ScrollView>
-                {selection.subjects.map((subject) => {
+                {routeSubjects.map((subject) => {
                   const progress = getSubjectProgress(subject);
                   const isCurrent = subject === currentSubject;
                   return (
@@ -505,47 +545,125 @@ export function ExamScreen() {
 
           {/* Answers */}
           <View style={styles.answersContainer}>
-            {currentQuestion.answers.map((answer) => {
-              const isSelected = selectedAnswerId === answer.id;
-              return (
-                <TouchableOpacity
-                  key={answer.id}
-                  style={[
-                    styles.answerCard,
-                    {
-                      backgroundColor: isSelected
-                        ? tintColor + "20"
-                        : cardBackground,
-                      borderColor: isSelected ? tintColor : borderColor,
-                    },
-                  ]}
-                  onPress={() => handleSelectAnswer(answer.id)}
-                  activeOpacity={0.7}
-                >
-                  <View
+            {currentQuestion.question_type === "multiple_choice" &&
+              currentQuestion.answers?.map((answer) => {
+                const isSelected = selectedAnswerId === answer.id;
+                return (
+                  <TouchableOpacity
+                    key={answer.id}
                     style={[
-                      styles.answerIndicator,
+                      styles.answerCard,
                       {
-                        backgroundColor: isSelected ? tintColor : "transparent",
+                        backgroundColor: isSelected
+                          ? tintColor + "20"
+                          : cardBackground,
+                        borderColor: isSelected ? tintColor : borderColor,
+                      },
+                    ]}
+                    onPress={() => handleSelectAnswer(answer.id)}
+                    activeOpacity={0.7}
+                  >
+                    <View
+                      style={[
+                        styles.answerIndicator,
+                        {
+                          backgroundColor: isSelected ? tintColor : "transparent",
+                          borderColor: tintColor,
+                        },
+                      ]}
+                    >
+                      {isSelected && (
+                        <MaterialIcons name="check" size={16} color="#fff" />
+                      )}
+                    </View>
+                    <ThemedText
+                      style={[
+                        styles.answerText,
+                        { color: isSelected ? tintColor : undefined },
+                      ]}
+                    >
+                      {answer.order}. {answer.answer_text}
+                    </ThemedText>
+                  </TouchableOpacity>
+                );
+              })}
+
+            {currentQuestion.question_type === "true_false" && (() => {
+              const trueAnswer = currentQuestion.answers?.find(
+                (a) => {
+                  const txt = a.answer_text.toLowerCase().trim();
+                  return txt === "true" || txt === "1" || txt === "yes";
+                }
+              ) || currentQuestion.answers?.[0];
+
+              const falseAnswer = currentQuestion.answers?.find(
+                (a) => {
+                  const txt = a.answer_text.toLowerCase().trim();
+                  return txt === "false" || txt === "0" || txt === "no";
+                }
+              ) || currentQuestion.answers?.[1];
+
+              const virtualTrueId = trueAnswer?.id ?? -1000 - currentQuestion.id;
+              const virtualFalseId = falseAnswer?.id ?? -2000 - currentQuestion.id;
+
+              return (
+                <View style={{ flexDirection: "row", gap: 12 }}>
+                  <TouchableOpacity
+                    style={[
+                      styles.answerCard,
+                      { flex: 1, justifyContent: "center" },
+                      selectedAnswerId === (trueAnswer?.id ?? virtualTrueId) && {
+                        backgroundColor: tintColor + "20",
                         borderColor: tintColor,
                       },
                     ]}
+                    onPress={() => handleSelectAnswer(trueAnswer?.id ?? virtualTrueId)}
                   >
-                    {isSelected && (
-                      <MaterialIcons name="check" size={16} color="#fff" />
-                    )}
-                  </View>
-                  <ThemedText
+                    <ThemedText
+                      style={[
+                        { textAlign: "center", fontWeight: "600", fontSize: 16 },
+                        selectedAnswerId === (trueAnswer?.id ?? virtualTrueId) && { color: tintColor },
+                      ]}
+                    >
+                      True
+                    </ThemedText>
+                  </TouchableOpacity>
+                  <TouchableOpacity
                     style={[
-                      styles.answerText,
-                      { color: isSelected ? tintColor : undefined },
+                      styles.answerCard,
+                      { flex: 1, justifyContent: "center" },
+                      selectedAnswerId === (falseAnswer?.id ?? virtualFalseId) && {
+                        backgroundColor: tintColor + "20",
+                        borderColor: tintColor,
+                      },
                     ]}
+                    onPress={() => handleSelectAnswer(falseAnswer?.id ?? virtualFalseId)}
                   >
-                    {answer.order}. {answer.answer_text}
-                  </ThemedText>
-                </TouchableOpacity>
+                    <ThemedText
+                      style={[
+                        { textAlign: "center", fontWeight: "600", fontSize: 16 },
+                        selectedAnswerId === (falseAnswer?.id ?? virtualFalseId) && { color: tintColor },
+                      ]}
+                    >
+                      False
+                    </ThemedText>
+                  </TouchableOpacity>
+                </View>
               );
-            })}
+            })()}
+
+            {(currentQuestion.question_type === "text_input" || currentQuestion.question_type === "numeric_input") && (
+              <View style={[styles.textInputContainer, { borderColor: tintColor }]}>
+                <TextInput
+                  style={[styles.textInput, { color: textColor }]}
+                  value={textInputAnswers[currentQuestion.id] || ""}
+                  onChangeText={handleTextInputChange}
+                  placeholder={currentQuestion.question_type === "numeric_input" ? "Enter a number..." : "Type your answer here..."}
+                  placeholderTextColor={useThemeColor({}, "placeholder")}
+                  keyboardType={currentQuestion.question_type === "numeric_input" ? "numeric" : "default"}
+                />
+              </View>
+            )}
           </View>
         </ScrollView>
 
@@ -558,7 +676,13 @@ export function ExamScreen() {
         >
           <View style={styles.questionGrid}>
             {currentQuestions.map((q, index) => {
-              const isAnswered = selectedAnswers[q.id] !== undefined;
+              let isAnswered = false;
+              if (q.question_type === 'text_input' || q.question_type === 'numeric_input') {
+                isAnswered = textInputAnswers[q.id] !== undefined && textInputAnswers[q.id].trim() !== '';
+              } else {
+                isAnswered = selectedAnswers[q.id] !== undefined;
+              }
+
               const isCurrent = index === currentQuestionIndex;
               return (
                 <TouchableOpacity
@@ -569,8 +693,8 @@ export function ExamScreen() {
                       backgroundColor: isCurrent
                         ? tintColor
                         : isAnswered
-                        ? tintColor + "80"
-                        : "transparent",
+                          ? tintColor + "80"
+                          : "transparent",
                       borderColor: tintColor,
                     },
                   ]}
@@ -609,8 +733,8 @@ export function ExamScreen() {
                 onPress={() => {
                   // Find next incomplete subject
                   const currentIndex =
-                    selection.subjects.indexOf(currentSubject);
-                  const nextSubjects = selection.subjects.slice(
+                    routeSubjects.indexOf(currentSubject);
+                  const nextSubjects = routeSubjects.slice(
                     currentIndex + 1
                   );
                   const incompleteSubject = nextSubjects.find((subject) => {
@@ -815,6 +939,15 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     lineHeight: 22,
+  },
+  textInputContainer: {
+    borderWidth: 2,
+    borderRadius: 8,
+    padding: 12,
+  },
+  textInput: {
+    fontSize: 16,
+    minHeight: 40,
   },
   footer: {
     padding: 16,

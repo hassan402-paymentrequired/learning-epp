@@ -3,7 +3,6 @@ import {
   View,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   ActivityIndicator,
   Alert,
 } from "react-native";
@@ -72,10 +71,7 @@ export function ExamResults() {
   );
 
   const tintColor = useThemeColor({}, "tint");
-  const textColor = useThemeColor({}, "text");
   const cardBackground = useThemeColor({}, "cardBackground");
-  const borderColor = useThemeColor({}, "border");
-  const backgroundColor = useThemeColor({}, "background");
   const successColor = "#10B981";
   const errorColor = "#EF4444";
 
@@ -103,12 +99,6 @@ export function ExamResults() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}m ${secs}s`;
   };
 
   const getGradeColor = (percentage: number) => {
@@ -166,31 +156,7 @@ export function ExamResults() {
         {/* Overview */}
         {attempt && (
           <>
-            {/* Score Card */}
-            <View
-              style={[styles.scoreCard, { backgroundColor: cardBackground }]}
-            >
-              <LinearGradient
-                colors={[
-                  getGradeColor(attempt.percentage),
-                  getGradeColor(attempt.percentage) + "DD",
-                ]}
-                style={styles.scoreGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <ThemedText style={styles.scorePercentage}>
-                  {attempt.correct_answers}/{attempt.total_questions}
-                </ThemedText>
-                <ThemedText style={styles.scoreGrade}>
-                  {getGradeText(attempt.percentage)}
-                </ThemedText>
-                <ThemedText style={styles.scoreDetails}>
-                  {attempt.correct_answers} correct out of{" "}
-                  {attempt.total_questions} questions
-                </ThemedText>
-              </LinearGradient>
-            </View>
+           
 
             {/* Statistics Cards */}
             <View style={styles.statsContainer}>
@@ -321,6 +287,7 @@ export function ExamResults() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    marginTop: 30
   },
   centerContainer: {
     flex: 1,

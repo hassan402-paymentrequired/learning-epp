@@ -6,7 +6,6 @@ import {
   Alert,
   TouchableOpacity,
 } from "react-native";
-import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/ui/Button";
 import { AppLayout } from "@/components/AppLayout";
@@ -73,10 +72,7 @@ export function Profile() {
             <ThemedText style={styles.value}>{user?.email || "N/A"}</ThemedText>
           </View>
 
-          <View style={styles.infoRow}>
-            <ThemedText style={styles.label}>User ID</ThemedText>
-            <ThemedText style={styles.value}>#{user?.id || "N/A"}</ThemedText>
-          </View>
+         
         </View>
 
         <View style={styles.section}>
@@ -112,7 +108,7 @@ export function Profile() {
           >
             <View style={styles.settingLeft}>
               <MaterialIcons
-                name="gift"
+                name="wallet-giftcard"
                 size={24}
                 color={tintColor}
                 style={styles.settingIcon}
@@ -147,12 +143,8 @@ export function Profile() {
             <MaterialIcons name="chevron-right" size={20} color={tintColor} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.settingItem}>
-            <ThemedText style={styles.settingLabel}>Notifications</ThemedText>
-            <ThemedText style={styles.settingValue}>Enabled</ThemedText>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.settingItem} onPress={toggleTheme}>
+      
+          {/* <TouchableOpacity style={styles.settingItem} onPress={toggleTheme}>
             <View style={styles.settingLeft}>
               <MaterialIcons
                 name={colorScheme === "dark" ? "dark-mode" : "light-mode"}
@@ -168,7 +160,7 @@ export function Profile() {
               </ThemedText>
               <MaterialIcons name="chevron-right" size={20} color={tintColor} />
             </View>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
 
         <Button

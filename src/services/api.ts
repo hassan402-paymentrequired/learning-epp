@@ -1,19 +1,15 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Update this with your Laravel API URL
-// For Android emulator, use: http://10.0.2.2:8000/api
-// For iOS simulator, use: http://localhost:8000/api
-// For physical device, use your computer's IP: http://YOUR_IP:8000/api
 const API_BASE_URL = __DEV__
-  ? 'https://1a55a40c4de1.ngrok-free.app/api'   // iOS simulator
-  : 'https://your-api-domain.com/api'; // Production
+  ? 'https://58c9-41-67-156-54.ngrok-free.app/api'
+  : 'https://admin.stepra.com.ng/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
-    'Accept': 'application/json',
+    Accept: 'application/json',
   },
 });
 

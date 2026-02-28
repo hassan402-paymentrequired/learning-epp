@@ -11,7 +11,6 @@ import {
 import { ThemedText } from "@/components/ThemedText";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/Button";
-import { useExamSelection } from "@/contexts/ExamSelectionContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigation } from "@react-navigation/native";
 import { useThemeColor } from "@/hooks/useThemeColor";
@@ -34,13 +33,6 @@ interface Answer {
 }
 
 export function JAMBPracticeQuestionsSelection() {
-  const {
-    selection,
-    addSubject,
-    removeSubject,
-    setQuestionCount,
-    setTimeMinutes,
-  } = useExamSelection();
   const { user } = useAuth();
   const navigation = useNavigation();
   const [subjects, setSubjectsList] = useState<string[]>([]);
@@ -48,6 +40,7 @@ export function JAMBPracticeQuestionsSelection() {
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(
     new Set()
   );
+  const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
   const [questionCounts, setQuestionCounts] = useState<Record<string, number>>(
     {}
   );
@@ -55,12 +48,11 @@ export function JAMBPracticeQuestionsSelection() {
   const [currentSubjectForQuestionCount, setCurrentSubjectForQuestionCount] =
     useState<string | null>(null);
   const [startingExam, setStartingExam] = useState(false);
-
-  // Check if user has active subscription
-  const hasActiveSubscription =
+  const [hasActiveSubscription, setHasActiveSubscription] = useState(
     user?.subscription_status === "active" &&
-    user?.subscription_expires_at &&
-    new Date(user.subscription_expires_at) > new Date();
+    !!user?.subscription_expires_at &&
+    new Date(user.subscription_expires_at) > new Date()
+  );
 
   const tintColor = useThemeColor({}, "tint");
   const cardBackground = useThemeColor({}, "cardBackground");
@@ -69,6 +61,7 @@ export function JAMBPracticeQuestionsSelection() {
   const placeholderColor = useThemeColor({}, "placeholder");
 
   const maxQuestionsPerSubject = hasActiveSubscription ? 100 : 5;
+  const defaultQuestionCount = hasActiveSubscription ? 10 : 5;
   // Generate question count options based on subscription
   const questionCountOptions = Array.from(
     { length: maxQuestionsPerSubject },
@@ -77,7 +70,19 @@ export function JAMBPracticeQuestionsSelection() {
 
   useEffect(() => {
     loadSubjects();
+    checkSubscriptionFromApi();
   }, []);
+
+  const checkSubscriptionFromApi = async () => {
+    try {
+      const response = await api.get("/subscriptions/status");
+      if (response.data.success && response.data.data) {
+        setHasActiveSubscription(response.data.data.has_active_subscription || false);
+      }
+    } catch (error) {
+      // Silently fall back to stale user data — already set as initial state
+    }
+  };
 
   const loadSubjects = async () => {
     try {
@@ -109,7 +114,7 @@ export function JAMBPracticeQuestionsSelection() {
       Alert.alert(
         "Error",
         error.response?.data?.message ||
-          "Failed to load subjects. Please try again.",
+        "Failed to load subjects. Please try again.",
         [{ text: "OK" }]
       );
     } finally {
@@ -118,8 +123,8 @@ export function JAMBPracticeQuestionsSelection() {
   };
 
   const handleToggleSubject = (subject: string) => {
-    if (selection.subjects.includes(subject)) {
-      removeSubject(subject);
+    if (selectedSubjects.includes(subject)) {
+      setSelectedSubjects((prev) => prev.filter((s) => s !== subject));
       setExpandedSubjects((prev) => {
         const newSet = new Set(prev);
         newSet.delete(subject);
@@ -131,9 +136,14 @@ export function JAMBPracticeQuestionsSelection() {
         return newCounts;
       });
     } else {
-      if (selection.subjects.length < 4) {
-        addSubject(subject);
+      if (selectedSubjects.length < 4) {
+        setSelectedSubjects((prev) => [...prev, subject]);
         setExpandedSubjects((prev) => new Set(prev).add(subject));
+        // Auto-set default question count for better UX (matches web)
+        setQuestionCounts((prev) => ({
+          ...prev,
+          [subject]: defaultQuestionCount,
+        }));
       } else {
         Alert.alert(
           "Maximum Subjects Reached",
@@ -145,7 +155,7 @@ export function JAMBPracticeQuestionsSelection() {
   };
 
   const toggleAccordion = (subject: string) => {
-    if (!selection.subjects.includes(subject)) return;
+    if (!selectedSubjects.includes(subject)) return;
 
     setExpandedSubjects((prev) => {
       const newSet = new Set(prev);
@@ -164,14 +174,13 @@ export function JAMBPracticeQuestionsSelection() {
         ...prev,
         [currentSubjectForQuestionCount]: count,
       }));
-      setQuestionCount(currentSubjectForQuestionCount, count);
       setShowQuestionCountModal(false);
       setCurrentSubjectForQuestionCount(null);
     }
   };
 
   const handleStartExam = async () => {
-    if (selection.subjects.length === 0) {
+    if (selectedSubjects.length === 0) {
       Alert.alert(
         "No Subjects Selected",
         "Please select at least one subject to continue."
@@ -181,7 +190,7 @@ export function JAMBPracticeQuestionsSelection() {
 
     // Validate all selected subjects have question counts
     const missingSubjects: string[] = [];
-    selection.subjects.forEach((subject) => {
+    selectedSubjects.forEach((subject) => {
       const count = questionCounts[subject];
       if (!count || count < 1) {
         missingSubjects.push(subject);
@@ -201,17 +210,16 @@ export function JAMBPracticeQuestionsSelection() {
       setStartingExam(true);
 
       // Calculate default time (30 minutes per subject)
-      const timeMinutesNum = selection.subjects.length * 30;
-      setTimeMinutes(timeMinutesNum);
+      const timeMinutesNum = selectedSubjects.length * 30;
 
-      // Fetch questions for all subjects
+      // Fetch practice questions for all subjects in parallel
       const subjectsQuestions: Record<string, Question[]> = {};
-      let firstExamId: number | null = null;
+      let hasErrors = false;
 
-      for (const subject of selection.subjects) {
+      for (const subject of selectedSubjects) {
         const questionCount = questionCounts[subject];
 
-        // Get random practice questions
+        // Get random practice questions from the dedicated endpoint
         const questionsResponse = await api.get("/questions/practice", {
           params: {
             exam_type: "JAMB",
@@ -225,7 +233,8 @@ export function JAMBPracticeQuestionsSelection() {
             "Error",
             `Failed to load questions for ${subject}. Please try again.`
           );
-          return;
+          hasErrors = true;
+          break;
         }
 
         const allQuestions = questionsResponse.data.data || [];
@@ -235,95 +244,74 @@ export function JAMBPracticeQuestionsSelection() {
             "No Questions Found",
             `No practice questions available for ${subject}. Please try a different subject.`
           );
-          return;
+          hasErrors = true;
+          break;
         }
 
         if (allQuestions.length < questionCount) {
           Alert.alert(
             "Limited Questions",
-            `Only ${allQuestions.length} questions available for ${subject} (requested ${questionCount}).`
+            `Only ${allQuestions.length} questions available for ${subject} (requested ${questionCount}). Proceeding with available questions.`
           );
         }
 
-        // Add subject identifier to questions
-        const questionsWithSubject = allQuestions.map((q: any) => ({
+        subjectsQuestions[subject] = allQuestions.map((q: any) => ({
           ...q,
           subject: subject,
         }));
-
-        subjectsQuestions[subject] = questionsWithSubject;
-
-        // Get an exam for the attempt (placeholder)
-        if (!firstExamId) {
-          const examResponse = await api.get("/exams", {
-            params: {
-              exam_type: "JAMB",
-              subject: subject,
-            },
-          });
-
-          if (examResponse.data.success && examResponse.data.data.length > 0) {
-            firstExamId = examResponse.data.data[0].id;
-          } else {
-            Alert.alert(
-              "Error",
-              "Unable to create exam attempt. Please contact support."
-            );
-            return;
-          }
-        }
       }
 
-      if (!firstExamId) {
-        Alert.alert("Error", "Failed to start exam. Please try again.");
-        return;
-      }
+      if (hasErrors) return;
 
       // Prepare subjects data
-      const subjectsData = selection.subjects.map((subject) => ({
+      const subjectsData = selectedSubjects.map((subject) => ({
         subject: subject,
         question_count: questionCounts[subject],
       }));
 
-      // Start exam attempt
-      const attemptResponse = await api.post(`/exams/${firstExamId}/start`, {
+      // Use dedicated /practice/start endpoint (matches web implementation)
+      const attemptResponse = await api.post("/practice/start", {
+        exam_type: "JAMB",
         subjects: subjectsData,
         duration_minutes: timeMinutesNum,
       });
 
       if (!attemptResponse.data.success) {
-        Alert.alert("Error", "Failed to start exam. Please try again.");
+        Alert.alert("Error", "Failed to start practice session. Please try again.");
         return;
       }
 
       const attempt = attemptResponse.data.data.attempt;
 
-      // Calculate total questions
+      // Calculate total questions actually fetched
       const totalQuestions = Object.values(subjectsQuestions).reduce(
         (sum, qs) => sum + qs.length,
         0
       );
 
-      // Navigate to exam screen
+      // Navigate to exam screen with isPractice flag (matches web)
       // @ts-ignore
       navigation.navigate("ExamScreen", {
         attemptId: attempt.id,
-        examId: firstExamId,
+        examId: attempt.exam_id,
         subjectsQuestions: subjectsQuestions,
         exam: {
-          id: firstExamId,
-          title: `JAMB ${selection.subjects.join(", ")} Practice Questions`,
+          id: attempt.exam_id,
+          title: `JAMB ${selectedSubjects.join(", ")} Practice Questions`,
           duration: timeMinutesNum,
           total_questions: totalQuestions,
         },
         timeMinutes: timeMinutesNum,
+        subjects: selectedSubjects,
+        questionCounts: questionCounts,
+        isPractice: true,
       });
     } catch (error: any) {
       console.error("Error starting practice:", error);
       Alert.alert(
         "Error",
         error.response?.data?.message ||
-          "Failed to start practice. Please check your connection and try again."
+        "Failed to start practice. Please check your connection and try again."
       );
     } finally {
       setStartingExam(false);
@@ -343,7 +331,7 @@ export function JAMBPracticeQuestionsSelection() {
     );
   }
 
-  const totalQuestions = selection.subjects.reduce((sum, subject) => {
+  const totalQuestions = selectedSubjects.reduce((sum, subject) => {
     const count = questionCounts[subject] || 0;
     return sum + count;
   }, 0);
@@ -360,7 +348,7 @@ export function JAMBPracticeQuestionsSelection() {
           </ThemedText>
           <ThemedText style={styles.subtitle}>
             Choose up to 4 subjects and set question count for each (
-            {selection.subjects.length}/4 selected)
+            {selectedSubjects.length}/4 selected)
           </ThemedText>
           {!hasActiveSubscription && (
             <ThemedText
@@ -375,7 +363,7 @@ export function JAMBPracticeQuestionsSelection() {
         <View style={styles.subjectsContainer}>
           {subjects.length > 0 ? (
             subjects.map((subject) => {
-              const isSelected = selection.subjects.includes(subject);
+              const isSelected = selectedSubjects.includes(subject);
               const isExpanded = expandedSubjects.has(subject);
               const count = questionCounts[subject];
 
@@ -508,7 +496,7 @@ export function JAMBPracticeQuestionsSelection() {
           )}
         </View>
 
-        {selection.subjects.length > 0 && (
+        {selectedSubjects.length > 0 && (
           <View
             style={[styles.summaryCard, { backgroundColor: cardBackground }]}
           >
@@ -518,7 +506,7 @@ export function JAMBPracticeQuestionsSelection() {
                 Selected Subjects:
               </ThemedText>
               <ThemedText style={styles.summaryValue}>
-                {selection.subjects.length}
+                {selectedSubjects.length} of 4
               </ThemedText>
             </View>
             <View style={styles.summaryRow}>
@@ -527,6 +515,14 @@ export function JAMBPracticeQuestionsSelection() {
               </ThemedText>
               <ThemedText style={styles.summaryValue}>
                 {totalQuestions || "Not set"}
+              </ThemedText>
+            </View>
+            <View style={styles.summaryRow}>
+              <ThemedText style={styles.summaryLabel}>
+                Estimated Time:
+              </ThemedText>
+              <ThemedText style={styles.summaryValue}>
+                {selectedSubjects.length * 30} minutes
               </ThemedText>
             </View>
           </View>
@@ -564,7 +560,7 @@ export function JAMBPracticeQuestionsSelection() {
                     {
                       backgroundColor:
                         questionCounts[currentSubjectForQuestionCount || ""] ===
-                        optionCount
+                          optionCount
                           ? tintColor + "20"
                           : "transparent",
                     },
@@ -594,8 +590,8 @@ export function JAMBPracticeQuestionsSelection() {
                   </ThemedText>
                   {questionCounts[currentSubjectForQuestionCount || ""] ===
                     optionCount && (
-                    <MaterialIcons name="check" size={24} color={tintColor} />
-                  )}
+                      <MaterialIcons name="check" size={24} color={tintColor} />
+                    )}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -605,11 +601,10 @@ export function JAMBPracticeQuestionsSelection() {
 
       <View style={styles.footer}>
         <Button
-          title={`Continue (${selection.subjects.length} subject${
-            selection.subjects.length === 1 ? "" : "s"
-          })`}
+          title={`Continue (${selectedSubjects.length} subject${selectedSubjects.length === 1 ? "" : "s"
+            })`}
           onPress={handleStartExam}
-          disabled={selection.subjects.length === 0 || startingExam}
+          disabled={selectedSubjects.length === 0 || startingExam}
           loading={startingExam}
         />
       </View>

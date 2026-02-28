@@ -53,6 +53,7 @@ export function Subscription() {
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const [callbackUrl, setCallbackUrl] = useState<string | null>(null);
   const [cancelUrl, setCancelUrl] = useState<string | null>(null);
+  const [paymentReference, setPaymentReference] = useState<string | null>(null);
 
   const tintColor = useThemeColor({}, "tint");
   const borderColor = useThemeColor({}, "border");
@@ -104,9 +105,11 @@ export function Subscription() {
       });
 
       if (response.data.success) {
-        const { authorization_url, callback_url, cancel_url } =
+        const { authorization_url, callback_url, cancel_url, reference } =
           response.data.data;
 
+        // Track the reference so we can verify after payment
+        setPaymentReference(reference || null);
         // Show WebView for payment (per Paystack mobile webview recommendation)
         setPaymentUrl(authorization_url);
         setCallbackUrl(callback_url || null);
@@ -118,7 +121,7 @@ export function Subscription() {
       Alert.alert(
         "Payment Error",
         error.response?.data?.message ||
-          "Failed to initialize payment. Please try again."
+        "Failed to initialize payment. Please try again."
       );
     } finally {
       setProcessing(false);
@@ -131,14 +134,48 @@ export function Subscription() {
     setCallbackUrl(null);
     setCancelUrl(null);
 
-    // Refresh user data to get updated subscription status
-    await refreshUser();
-    await fetchStatus();
-    Alert.alert("Success", "Your subscription has been activated!", [
-      {
-        text: "OK",
-      },
-    ]);
+    // Use reference from WebView URL param, or fall back to the one from initialize-payment
+    const txReference = reference || paymentReference;
+    setPaymentReference(null);
+
+    try {
+      // Step 1: Verify the payment with our backend (matches web flow)
+      if (txReference) {
+        try {
+          await api.post("/subscriptions/verify-payment", {
+            reference: txReference,
+          });
+        } catch (verifyError: any) {
+          // If verify fails, the callback may have already activated it server-side
+          // (Paystack calls /api/subscriptions/callback which activates it)
+          // Log but don't block — we'll check status below
+          console.warn("Verify payment error (may already be activated):", verifyError.message);
+        }
+      }
+
+      // Step 2: Register this device to bind the subscription (matches web flow)
+      try {
+        await api.post("/subscriptions/register-device");
+      } catch (deviceError: any) {
+        // If already bound to this device, or no active subscription yet, ignore
+        console.warn("Register device note:", deviceError.response?.data?.message || deviceError.message);
+      }
+
+      // Step 3: Refresh user data and subscription status
+      await refreshUser();
+      await fetchStatus();
+
+      Alert.alert("Success", "Your subscription has been activated!");
+    } catch (error: any) {
+      console.error("Error completing payment:", error);
+      // Still refresh to reflect any server-side activation from the callback
+      await refreshUser();
+      await fetchStatus();
+      Alert.alert(
+        "Payment Processed",
+        "Payment received. Your subscription status has been refreshed."
+      );
+    }
   };
 
   const handlePaymentCancel = () => {
@@ -146,6 +183,7 @@ export function Subscription() {
     setPaymentUrl(null);
     setCallbackUrl(null);
     setCancelUrl(null);
+    setPaymentReference(null);
   };
 
   if (loading) {
@@ -281,7 +319,6 @@ export function Subscription() {
                   onChangeText={setReferralCode}
                   autoCapitalize="characters"
                   leftIcon="gift-outline"
-                  style={styles.referralInput}
                 />
 
                 <Button

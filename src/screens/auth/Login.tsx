@@ -65,6 +65,7 @@ export function Login() {
         // Implementation can be added later
       }
     } catch (error: any) {
+      console.log(error)
       // Check if error is due to unverified email
       if (error.response?.status === 403 && error.response?.data?.data?.email_verified === false) {
         Alert.alert(
@@ -98,7 +99,6 @@ export function Login() {
   };
 
   const handleSocialLogin = (provider: "google" | "facebook") => {
-    // TODO: Implement social login
     Alert.alert("Social Login", `${provider} login will be available soon.`);
   };
 
@@ -120,23 +120,6 @@ export function Login() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Header */}
-          <View style={styles.header}>
-            <IconButton
-              name="arrow-back"
-              onPress={() => navigation.goBack()}
-              size={24}
-            />
-            <ThemedText
-              type="link"
-              onPress={() =>
-                Alert.alert("Help", "Contact support for assistance")
-              }
-              style={styles.helpLink}
-            >
-              Need Help?
-            </ThemedText>
-          </View>
 
           {/* Title Section */}
           <View style={styles.titleSection}>
@@ -144,8 +127,7 @@ export function Login() {
               Welcome back!
             </ThemedText>
             <ThemedText style={styles.description}>
-              Hello, you must login first to be able to use the application and
-              enjoy all the features in Exam Prep
+              Enter your credentials to continue
             </ThemedText>
           </View>
 

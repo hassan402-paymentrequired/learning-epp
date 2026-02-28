@@ -142,7 +142,7 @@ export function Home() {
   const handleDliPress = () => {
     setExamType("DLI");
     // @ts-ignore
-    navigation.navigate("DLIPracticeSelection");
+    navigation.navigate("DepartmentsList");
   };
 
   const handleContinuePractice = () => {
@@ -201,15 +201,6 @@ export function Home() {
             totalAttempts={analytics.overview.total_attempts}
             averageScore={analytics.overview.average_score}
             totalTimeSpent={analytics.overview.total_time_spent}
-          />
-        )}
-
-        {/* Continue Practice Card */}
-        {inProgressAttempt && (
-          <ContinuePracticeCard
-            examTitle={inProgressAttempt.exam.title}
-            examType={inProgressAttempt.exam.type}
-            onPress={handleContinuePractice}
           />
         )}
 

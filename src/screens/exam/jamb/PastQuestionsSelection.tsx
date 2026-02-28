@@ -11,7 +11,7 @@ import {
 import { ThemedText } from "@/components/ThemedText";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/Button";
-import { useExamSelection } from "@/contexts/ExamSelectionContext";
+
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigation } from "@react-navigation/native";
 import { useThemeColor } from "@/hooks/useThemeColor";
@@ -40,14 +40,6 @@ interface Answer {
 }
 
 export function JAMBPastQuestionsSelection() {
-  const {
-    selection,
-    addSubject,
-    removeSubject,
-    setQuestionCount,
-    setSelectedYear,
-    setTimeMinutes,
-  } = useExamSelection();
   const { user } = useAuth();
   const navigation = useNavigation();
   const [subjects, setSubjectsList] = useState<string[]>([]);
@@ -60,6 +52,7 @@ export function JAMBPastQuestionsSelection() {
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(
     new Set()
   );
+  const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
   const [subjectSelections, setSubjectSelections] = useState<
     Record<string, SubjectSelection>
   >({});
@@ -125,7 +118,7 @@ export function JAMBPastQuestionsSelection() {
       Alert.alert(
         "Error",
         error.response?.data?.message ||
-          "Failed to load subjects. Please try again.",
+        "Failed to load subjects. Please try again.",
         [{ text: "OK" }]
       );
     } finally {
@@ -169,8 +162,8 @@ export function JAMBPastQuestionsSelection() {
   };
 
   const handleToggleSubject = (subject: string) => {
-    if (selection.subjects.includes(subject)) {
-      removeSubject(subject);
+    if (selectedSubjects.includes(subject)) {
+      setSelectedSubjects((prev) => prev.filter((s) => s !== subject));
       setExpandedSubjects((prev) => {
         const newSet = new Set(prev);
         newSet.delete(subject);
@@ -182,8 +175,8 @@ export function JAMBPastQuestionsSelection() {
         return newSelections;
       });
     } else {
-      if (selection.subjects.length < 4) {
-        addSubject(subject);
+      if (selectedSubjects.length < 4) {
+        setSelectedSubjects((prev) => [...prev, subject]);
         setExpandedSubjects((prev) => new Set(prev).add(subject));
         setSubjectSelections((prev) => ({
           ...prev,
@@ -204,7 +197,7 @@ export function JAMBPastQuestionsSelection() {
   };
 
   const toggleAccordion = (subject: string) => {
-    if (!selection.subjects.includes(subject)) return;
+    if (!selectedSubjects.includes(subject)) return;
 
     setExpandedSubjects((prev) => {
       const newSet = new Set(prev);
@@ -261,14 +254,13 @@ export function JAMBPastQuestionsSelection() {
         currentSubjectForQuestionCount,
         count.toString()
       );
-      setQuestionCount(currentSubjectForQuestionCount, count);
       setShowQuestionCountModal(false);
       setCurrentSubjectForQuestionCount(null);
     }
   };
 
   const handleStartExam = async () => {
-    if (selection.subjects.length === 0) {
+    if (selectedSubjects.length === 0) {
       Alert.alert(
         "No Subjects Selected",
         "Please select at least one subject to continue."
@@ -278,7 +270,7 @@ export function JAMBPastQuestionsSelection() {
 
     // Validate all subjects have question counts and years
     const missingData: string[] = [];
-    selection.subjects.forEach((subject) => {
+    selectedSubjects.forEach((subject) => {
       const selection = subjectSelections[subject];
       if (
         !selection ||
@@ -302,7 +294,7 @@ export function JAMBPastQuestionsSelection() {
     }
 
     // Validate question counts based on subscription
-    for (const subject of selection.subjects) {
+    for (const subject of selectedSubjects) {
       const subjectSelection = subjectSelections[subject];
       if (subjectSelection.questionCount > maxQuestionsPerSubject) {
         Alert.alert(
@@ -317,27 +309,20 @@ export function JAMBPastQuestionsSelection() {
     try {
       setStartingExam(true);
 
-      // Set values in context
-      selection.subjects.forEach((subject) => {
+      const resolvedQuestionCounts: Record<string, number> = {};
+      selectedSubjects.forEach((subject) => {
         const subjectSelection = subjectSelections[subject];
-        setQuestionCount(subject, subjectSelection.questionCount);
+        resolvedQuestionCounts[subject] = subjectSelection.questionCount;
       });
 
-      // Use the first subject's year as the selected year (for compatibility)
-      const firstYear = subjectSelections[selection.subjects[0]].year;
-      if (firstYear) {
-        setSelectedYear(firstYear);
-      }
-
       // Calculate default time (30 minutes per subject)
-      const timeMinutesNum = selection.subjects.length * 30;
-      setTimeMinutes(timeMinutesNum);
+      const timeMinutesNum = selectedSubjects.length * 30;
 
       // Fetch questions for all subjects
       const subjectsQuestions: Record<string, Question[]> = {};
       let firstExamId: number | null = null;
 
-      for (const subject of selection.subjects) {
+      for (const subject of selectedSubjects) {
         const subjectSelection = subjectSelections[subject];
 
         const examResponse = await api.get("/exams", {
@@ -396,7 +381,7 @@ export function JAMBPastQuestionsSelection() {
       }
 
       // Prepare subjects data
-      const subjectsData = selection.subjects.map((subject) => {
+      const subjectsData = selectedSubjects.map((subject) => {
         const subjectSelection = subjectSelections[subject];
         return {
           subject: subject,
@@ -431,18 +416,21 @@ export function JAMBPastQuestionsSelection() {
         subjectsQuestions: subjectsQuestions,
         exam: {
           id: firstExamId,
-          title: `JAMB ${selection.subjects.join(", ")} Past Questions`,
+          title: `JAMB ${selectedSubjects.join(", ")} Past Questions`,
           duration: timeMinutesNum,
           total_questions: totalQuestions,
         },
         timeMinutes: timeMinutesNum,
+        subjects: selectedSubjects,
+        questionCounts: resolvedQuestionCounts,
+        isPractice: false,
       });
     } catch (error: any) {
       console.error("Error starting exam:", error);
       Alert.alert(
         "Error",
         error.response?.data?.message ||
-          "Failed to start exam. Please check your connection and try again."
+        "Failed to start exam. Please check your connection and try again."
       );
     } finally {
       setStartingExam(false);
@@ -462,7 +450,7 @@ export function JAMBPastQuestionsSelection() {
     );
   }
 
-  const totalQuestions = selection.subjects.reduce((sum, subject) => {
+  const totalQuestions = selectedSubjects.reduce((sum, subject) => {
     const selection = subjectSelections[subject];
     return sum + (selection?.questionCount || 0);
   }, 0);
@@ -479,7 +467,7 @@ export function JAMBPastQuestionsSelection() {
           </ThemedText>
           <ThemedText style={styles.subtitle}>
             Choose up to 4 subjects and set question count and year for each (
-            {selection.subjects.length}/4 selected)
+            {selectedSubjects.length}/4 selected)
           </ThemedText>
           {!hasActiveSubscription && (
             <ThemedText
@@ -498,7 +486,7 @@ export function JAMBPastQuestionsSelection() {
         <View style={styles.subjectsContainer}>
           {subjects.length > 0 ? (
             subjects.map((subject) => {
-              const isSelected = selection.subjects.includes(subject);
+              const isSelected = selectedSubjects.includes(subject);
               const isExpanded = expandedSubjects.has(subject);
               const subjectSelection = subjectSelections[subject];
 
@@ -579,7 +567,7 @@ export function JAMBPastQuestionsSelection() {
                             {
                               borderColor:
                                 subjectSelection?.questionCount &&
-                                subjectSelection.questionCount > 0
+                                  subjectSelection.questionCount > 0
                                   ? tintColor
                                   : borderColor,
                               backgroundColor: cardBackground,
@@ -594,7 +582,7 @@ export function JAMBPastQuestionsSelection() {
                             style={{
                               color:
                                 subjectSelection?.questionCount &&
-                                subjectSelection.questionCount > 0
+                                  subjectSelection.questionCount > 0
                                   ? textColor
                                   : placeholderColor,
                               fontSize: 16,
@@ -675,7 +663,7 @@ export function JAMBPastQuestionsSelection() {
           )}
         </View>
 
-        {selection.subjects.length > 0 && (
+        {selectedSubjects.length > 0 && (
           <View
             style={[styles.summaryCard, { backgroundColor: cardBackground }]}
           >
@@ -685,7 +673,7 @@ export function JAMBPastQuestionsSelection() {
                 Selected Subjects:
               </ThemedText>
               <ThemedText style={styles.summaryValue}>
-                {selection.subjects.length}
+                {selectedSubjects.length}
               </ThemedText>
             </View>
             <View style={styles.summaryRow}>
@@ -761,8 +749,8 @@ export function JAMBPastQuestionsSelection() {
                   </ThemedText>
                   {subjectSelections[currentSubjectForQuestionCount || ""]
                     ?.questionCount === count && (
-                    <MaterialIcons name="check" size={24} color={tintColor} />
-                  )}
+                      <MaterialIcons name="check" size={24} color={tintColor} />
+                    )}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -839,8 +827,8 @@ export function JAMBPastQuestionsSelection() {
                     </ThemedText>
                     {subjectSelections[currentSubjectForYear || ""]?.year ===
                       year && (
-                      <MaterialIcons name="check" size={24} color={tintColor} />
-                    )}
+                        <MaterialIcons name="check" size={24} color={tintColor} />
+                      )}
                   </TouchableOpacity>
                 ))
               ) : (
@@ -857,11 +845,10 @@ export function JAMBPastQuestionsSelection() {
 
       <View style={styles.footer}>
         <Button
-          title={`Continue (${selection.subjects.length} subject${
-            selection.subjects.length === 1 ? "" : "s"
-          })`}
+          title={`Continue (${selectedSubjects.length} subject${selectedSubjects.length === 1 ? "" : "s"
+            })`}
           onPress={handleStartExam}
-          disabled={selection.subjects.length === 0 || startingExam}
+          disabled={selectedSubjects.length === 0 || startingExam}
           loading={startingExam}
         />
       </View>

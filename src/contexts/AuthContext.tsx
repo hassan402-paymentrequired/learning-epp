@@ -12,8 +12,14 @@ interface User {
   id: number;
   name: string;
   email: string;
+  email_verified_at?: string | null;
   subscription_status?: string;
   subscription_expires_at?: string | null;
+}
+
+interface PendingSession {
+  token: string;
+  user: User;
 }
 
 interface AuthContextType {
@@ -30,7 +36,8 @@ interface AuthContextType {
     password: string,
     passwordConfirmation: string,
     referralCode?: string
-  ) => Promise<void>;
+  ) => Promise<PendingSession>;
+  activateSession: (token: string, user: User) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -58,7 +65,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
     // Cleanup on unmount
     return () => {
-      setLogoutCallback(() => {});
+      setLogoutCallback(() => { });
     };
   }, []);
 
@@ -130,7 +137,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     password: string,
     passwordConfirmation: string,
     referralCode?: string
-  ) => {
+  ): Promise<PendingSession> => {
     try {
       const response = await api.post("/register", {
         name,
@@ -141,19 +148,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       });
       const { token: newToken, user: userData } = response.data.data;
 
-      await AsyncStorage.multiSet([
-        ["auth_token", newToken],
-        ["user", JSON.stringify(userData)],
-      ]);
+      // Store token so API calls (like email verification) work immediately,
+      // but DON'T set state — user won't be "logged in" until email is verified.
+      await AsyncStorage.setItem("auth_token", newToken);
 
-      setToken(newToken);
-      setUser(userData);
+      return { token: newToken, user: userData };
     } catch (error: any) {
       const message =
         error.response?.data?.message ||
         "Registration failed. Please try again.";
       throw new Error(message);
     }
+  };
+
+  const activateSession = async (token: string, user: User) => {
+    await AsyncStorage.multiSet([
+      ["auth_token", token],
+      ["user", JSON.stringify(user)],
+    ]);
+    setToken(token);
+    setUser(user);
   };
 
   const logout = async () => {
@@ -192,6 +206,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         setHasSeenOnboarding,
         login,
         register,
+        activateSession,
         logout,
         refreshUser,
       }}
