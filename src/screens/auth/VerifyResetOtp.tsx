@@ -38,6 +38,13 @@ export function VerifyResetOtp() {
 
     const inputRefs = React.useRef<(any)[]>([]);
 
+    React.useEffect(() => {
+        const otpCode = otp.join("");
+        if (otpCode.length === 6 && !loading) {
+            handleVerifyOtp();
+        }
+    }, [otp]);
+
     const handleOtpChange = (value: string, index: number) => {
         if (value.length > 1) {
             const pastedOtp = value.slice(0, 6).split("");
@@ -101,7 +108,7 @@ export function VerifyResetOtp() {
 
             if (response.data.success) {
                 // @ts-ignore
-                navigation.navigate("ResetPassword", { email, otp: otpCode });
+                navigation.replace("ResetPassword", { email, otp: otpCode });
             }
         } catch (error: any) {
             setErrors({ otp: error.response?.data?.message || "Invalid code" });
@@ -216,7 +223,7 @@ const styles = StyleSheet.create({
     title: { fontSize: 28, fontWeight: "bold", marginBottom: 12, textAlign: "center" },
     description: { fontSize: 14, textAlign: "center", marginBottom: 32, opacity: 0.8, lineHeight: 20 },
     otpContainer: { flexDirection: "row", justifyContent: "space-between", marginBottom: 16, gap: 12 },
-    otpInput: { width: 50, height: 60, borderRadius: 12, borderWidth: 2, textAlign: "center", fontSize: 24, fontWeight: "bold" },
+    otpInput: { width: 50, height: 60, borderRadius: 5, borderWidth: 1, textAlign: "center", fontSize: 24, fontWeight: "bold" },
     error: { fontSize: 12, marginBottom: 16, textAlign: "center" },
     button: { marginTop: 8, marginBottom: 24 },
     resendLink: { textAlign: "center", marginTop: 16 },

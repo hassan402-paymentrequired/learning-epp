@@ -21,7 +21,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 export function EmailVerification() {
   const navigation = useNavigation();
   const route = useRoute();
-  const { activateSession } = useAuth();
+  const { activateSession, refreshUser } = useAuth();
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
@@ -36,6 +36,8 @@ export function EmailVerification() {
   const tintColor = useThemeColor({}, "tint");
   const textColor = useThemeColor({}, "text");
   const backgroundColor = useThemeColor({}, "background");
+
+  // console.log(user);
 
   useEffect(() => {
     // Get email and pending session from route params
@@ -58,6 +60,13 @@ export function EmailVerification() {
       return () => clearTimeout(timer);
     }
   }, [countdown]);
+
+  useEffect(() => {
+    const otpCode = otp.join("");
+    if (otpCode.length === 6 && !loading) {
+      handleVerify();
+    }
+  }, [otp]);
 
   const handleOtpChange = (value: string, index: number) => {
     if (value.length > 1) {
@@ -113,24 +122,14 @@ export function EmailVerification() {
       });
 
       if (response.data.success) {
-        if (pendingToken && pendingUser) {
-          // New signup flow: activate session to log user in directly
-          await activateSession(pendingToken, pendingUser);
-          // Navigation is handled automatically by the Navigation component
-          // since isAuthenticated becomes true → AppNavigator loads
-        } else {
-          // Already-logged-in user verifying email (e.g. resend flow)
-          // Navigation will be handled by the Navigation component
-          if (navigation.canGoBack()) {
-            navigation.goBack();
-          }
-        }
+        await refreshUser();
+        navigation.navigate('Home')
       }
     } catch (error: any) {
       Alert.alert(
         "Verification Failed",
         error.response?.data?.message ||
-        "Invalid verification code. Please try again."
+          "Invalid verification code. Please try again.",
       );
       // Clear OTP on error
       setOtp(["", "", "", "", "", ""]);
@@ -166,7 +165,7 @@ export function EmailVerification() {
       Alert.alert(
         "Error",
         error.response?.data?.message ||
-        "Failed to resend code. Please try again."
+          "Failed to resend code. Please try again.",
       );
     } finally {
       setResending(false);

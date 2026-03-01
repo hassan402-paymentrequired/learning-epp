@@ -67,7 +67,11 @@ export function ExamScreen() {
   const params = route.params as RouteParams;
 
   const routeSubjects = params?.subjects || selection.subjects || [];
+
+
   const routeQuestionCounts = params?.questionCounts || selection.questionCounts || {};
+
+
   const routeTimeMinutes = params?.timeMinutes || selection.timeMinutes || 30;
   const routeIsPractice = params?.isPractice ?? (selection.questionMode === "practice");
 
@@ -803,10 +807,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 8,
   },
   subjectSelector: {
-    flex: 1,
+    // borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",

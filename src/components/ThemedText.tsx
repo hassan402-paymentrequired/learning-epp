@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
     lineHeight: 32,
     fontFamily: Platform.select({
       ios: Fonts.primary.bold,
-      android: Fonts.primary.bold,
+      android: Fonts.primary.semiBold,
       default: undefined,
     }),
     fontWeight: Platform.select({

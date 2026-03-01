@@ -59,7 +59,7 @@ export function AppHeader({
           <>
             <MaterialIcons name="code" size={24} color={tintColor} />
             <ThemedText type="subtitle" style={styles.appName}>
-              Exam Prep
+              Stepra
             </ThemedText>
           </>
         )}

@@ -647,6 +647,7 @@ const styles = StyleSheet.create({
   },
   subjectsContainer: {
     gap: 12,
+    paddingBottom: 20
   },
   subjectCard: {
     borderRadius: 6,

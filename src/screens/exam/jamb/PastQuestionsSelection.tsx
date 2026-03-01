@@ -527,7 +527,7 @@ export function JAMBPastQuestionsSelection() {
                         )}
                       </View>
                       <View style={styles.subjectInfo}>
-                        <ThemedText type="subtitle" style={styles.subjectName}>
+                        <ThemedText type="subtitle"  style={styles.subjectName} >
                           {subject}
                         </ThemedText>
                         {isSelected && subjectSelection && (
@@ -893,13 +893,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   subjectCard: {
-    borderRadius: 12,
+    borderRadius: 5,
     overflow: "hidden",
-    // elevation: 2,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 1,
+    
   },
   subjectHeader: {
     flexDirection: "row",
@@ -925,20 +925,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   subjectName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "600",
+    textTransform: 'capitalize'
   },
   questionCountPreview: {
     fontSize: 14,
     opacity: 0.7,
-    marginTop: 4,
   },
   expandButton: {
-    padding: 4,
+    padding: 2,
   },
   accordionContent: {
     padding: 16,
-    paddingTop: 0,
+    paddingTop: 3,
     borderTopWidth: 1,
     borderTopColor: "#E5E7EB",
   },

@@ -60,10 +60,6 @@ export function Login() {
     setLoading(true);
     try {
       await login(email.trim(), password);
-      if (rememberMe) {
-        // Store credentials if remember me is checked
-        // Implementation can be added later
-      }
     } catch (error: any) {
       console.log(error)
       // Check if error is due to unverified email

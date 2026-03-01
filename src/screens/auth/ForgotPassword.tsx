@@ -110,7 +110,6 @@ export function ForgotPassword() {
               autoCapitalize="none"
               error={errors.email}
               leftIcon="mail-outline"
-              style={styles.input}
             />
 
             <Button
@@ -163,9 +162,7 @@ const styles = StyleSheet.create({
     opacity: 0.8,
     lineHeight: 20,
   },
-  input: {
-    marginBottom: 16,
-  },
+ 
   button: {
     marginTop: 8,
     marginBottom: 24,

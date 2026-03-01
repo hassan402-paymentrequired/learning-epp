@@ -13,7 +13,6 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import api from "@/services/api";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { LinearGradient } from "expo-linear-gradient";
 
 interface QuestionResult {
   question: {
@@ -125,7 +124,7 @@ export function ExamResults() {
     );
   }
 
-  if (!attempt || results.length === 0) {
+  if (!attempt) {
     return (
       <AppLayout showBackButton={true} headerTitle="Results">
         <View style={styles.centerContainer}>
@@ -156,7 +155,7 @@ export function ExamResults() {
         {/* Overview */}
         {attempt && (
           <>
-           
+
 
             {/* Statistics Cards */}
             <View style={styles.statsContainer}>
@@ -257,12 +256,12 @@ export function ExamResults() {
                       subjectAnalytics.length > 0
                         ? subjectAnalytics.map((a) => a.subject)
                         : attempt?.subjects
-                        ? Array.isArray(attempt.subjects)
-                          ? attempt.subjects.map((s: any) =>
+                          ? Array.isArray(attempt.subjects)
+                            ? attempt.subjects.map((s: any) =>
                               typeof s === "string" ? s : s.subject
                             )
-                          : []
-                        : [],
+                            : []
+                          : [],
                   });
                 }}
                 variant="outline"
