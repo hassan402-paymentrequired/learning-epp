@@ -23,19 +23,19 @@ export function AppContent() {
   const theme =
     colorScheme === "dark"
       ? {
-          ...DarkTheme,
-          colors: {
-            ...DarkTheme.colors,
-            primary: Colors[colorScheme ?? "light"].tint,
-          },
-        }
+        ...DarkTheme,
+        colors: {
+          ...DarkTheme.colors,
+          primary: Colors[colorScheme ?? "light"].tint,
+        },
+      }
       : {
-          ...DefaultTheme,
-          colors: {
-            ...DefaultTheme.colors,
-            primary: Colors[colorScheme ?? "light"].tint,
-          },
-        };
+        ...DefaultTheme,
+        colors: {
+          ...DefaultTheme.colors,
+          primary: Colors[colorScheme ?? "light"].tint,
+        },
+      };
 
   return (
     <AuthProvider>

@@ -21,7 +21,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 export function EmailVerification() {
   const navigation = useNavigation();
   const route = useRoute();
-  const { activateSession, refreshUser } = useAuth();
+  const { activateSession, refreshUser, token: currentToken } = useAuth();
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
@@ -122,9 +122,17 @@ export function EmailVerification() {
       });
 
       if (response.data.success) {
+        // If we have a pending session (from signup) and not already authenticated in state,
+        // activate the session now to trigger the top-level navigation update
+        if (!currentToken && pendingToken && pendingUser) {
+          await activateSession(pendingToken, pendingUser);
+        }
+
+        // Refresh to get the verified status in state
         await refreshUser();
-        // @ts-ignore
-        navigation.navigate('Home')
+
+        // No manual navigation to 'Home' needed — Navigation index.tsx handles the switch
+        // automatically when isAuthenticated && emailVerified becomes true.
       }
     } catch (error: any) {
       Alert.alert(

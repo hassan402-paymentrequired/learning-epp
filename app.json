@@ -4,16 +4,20 @@
     "slug": "stepra",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "src/assets/images/icon.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "scheme": "stepra",
+    "splash": {
+  "image": "src/assets/images/splash-icon.png",
+  "resizeMode": "cover",
+  "backgroundColor": "#1E1B4B"
+},
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "src/assets/images/adaptive-icon.png",
+        "foregroundImage": "src/assets/images/splash-icon.png",
         "backgroundColor": "#1E1B4B"
       }
     },
@@ -27,7 +31,7 @@
         {
           "backgroundColor": "#1E1B4B",
           "image": "src/assets/images/splash-icon.png",
-          "imageWidth": 200
+          "resizeMode": "cover" 
         }
       ]
     ]
