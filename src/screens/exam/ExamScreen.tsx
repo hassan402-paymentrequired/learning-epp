@@ -22,7 +22,7 @@ import {
   useFocusEffect,
 } from "@react-navigation/native";
 import { useThemeColor } from "@/hooks/useThemeColor";
-import api from "@/services/api";
+import api, { BACKEND_BASE_URL } from "@/services/api";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { CalculatorModal } from "@/components/CalculatorModal";
 
@@ -132,12 +132,20 @@ export function ExamScreen() {
   const currentQuestion = currentQuestions[currentQuestionIndex];
   const totalQuestionsForSubject = currentQuestions.length;
 
-  // Calculate overall progress
-  const totalQuestions = Object.values(subjectsQuestions).reduce(
-    (sum, qs) => sum + qs.length,
-    0
-  );
-  const totalAnswered = Object.keys(selectedAnswers).length;
+  const baseUrl = BACKEND_BASE_URL;
+  const imageUrl = currentQuestion.image
+    ? currentQuestion.image.startsWith("http")
+      ? currentQuestion.image
+      : `${baseUrl}/storage/${currentQuestion.image}`
+    : currentQuestion.image
+      ? currentQuestion.image.startsWith("http")
+        ? currentQuestion.image
+        : `${baseUrl}${currentQuestion.image}`
+      : currentQuestion.image
+        ? `${baseUrl}/storage/${currentQuestion.image}`
+        : null;
+
+  console.log(imageUrl)
 
   // Check if all subjects are completed
   const allSubjectsCompleted = routeSubjects.every((subject) => {
@@ -565,9 +573,9 @@ export function ExamScreen() {
             <ThemedText style={styles.questionText}>
               {currentQuestion.question_text}
             </ThemedText>
-            {currentQuestion.image && (
+            {imageUrl && (
               <Image
-                source={{ uri: currentQuestion.image }}
+                source={{ uri: imageUrl }}
                 style={styles.questionImage}
                 resizeMode="contain"
               />

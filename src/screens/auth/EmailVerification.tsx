@@ -123,13 +123,14 @@ export function EmailVerification() {
 
       if (response.data.success) {
         await refreshUser();
+        // @ts-ignore
         navigation.navigate('Home')
       }
     } catch (error: any) {
       Alert.alert(
         "Verification Failed",
         error.response?.data?.message ||
-          "Invalid verification code. Please try again.",
+        "Invalid verification code. Please try again.",
       );
       // Clear OTP on error
       setOtp(["", "", "", "", "", ""]);
@@ -165,7 +166,7 @@ export function EmailVerification() {
       Alert.alert(
         "Error",
         error.response?.data?.message ||
-          "Failed to resend code. Please try again.",
+        "Failed to resend code. Please try again.",
       );
     } finally {
       setResending(false);

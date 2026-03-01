@@ -7,13 +7,14 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  Image,
 } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/Button';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useThemeColor } from '@/hooks/useThemeColor';
-import api from '@/services/api';
+import api, { BACKEND_BASE_URL } from '@/services/api';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 interface QuestionResult {
@@ -22,6 +23,8 @@ interface QuestionResult {
     question_text: string;
     explanation: string | null;
     points: number;
+    subject?: string;
+    image?: string | null;
   };
   user_answer: {
     id: number;
@@ -46,7 +49,7 @@ export function CorrectionsScreen() {
   const route = useRoute();
   const navigation = useNavigation();
   const params = route.params as RouteParams;
-  
+
   const [loading, setLoading] = useState(true);
   const [results, setResults] = useState<QuestionResult[]>([]);
   const [resultsBySubject, setResultsBySubject] = useState<Record<string, QuestionResult[]>>({});
@@ -54,7 +57,7 @@ export function CorrectionsScreen() {
   const [currentSubject, setCurrentSubject] = useState<string>('');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [showSubjectModal, setShowSubjectModal] = useState(false);
-  
+
   const tintColor = useThemeColor({}, 'tint');
   const textColor = useThemeColor({}, 'text');
   const cardBackground = useThemeColor({}, 'cardBackground');
@@ -71,77 +74,52 @@ export function CorrectionsScreen() {
     try {
       setLoading(true);
       const response = await api.get(`/exam-attempts/${params.attemptId}/results`);
-      
+
       if (response.data.success) {
         const allResults = response.data.data.results;
         const attemptData = response.data.data.attempt;
         setResults(allResults);
 
-        // Group results by subject
+        // Group results by subject using the explicit subject field from API
         const grouped: Record<string, QuestionResult[]> = {};
         const subjectList: string[] = [];
 
-        // Get subjects from attempt data
-        const attemptSubjects = attemptData?.subjects || params.subjects || [];
-        
-        // Extract subject names
-        const subjectNames: string[] = [];
-        if (Array.isArray(attemptSubjects) && attemptSubjects.length > 0) {
-          attemptSubjects.forEach((subj: any) => {
-            if (typeof subj === 'string') {
-              subjectNames.push(subj);
-            } else if (subj && typeof subj === 'object' && subj.subject) {
-              subjectNames.push(subj.subject);
-            }
-          });
-        }
-
-        // If we have subjects, use them
-        if (subjectNames.length > 0) {
-          subjectNames.forEach((subject) => {
+        allResults.forEach((result: QuestionResult) => {
+          const subject = result.question.subject || 'General';
+          if (!grouped[subject]) {
             grouped[subject] = [];
             subjectList.push(subject);
-          });
+          }
+          grouped[subject].push(result);
+        });
 
-          // Group results by subject based on question count per subject
-          let questionIndex = 0;
-          subjectNames.forEach((subject) => {
-            // Find question count for this subject
-            const subjectData = attemptSubjects.find((s: any) => {
-              if (typeof s === 'string') return s === subject;
-              return s.subject === subject;
-            });
-            const questionCount = typeof subjectData === 'object' && subjectData?.question_count 
-              ? subjectData.question_count 
-              : Math.floor(allResults.length / subjectNames.length);
-            
-            // Assign questions to this subject
-            for (let i = 0; i < questionCount && questionIndex < allResults.length; i++) {
-              grouped[subject].push(allResults[questionIndex]);
-              questionIndex++;
-            }
-          });
-          
-          // Assign any remaining questions to the last subject
-          while (questionIndex < allResults.length && subjectNames.length > 0) {
-            const lastSubject = subjectNames[subjectNames.length - 1];
-            grouped[lastSubject].push(allResults[questionIndex]);
-            questionIndex++;
+        // Ensure subjects are in the expected order if provided in params/attempt
+        const orderedSubjectList: string[] = [];
+        const attemptSubjects = attemptData?.subjects || params.subjects || [];
+        attemptSubjects.forEach((subj: any) => {
+          const name = typeof subj === 'string' ? subj : subj.subject;
+          if (subjectList.includes(name)) {
+            orderedSubjectList.push(name);
           }
-        } else {
-          // Fallback: group all in one subject
-          if (!grouped['All Questions']) {
-            grouped['All Questions'] = [];
-            subjectList.push('All Questions');
+        });
+
+        // Add any subjects found in results but not in the attempt list
+        subjectList.forEach(s => {
+          if (!orderedSubjectList.includes(s)) {
+            orderedSubjectList.push(s);
           }
-          allResults.forEach((result: QuestionResult) => {
-            grouped['All Questions'].push(result);
-          });
+        });
+
+        setResultsBySubject(grouped);
+        setSubjects(orderedSubjectList);
+
+        if (orderedSubjectList.length > 0) {
+          setCurrentSubject(orderedSubjectList[0]);
         }
 
         setResultsBySubject(grouped);
         setSubjects(subjectList);
-        
+
         if (subjectList.length > 0) {
           setCurrentSubject(subjectList[0]);
         }
@@ -210,6 +188,13 @@ export function CorrectionsScreen() {
 
   const totalQuestionsForSubject = currentQuestions.length;
 
+  const baseUrl = BACKEND_BASE_URL;
+  const imageUrl = currentResult.question.image
+    ? currentResult.question.image.startsWith("http")
+      ? currentResult.question.image
+      : `${baseUrl}/storage/${currentResult.question.image}`
+    : null;
+
   return (
     <AppLayout showBackButton={true} headerTitle="Corrections">
       {/* Subject Header */}
@@ -230,21 +215,6 @@ export function CorrectionsScreen() {
       </View>
 
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Progress Bar */}
-        <View style={[styles.progressBar, { backgroundColor: cardBackground }]}>
-          <View style={[styles.progressTrack, { backgroundColor: borderColor }]}>
-            <View
-              style={[
-                styles.progressFill,
-                {
-                  width: `${((currentQuestionIndex + 1) / totalQuestionsForSubject) * 100}%`,
-                  backgroundColor: tintColor,
-                },
-              ]}
-            />
-          </View>
-        </View>
-
         {/* Question Card */}
         <View style={[styles.correctionCard, { backgroundColor: cardBackground }]}>
           <View style={styles.correctionHeader}>
@@ -279,6 +249,14 @@ export function CorrectionsScreen() {
           <ThemedText style={styles.questionText}>
             {currentResult.question.question_text}
           </ThemedText>
+
+          {imageUrl && (
+            <Image
+              source={{ uri: imageUrl }}
+              style={styles.questionImage}
+              resizeMode="contain"
+            />
+          )}
 
           <View style={styles.answersSection}>
             {currentResult.user_answer && (
@@ -383,7 +361,7 @@ export function CorrectionsScreen() {
           {currentQuestions.map((result, index) => {
             const isCurrent = index === currentQuestionIndex;
             const isCorrect = result.is_correct;
-            
+
             return (
               <TouchableOpacity
                 key={result.question.id}
@@ -393,8 +371,8 @@ export function CorrectionsScreen() {
                     backgroundColor: isCurrent
                       ? tintColor
                       : isCorrect
-                      ? successColor
-                      : errorColor,
+                        ? successColor
+                        : errorColor,
                     borderColor: isCurrent ? tintColor : isCorrect ? successColor : errorColor,
                     opacity: isCurrent ? 1 : 0.8,
                   },
@@ -423,7 +401,7 @@ export function CorrectionsScreen() {
           />
           <Button
             title={currentQuestionIndex === totalQuestionsForSubject - 1 ? 'Finish' : 'Next'}
-            onPress={currentQuestionIndex === totalQuestionsForSubject - 1 
+            onPress={currentQuestionIndex === totalQuestionsForSubject - 1
               ? () => navigation.goBack()
               : handleNext}
             style={styles.footerButton}
@@ -453,7 +431,7 @@ export function CorrectionsScreen() {
                 const subjectQuestions = resultsBySubject[subject] || [];
                 const correctCount = subjectQuestions.filter((r) => r.is_correct).length;
                 const isSelected = subject === currentSubject;
-                
+
                 return (
                   <TouchableOpacity
                     key={subject}
@@ -577,6 +555,12 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     marginBottom: 16,
     fontWeight: '600',
+  },
+  questionImage: {
+    width: "100%",
+    height: 200,
+    marginBottom: 16,
+    borderRadius: 8,
   },
   answersSection: {
     gap: 12,
