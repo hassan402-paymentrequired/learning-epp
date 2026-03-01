@@ -23,7 +23,7 @@ interface OnboardingSlide {
 
 const slides: OnboardingSlide[] = [
   {
-    title: 'Welcome to Exam Prep',
+    title: 'Welcome to Stepra',
     description: 'Your comprehensive platform for JAMB and UNILAG exam preparation. Practice with thousands of questions and track your progress.',
     icon: '🎓',
   },
@@ -97,7 +97,7 @@ export function Onboarding() {
         {slides.map((slide, index) => (
           <View key={index} style={styles.slide}>
             <View style={styles.content}>
-              <ThemedText style={styles.icon}>{slide.icon}</ThemedText>
+              <ThemedText style={styles.icon} type="subtitle">{slide.icon}</ThemedText>
               <ThemedText type="title" style={styles.title}>
                 {slide.title}
               </ThemedText>
