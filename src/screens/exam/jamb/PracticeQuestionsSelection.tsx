@@ -38,11 +38,11 @@ export function JAMBPracticeQuestionsSelection() {
   const [subjects, setSubjectsList] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
   const [questionCounts, setQuestionCounts] = useState<Record<string, number>>(
-    {}
+    {},
   );
   const [showQuestionCountModal, setShowQuestionCountModal] = useState(false);
   const [currentSubjectForQuestionCount, setCurrentSubjectForQuestionCount] =
@@ -51,7 +51,7 @@ export function JAMBPracticeQuestionsSelection() {
   const [hasActiveSubscription, setHasActiveSubscription] = useState(
     user?.subscription_status === "active" &&
     !!user?.subscription_expires_at &&
-    new Date(user.subscription_expires_at) > new Date()
+    new Date(user.subscription_expires_at) > new Date(),
   );
 
   const tintColor = useThemeColor({}, "tint");
@@ -65,7 +65,7 @@ export function JAMBPracticeQuestionsSelection() {
   // Generate question count options based on subscription
   const questionCountOptions = Array.from(
     { length: maxQuestionsPerSubject },
-    (_, i) => i + 1
+    (_, i) => i + 1,
   );
 
   useEffect(() => {
@@ -77,7 +77,9 @@ export function JAMBPracticeQuestionsSelection() {
     try {
       const response = await api.get("/subscriptions/status");
       if (response.data.success && response.data.data) {
-        setHasActiveSubscription(response.data.data.has_active_subscription || false);
+        setHasActiveSubscription(
+          response.data.data.has_active_subscription || false,
+        );
       }
     } catch (error) {
       // Silently fall back to stale user data — already set as initial state
@@ -102,7 +104,7 @@ export function JAMBPracticeQuestionsSelection() {
           Alert.alert(
             "No Subjects Available",
             "No JAMB practice subjects are available at the moment. Please try again later.",
-            [{ text: "OK", onPress: () => navigation.goBack() }]
+            [{ text: "OK", onPress: () => navigation.goBack() }],
           );
         }
       } else {
@@ -115,7 +117,7 @@ export function JAMBPracticeQuestionsSelection() {
         "Error",
         error.response?.data?.message ||
         "Failed to load subjects. Please try again.",
-        [{ text: "OK" }]
+        [{ text: "OK" }],
       );
     } finally {
       setLoading(false);
@@ -148,7 +150,7 @@ export function JAMBPracticeQuestionsSelection() {
         Alert.alert(
           "Maximum Subjects Reached",
           "You can select a maximum of 4 subjects for JAMB.",
-          [{ text: "OK" }]
+          [{ text: "OK" }],
         );
       }
     }
@@ -183,7 +185,7 @@ export function JAMBPracticeQuestionsSelection() {
     if (selectedSubjects.length === 0) {
       Alert.alert(
         "No Subjects Selected",
-        "Please select at least one subject to continue."
+        "Please select at least one subject to continue.",
       );
       return;
     }
@@ -201,7 +203,7 @@ export function JAMBPracticeQuestionsSelection() {
       Alert.alert(
         "Incomplete Selection",
         `Please select question count for: ${missingSubjects.join(", ")}`,
-        [{ text: "OK" }]
+        [{ text: "OK" }],
       );
       return;
     }
@@ -215,6 +217,8 @@ export function JAMBPracticeQuestionsSelection() {
       // Fetch practice questions for all subjects in parallel
       const subjectsQuestions: Record<string, Question[]> = {};
       let hasErrors = false;
+
+      const limitedWarnings: string[] = [];
 
       for (const subject of selectedSubjects) {
         const questionCount = questionCounts[subject];
@@ -231,7 +235,7 @@ export function JAMBPracticeQuestionsSelection() {
         if (!questionsResponse.data.success) {
           Alert.alert(
             "Error",
-            `Failed to load questions for ${subject}. Please try again.`
+            `Failed to load questions for ${subject}. Please try again.`,
           );
           hasErrors = true;
           break;
@@ -242,16 +246,15 @@ export function JAMBPracticeQuestionsSelection() {
         if (allQuestions.length === 0) {
           Alert.alert(
             "No Questions Found",
-            `No practice questions available for ${subject}. Please try a different subject.`
+            `No practice questions available for ${subject}. Please try a different subject.`,
           );
           hasErrors = true;
           break;
         }
 
         if (allQuestions.length < questionCount) {
-          Alert.alert(
-            "Limited Questions",
-            `Only ${allQuestions.length} questions available for ${subject} (requested ${questionCount}). Proceeding with available questions.`
+          limitedWarnings.push(
+            `${subject}: ${allQuestions.length} available (requested ${questionCount})`,
           );
         }
 
@@ -263,55 +266,80 @@ export function JAMBPracticeQuestionsSelection() {
 
       if (hasErrors) return;
 
-      // Prepare subjects data
-      const subjectsData = selectedSubjects.map((subject) => ({
-        subject: subject,
-        question_count: questionCounts[subject],
-      }));
+      const startPracticeSession = async () => {
+        try {
+          // Prepare subjects data
+          const subjectsData = selectedSubjects.map((subject) => ({
+            subject: subject,
+            question_count: questionCounts[subject],
+          }));
 
-      // Use dedicated /practice/start endpoint (matches web implementation)
-      const attemptResponse = await api.post("/practice/start", {
-        exam_type: "JAMB",
-        subjects: subjectsData,
-        duration_minutes: timeMinutesNum,
-      });
+          // Use dedicated /practice/start endpoint (matches web implementation)
+          const attemptResponse = await api.post("/practice/start", {
+            exam_type: "JAMB",
+            subjects: subjectsData,
+            duration_minutes: timeMinutesNum,
+          });
 
-      if (!attemptResponse.data.success) {
-        Alert.alert("Error", "Failed to start practice session. Please try again.");
-        return;
+          if (!attemptResponse.data.success) {
+            Alert.alert(
+              "Error",
+              "Failed to start practice session. Please try again.",
+            );
+            return;
+          }
+
+          const attempt = attemptResponse.data.data.attempt;
+
+          // Calculate total questions actually fetched
+          const totalQuestions = Object.values(subjectsQuestions).reduce(
+            (sum, qs) => sum + qs.length,
+            0,
+          );
+
+          // Navigate to exam screen with isPractice flag (matches web)
+          // @ts-ignore
+          navigation.navigate("ExamScreen", {
+            attemptId: attempt.id,
+            examId: attempt.exam_id,
+            subjectsQuestions: subjectsQuestions,
+            exam: {
+              id: attempt.exam_id,
+              title: `JAMB ${selectedSubjects.join(", ")} Practice Questions`,
+              duration: timeMinutesNum,
+              total_questions: totalQuestions,
+            },
+            timeMinutes: timeMinutesNum,
+            subjects: selectedSubjects,
+            questionCounts: questionCounts,
+            isPractice: true,
+          });
+        } catch (error: any) {
+          console.error("Error creating practice attempt:", error);
+          Alert.alert("Error", "Failed to initialize practice session.");
+        }
+      };
+
+      if (limitedWarnings.length > 0) {
+        Alert.alert(
+          "Limited Questions",
+          `The following subjects have fewer questions than requested:\n\n${limitedWarnings.join(
+            "\n",
+          )}\n\nProceed with the available questions?`,
+          [
+            { text: "Cancel", style: "cancel", onPress: () => setStartingExam(false) },
+            { text: "Continue", onPress: startPracticeSession },
+          ],
+        );
+      } else {
+        await startPracticeSession();
       }
-
-      const attempt = attemptResponse.data.data.attempt;
-
-      // Calculate total questions actually fetched
-      const totalQuestions = Object.values(subjectsQuestions).reduce(
-        (sum, qs) => sum + qs.length,
-        0
-      );
-
-      // Navigate to exam screen with isPractice flag (matches web)
-      // @ts-ignore
-      navigation.navigate("ExamScreen", {
-        attemptId: attempt.id,
-        examId: attempt.exam_id,
-        subjectsQuestions: subjectsQuestions,
-        exam: {
-          id: attempt.exam_id,
-          title: `JAMB ${selectedSubjects.join(", ")} Practice Questions`,
-          duration: timeMinutesNum,
-          total_questions: totalQuestions,
-        },
-        timeMinutes: timeMinutesNum,
-        subjects: selectedSubjects,
-        questionCounts: questionCounts,
-        isPractice: true,
-      });
     } catch (error: any) {
       console.error("Error starting practice:", error);
       Alert.alert(
         "Error",
         error.response?.data?.message ||
-        "Failed to start practice. Please check your connection and try again."
+        "Failed to start practice. Please check your connection and try again.",
       );
     } finally {
       setStartingExam(false);
@@ -647,7 +675,7 @@ const styles = StyleSheet.create({
   },
   subjectsContainer: {
     gap: 12,
-    paddingBottom: 20
+    paddingBottom: 20,
   },
   subjectCard: {
     borderRadius: 6,
