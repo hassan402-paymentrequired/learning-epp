@@ -1,11 +1,18 @@
 import React from "react";
-import { View, StyleSheet, TouchableOpacity, Platform } from "react-native";
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  Platform,
+  Image,
+} from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "@/contexts/AuthContext";
 import { ThemedText } from "@/components/ThemedText";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Fonts } from "@/constants/Fonts";
+const logo = require("../assets/images/logo.png");
 
 interface AppHeaderProps {
   showBackButton?: boolean;
@@ -57,7 +64,8 @@ export function AppHeader({
           </TouchableOpacity>
         ) : (
           <>
-            <MaterialIcons name="code" size={24} color={tintColor} />
+            {/* <MaterialIcons name="code" size={24} color={tintColor} /> */}
+            <Image source={logo} style={styles.image} />
             <ThemedText type="subtitle" style={styles.appName}>
               Stepra
             </ThemedText>
@@ -116,8 +124,7 @@ const styles = StyleSheet.create({
   },
   leftSection: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
+    alignItems: "flex-end",
     flex: 0,
     minWidth: 100,
   },
@@ -185,5 +192,9 @@ const styles = StyleSheet.create({
     }),
     opacity: 0.9,
     marginLeft: 4,
+  },
+  image: {
+    width: 30,
+    height: 30,
   },
 });
