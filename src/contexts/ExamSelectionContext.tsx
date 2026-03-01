@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
 
 export type ExamType = 'JAMB' | 'DLI' | null;
 export type QuestionMode = 'past_question' | 'practice' | null;
@@ -51,21 +51,21 @@ export function ExamSelectionProvider({ children }: { children: ReactNode }) {
   const [selection, setSelection] = useState<ExamSelectionState>(initialState);
   const [practiceSessions, setPracticeSessions] = useState<Record<string, number>>({});
 
-  const setExamType = (type: ExamType) => {
-    setSelection((prev) => ({ 
-      ...prev, 
+  const setExamType = useCallback((type: ExamType) => {
+    setSelection((prev) => ({
+      ...prev,
       examType: type,
       // Reset subjects when exam type changes
       subjects: [],
       questionCounts: {},
     }));
-  };
+  }, []);
 
-  const setSubjects = (subjects: string[]) => {
-    const maxSubjects = subjects.length > 0 && selection.examType === 'JAMB' ? 4 : 1;
-    const limitedSubjects = subjects.slice(0, maxSubjects);
-    
+  const setSubjects = useCallback((subjects: string[]) => {
     setSelection((prev) => {
+      const maxSubjects = subjects.length > 0 && prev.examType === 'JAMB' ? 4 : 1;
+      const limitedSubjects = subjects.slice(0, maxSubjects);
+
       // Remove question counts for subjects that are no longer selected
       const newQuestionCounts = { ...prev.questionCounts };
       prev.subjects.forEach((subject) => {
@@ -73,53 +73,53 @@ export function ExamSelectionProvider({ children }: { children: ReactNode }) {
           delete newQuestionCounts[subject];
         }
       });
-      
-      return { 
-        ...prev, 
+
+      return {
+        ...prev,
         subjects: limitedSubjects,
         questionCounts: newQuestionCounts,
       };
     });
-  };
+  }, []);
 
-  const addSubject = (subject: string) => {
-    const maxSubjects = selection.examType === 'JAMB' ? 4 : 1;
-    
+  const addSubject = useCallback((subject: string) => {
     setSelection((prev) => {
+      const maxSubjects = prev.examType === 'JAMB' ? 4 : 1;
+
       if (prev.subjects.includes(subject)) {
         return prev; // Already selected
       }
-      
+
       if (prev.subjects.length >= maxSubjects) {
         return prev; // Max subjects reached
       }
-      
+
       return {
         ...prev,
         subjects: [...prev.subjects, subject],
       };
     });
-  };
+  }, []);
 
-  const removeSubject = (subject: string) => {
+  const removeSubject = useCallback((subject: string) => {
     setSelection((prev) => {
       const newSubjects = prev.subjects.filter((s) => s !== subject);
       const newQuestionCounts = { ...prev.questionCounts };
       delete newQuestionCounts[subject];
-      
+
       return {
         ...prev,
         subjects: newSubjects,
         questionCounts: newQuestionCounts,
       };
     });
-  };
+  }, []);
 
-  const setQuestionMode = (mode: QuestionMode) => {
+  const setQuestionMode = useCallback((mode: QuestionMode) => {
     setSelection((prev) => ({ ...prev, questionMode: mode }));
-  };
+  }, []);
 
-  const setQuestionCount = (subject: string, count: number) => {
+  const setQuestionCount = useCallback((subject: string, count: number) => {
     setSelection((prev) => ({
       ...prev,
       questionCounts: {
@@ -127,39 +127,39 @@ export function ExamSelectionProvider({ children }: { children: ReactNode }) {
         [subject]: count,
       },
     }));
-  };
+  }, []);
 
-  const setSelectedYear = (year: number | null) => {
+  const setSelectedYear = useCallback((year: number | null) => {
     setSelection((prev) => ({ ...prev, selectedYear: year }));
-  };
+  }, []);
 
-  const setTimeMinutes = (minutes: number | null) => {
+  const setTimeMinutes = useCallback((minutes: number | null) => {
     setSelection((prev) => ({ ...prev, timeMinutes: minutes }));
-  };
+  }, []);
 
-  const resetSelection = () => {
+  const resetSelection = useCallback(() => {
     setSelection(initialState);
-  };
+  }, []);
 
-  const getMaxSubjects = (): number => {
+  const getMaxSubjects = useCallback((): number => {
     return selection.examType === 'JAMB' ? 4 : 1;
-  };
+  }, [selection.examType]);
 
-  const canAddMoreSubjects = (): boolean => {
+  const canAddMoreSubjects = useCallback((): boolean => {
     const maxSubjects = getMaxSubjects();
     return selection.subjects.length < maxSubjects;
-  };
+  }, [getMaxSubjects, selection.subjects.length]);
 
-  const getPracticeSessionCount = (subject: string): number => {
+  const getPracticeSessionCount = useCallback((subject: string): number => {
     return practiceSessions[subject] || 0;
-  };
+  }, [practiceSessions]);
 
-  const incrementPracticeSession = (subject: string) => {
+  const incrementPracticeSession = useCallback((subject: string) => {
     setPracticeSessions((prev) => ({
       ...prev,
       [subject]: (prev[subject] || 0) + 1,
     }));
-  };
+  }, []);
 
   return (
     <ExamSelectionContext.Provider

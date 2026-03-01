@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 // API Configuration
 // Update this with your Laravel API URL
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -21,28 +21,42 @@ interface QuestionResult {
   question: {
     id: number;
     question_text: string;
+    question_type: string;
     explanation: string | null;
     points: number;
     subject?: string;
     image?: string | null;
+    expected_answer?: string | null;
+    answers?: any[];
   };
   user_answer: {
-    id: number;
+    id: number | null;
     answer_text: string;
-    order: string;
+    order: string | null;
   } | null;
   correct_answer: {
-    id: number;
+    id: number | null;
     answer_text: string;
-    order: string;
+    order: string | null;
   } | null;
   is_correct: boolean;
   time_spent: number | null;
 }
 
+interface AttemptData {
+  id: number;
+  score: number;
+  correct_answers: number;
+  total_questions: number;
+  percentage: number;
+  time_spent: number;
+  completed_at: string;
+  subjects?: (string | { subject: string; question_count: number })[];
+}
+
 interface RouteParams {
   attemptId: number;
-  subjects?: string[]; // List of subjects from the attempt
+  subjects?: (string | { subject: string; question_count: number })[];
 }
 
 export function CorrectionsScreen() {
@@ -52,23 +66,21 @@ export function CorrectionsScreen() {
 
   const [loading, setLoading] = useState(true);
   const [results, setResults] = useState<QuestionResult[]>([]);
+  const [attempt, setAttempt] = useState<AttemptData | null>(null);
   const [resultsBySubject, setResultsBySubject] = useState<Record<string, QuestionResult[]>>({});
   const [subjects, setSubjects] = useState<string[]>([]);
   const [currentSubject, setCurrentSubject] = useState<string>('');
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [subjectCurrentIndex, setSubjectCurrentIndex] = useState<Record<string, number>>({});
   const [showSubjectModal, setShowSubjectModal] = useState(false);
 
+  const backgroundColor = useThemeColor({}, 'background');
   const tintColor = useThemeColor({}, 'tint');
   const textColor = useThemeColor({}, 'text');
-  const cardBackground = useThemeColor({}, 'cardBackground');
+  const cardBackground = useThemeColor({}, 'card');
   const borderColor = useThemeColor({}, 'border');
-  const backgroundColor = useThemeColor({}, 'background');
   const successColor = '#10B981';
   const errorColor = '#EF4444';
-
-  useEffect(() => {
-    loadResults();
-  }, []);
+  const backgroundSecondary = useThemeColor({}, 'cardBackground');
 
   const loadResults = async () => {
     try {
@@ -79,6 +91,7 @@ export function CorrectionsScreen() {
         const allResults = response.data.data.results;
         const attemptData = response.data.data.attempt;
         setResults(allResults);
+        setAttempt(attemptData);
 
         // Group results by subject using the explicit subject field from API
         const grouped: Record<string, QuestionResult[]> = {};
@@ -113,15 +126,15 @@ export function CorrectionsScreen() {
         setResultsBySubject(grouped);
         setSubjects(orderedSubjectList);
 
+        // Initialize indices
+        const initialIndices: Record<string, number> = {};
+        orderedSubjectList.forEach(s => {
+          initialIndices[s] = 0;
+        });
+        setSubjectCurrentIndex(initialIndices);
+
         if (orderedSubjectList.length > 0) {
           setCurrentSubject(orderedSubjectList[0]);
-        }
-
-        setResultsBySubject(grouped);
-        setSubjects(subjectList);
-
-        if (subjectList.length > 0) {
-          setCurrentSubject(subjectList[0]);
         }
       } else {
         Alert.alert('Error', 'Failed to load corrections. Please try again.');
@@ -134,27 +147,41 @@ export function CorrectionsScreen() {
     }
   };
 
-  const handleSelectSubject = (subject: string) => {
-    setCurrentSubject(subject);
-    setCurrentQuestionIndex(0);
-    setShowSubjectModal(false);
-  };
+  useEffect(() => {
+    loadResults();
+  }, [params.attemptId]);
 
   const handleNext = () => {
     const currentQuestions = resultsBySubject[currentSubject] || [];
+    const currentQuestionIndex = subjectCurrentIndex[currentSubject] || 0;
     if (currentQuestionIndex < currentQuestions.length - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
+      setSubjectCurrentIndex({
+        ...subjectCurrentIndex,
+        [currentSubject]: currentQuestionIndex + 1,
+      });
     }
   };
 
   const handlePrevious = () => {
+    const currentQuestionIndex = subjectCurrentIndex[currentSubject] || 0;
     if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(currentQuestionIndex - 1);
+      setSubjectCurrentIndex({
+        ...subjectCurrentIndex,
+        [currentSubject]: currentQuestionIndex - 1,
+      });
     }
   };
 
+  const handleSwitchSubject = (subject: string) => {
+    setCurrentSubject(subject);
+    setShowSubjectModal(false);
+  };
+
   const goToQuestion = (index: number) => {
-    setCurrentQuestionIndex(index);
+    setSubjectCurrentIndex({
+      ...subjectCurrentIndex,
+      [currentSubject]: index,
+    });
   };
 
   if (loading) {
@@ -169,24 +196,19 @@ export function CorrectionsScreen() {
   }
 
   const currentQuestions = resultsBySubject[currentSubject] || [];
+  const currentQuestionIndex = subjectCurrentIndex[currentSubject] || 0;
   const currentResult = currentQuestions[currentQuestionIndex];
 
   if (!currentResult) {
     return (
       <AppLayout showBackButton={true} headerTitle="Corrections">
         <View style={styles.centerContainer}>
-          <ThemedText style={styles.errorText}>No corrections found</ThemedText>
-          <Button
-            title="Go Back"
-            onPress={() => navigation.goBack()}
-            style={{ marginTop: 16 }}
-          />
+          <ThemedText style={styles.errorText}>No corrections found for this subject.</ThemedText>
+          <Button title="Go Back" onPress={() => navigation.goBack()} style={{ marginTop: 16 }} />
         </View>
       </AppLayout>
     );
   }
-
-  const totalQuestionsForSubject = currentQuestions.length;
 
   const baseUrl = BACKEND_BASE_URL;
   const imageUrl = currentResult.question.image
@@ -196,278 +218,271 @@ export function CorrectionsScreen() {
     : null;
 
   return (
-    <AppLayout showBackButton={true} headerTitle="Corrections">
-      {/* Subject Header */}
-      <View style={[styles.subjectHeader, { backgroundColor: cardBackground, borderBottomColor: borderColor }]}>
-        <TouchableOpacity
-          style={styles.subjectSelector}
-          onPress={() => setShowSubjectModal(true)}
+    <AppLayout showHeader={false}>
+      <View style={styles.container}>
+        {/* Custom Header with Subject Selector to match ExamScreen */}
+        <View
+          style={[
+            styles.header,
+            { backgroundColor: cardBackground, borderBottomColor: borderColor },
+          ]}
         >
-          <MaterialIcons name="menu-book" size={20} color={tintColor} />
-          <ThemedText type="subtitle" style={styles.subjectName}>
-            {currentSubject}
-          </ThemedText>
-          <MaterialIcons name="arrow-drop-down" size={24} color={tintColor} />
-        </TouchableOpacity>
-        <ThemedText style={styles.questionCounter}>
-          {currentQuestionIndex + 1} / {totalQuestionsForSubject}
-        </ThemedText>
-      </View>
-
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Question Card */}
-        <View style={[styles.correctionCard, { backgroundColor: cardBackground }]}>
-          <View style={styles.correctionHeader}>
-            <View
-              style={[
-                styles.statusBadge,
-                {
-                  backgroundColor: currentResult.is_correct
-                    ? successColor + '20'
-                    : errorColor + '20',
-                },
-              ]}
+          <View style={styles.headerTop}>
+            <TouchableOpacity
+              style={styles.subjectSelector}
+              onPress={() => setShowSubjectModal(true)}
             >
+              <ThemedText type="subtitle" style={styles.headerTitle}>
+                {currentSubject}
+              </ThemedText>
               <MaterialIcons
-                name={currentResult.is_correct ? 'check-circle' : 'cancel'}
+                name="arrow-drop-down"
                 size={20}
-                color={currentResult.is_correct ? successColor : errorColor}
+                color={textColor}
               />
-              <ThemedText
-                style={[
-                  styles.statusText,
-                  {
-                    color: currentResult.is_correct ? successColor : errorColor,
-                  },
-                ]}
-              >
-                {currentResult.is_correct ? 'Correct' : 'Incorrect'}
-              </ThemedText>
+            </TouchableOpacity>
+
+            <View style={styles.headerRight}>
+              <ThemedText style={styles.correctionsTitle}>Corrections</ThemedText>
             </View>
           </View>
+        </View>
 
-          <ThemedText style={styles.questionText}>
-            {currentResult.question.question_text}
-          </ThemedText>
-
-          {imageUrl && (
-            <Image
-              source={{ uri: imageUrl }}
-              style={styles.questionImage}
-              resizeMode="contain"
-            />
-          )}
-
-          <View style={styles.answersSection}>
-            {currentResult.user_answer && (
-              <View
-                style={[
-                  styles.answerBox,
-                  {
-                    backgroundColor: currentResult.is_correct
-                      ? successColor + '10'
-                      : errorColor + '10',
-                    borderColor: currentResult.is_correct ? successColor : errorColor,
-                  },
-                ]}
-              >
-                <View style={styles.answerHeader}>
-                  <MaterialIcons
-                    name={currentResult.is_correct ? 'check-circle' : 'cancel'}
-                    size={18}
-                    color={currentResult.is_correct ? successColor : errorColor}
-                  />
-                  <ThemedText
-                    style={[
-                      styles.answerLabel,
-                      {
-                        color: currentResult.is_correct ? successColor : errorColor,
-                      },
-                    ]}
-                  >
-                    Your Answer
-                  </ThemedText>
-                </View>
-                <ThemedText style={styles.answerText}>
-                  {currentResult.user_answer.order}. {currentResult.user_answer.answer_text}
+        {/* Subject Selection Modal */}
+        <Modal
+          visible={showSubjectModal}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowSubjectModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View
+              style={[styles.modalContent, { backgroundColor: cardBackground }]}
+            >
+              <View style={styles.modalHeader}>
+                <ThemedText type="subtitle" style={styles.modalTitle}>
+                  Select Subject
                 </ThemedText>
+                <TouchableOpacity onPress={() => setShowSubjectModal(false)}>
+                  <MaterialIcons name="close" size={24} color={textColor} />
+                </TouchableOpacity>
               </View>
-            )}
 
-            {!currentResult.is_correct && currentResult.correct_answer && (
-              <View
-                style={[
-                  styles.answerBox,
-                  {
-                    backgroundColor: successColor + '10',
-                    borderColor: successColor,
-                  },
-                ]}
-              >
-                <View style={styles.answerHeader}>
-                  <MaterialIcons name="check-circle" size={18} color={successColor} />
-                  <ThemedText
-                    style={[styles.answerLabel, { color: successColor }]}
-                  >
-                    Correct Answer
-                  </ThemedText>
-                </View>
-                <ThemedText style={styles.answerText}>
-                  {currentResult.correct_answer.order}. {currentResult.correct_answer.answer_text}
-                </ThemedText>
-              </View>
-            )}
+              <ScrollView>
+                {subjects.map((subject) => {
+                  const items = resultsBySubject[subject] || [];
+                  const correct = items.filter(r => r.is_correct).length;
+                  const isCurrent = subject === currentSubject;
+                  return (
+                    <TouchableOpacity
+                      key={subject}
+                      style={[
+                        styles.subjectOption,
+                        {
+                          backgroundColor: isCurrent
+                            ? tintColor + "20"
+                            : backgroundSecondary,
+                          borderColor: isCurrent ? tintColor : borderColor,
+                        },
+                      ]}
+                      onPress={() => handleSwitchSubject(subject)}
+                    >
+                      <View style={styles.subjectOptionContent}>
+                        <ThemedText
+                          type="subtitle"
+                          style={styles.subjectOptionName}
+                        >
+                          {subject}
+                        </ThemedText>
+                        <ThemedText style={styles.subjectOptionProgress}>
+                          {correct} / {items.length} correct
+                        </ThemedText>
+                      </View>
+                      {isCurrent && (
+                        <MaterialIcons
+                          name="check-circle"
+                          size={24}
+                          color={tintColor}
+                        />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
 
-            {!currentResult.user_answer && (
-              <View
-                style={[
-                  styles.answerBox,
-                  {
-                    backgroundColor: '#6B7280' + '10',
-                    borderColor: '#6B7280',
-                  },
-                ]}
-              >
-                <View style={styles.answerHeader}>
-                  <MaterialIcons name="help-outline" size={18} color="#6B7280" />
-                  <ThemedText style={[styles.answerLabel, { color: '#6B7280' }]}>
-                    Not Answered
-                  </ThemedText>
-                </View>
-              </View>
+        {/* Question Card Content */}
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          <View
+            style={[styles.questionCard, { backgroundColor: cardBackground }]}
+          >
+            <ThemedText type="subtitle" style={styles.questionNumber}>
+              Question {currentQuestionIndex + 1}
+              {currentResult.is_correct ? (
+                <ThemedText style={{ color: successColor }}> • Correct</ThemedText>
+              ) : (
+                <ThemedText style={{ color: errorColor }}> • Incorrect</ThemedText>
+              )}
+            </ThemedText>
+            <ThemedText style={styles.questionText}>
+              {currentResult.question.question_text}
+            </ThemedText>
+            {imageUrl && (
+              <Image
+                source={{ uri: imageUrl }}
+                style={styles.questionImage}
+                resizeMode="contain"
+              />
             )}
           </View>
 
-          {currentResult.question.explanation && (
-            <View style={[styles.explanationBox, { backgroundColor: tintColor + '10' }]}>
-              <View style={styles.explanationHeader}>
-                <MaterialIcons name="lightbulb" size={18} color={tintColor} />
-                <ThemedText style={[styles.explanationLabel, { color: tintColor }]}>
-                  Explanation
-                </ThemedText>
-              </View>
-              <ThemedText style={styles.explanationText}>
-                {currentResult.question.explanation}
-              </ThemedText>
-            </View>
-          )}
-        </View>
+          {/* Answers and Explanation */}
+          <View style={styles.answersContainer}>
+            {/* Multiple Choice / True False */}
+            {(currentResult.question.question_type === 'multiple_choice' || currentResult.question.question_type === 'true_false') &&
+              currentResult.question.answers?.map((answer) => {
+                const isUserSelected = currentResult.user_answer?.id === answer.id;
+                const isCorrect = currentResult.correct_answer?.id === answer.id || answer.is_correct;
 
-      </ScrollView>
+                let cardStyle = {};
+                let indicatorStyle = {};
+                let iconName: any = null;
+                let iconColor = '#fff';
 
-      {/* Navigation Footer */}
-      <View style={[styles.footer, { backgroundColor: cardBackground, borderTopColor: borderColor }]}>
-        <View style={styles.questionGrid}>
-          {currentQuestions.map((result, index) => {
-            const isCurrent = index === currentQuestionIndex;
-            const isCorrect = result.is_correct;
-
-            return (
-              <TouchableOpacity
-                key={result.question.id}
-                style={[
-                  styles.questionDot,
-                  {
-                    backgroundColor: isCurrent
-                      ? tintColor
-                      : isCorrect
-                        ? successColor
-                        : errorColor,
-                    borderColor: isCurrent ? tintColor : isCorrect ? successColor : errorColor,
-                    opacity: isCurrent ? 1 : 0.8,
-                  },
-                ]}
-                onPress={() => goToQuestion(index)}
-              >
-                <ThemedText
-                  style={[
-                    styles.questionDotText,
-                    { color: isCurrent ? "#fff" : "#fff" },
-                  ]}
-                >
-                  {index + 1}
-                </ThemedText>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-        <View style={styles.footerButtons}>
-          <Button
-            title="Previous"
-            onPress={handlePrevious}
-            variant="outline"
-            disabled={currentQuestionIndex === 0}
-            style={styles.footerButton}
-          />
-          <Button
-            title={currentQuestionIndex === totalQuestionsForSubject - 1 ? 'Finish' : 'Next'}
-            onPress={currentQuestionIndex === totalQuestionsForSubject - 1
-              ? () => navigation.goBack()
-              : handleNext}
-            style={styles.footerButton}
-          />
-        </View>
-      </View>
-
-      {/* Subject Selection Modal */}
-      <Modal
-        visible={showSubjectModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowSubjectModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: backgroundColor }]}>
-            <View style={styles.modalHeader}>
-              <ThemedText type="subtitle" style={styles.modalTitle}>
-                Select Subject
-              </ThemedText>
-              <TouchableOpacity onPress={() => setShowSubjectModal(false)}>
-                <MaterialIcons name="close" size={24} color={textColor} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView>
-              {subjects.map((subject) => {
-                const subjectQuestions = resultsBySubject[subject] || [];
-                const correctCount = subjectQuestions.filter((r) => r.is_correct).length;
-                const isSelected = subject === currentSubject;
+                if (isCorrect) {
+                  cardStyle = { backgroundColor: successColor + '15', borderColor: successColor };
+                  indicatorStyle = { backgroundColor: successColor, borderColor: successColor };
+                  iconName = 'check';
+                } else if (isUserSelected && !isCorrect) {
+                  cardStyle = { backgroundColor: errorColor + '15', borderColor: errorColor };
+                  indicatorStyle = { backgroundColor: errorColor, borderColor: errorColor };
+                  iconName = 'close';
+                } else {
+                  cardStyle = { backgroundColor: cardBackground, borderColor: borderColor };
+                  indicatorStyle = { backgroundColor: 'transparent', borderColor: borderColor };
+                }
 
                 return (
-                  <TouchableOpacity
-                    key={subject}
-                    style={[
-                      styles.subjectOption,
-                      {
-                        backgroundColor: isSelected ? tintColor + '20' : cardBackground,
-                        borderColor: isSelected ? tintColor : borderColor,
-                      },
-                    ]}
-                    onPress={() => handleSelectSubject(subject)}
+                  <View
+                    key={answer.id}
+                    style={[styles.answerCard, cardStyle]}
                   >
-                    <View style={styles.subjectOptionContent}>
-                      <ThemedText
-                        type="defaultSemiBold"
-                        style={[
-                          styles.subjectOptionName,
-                          { color: isSelected ? tintColor : textColor },
-                        ]}
-                      >
-                        {subject}
-                      </ThemedText>
-                      <ThemedText style={styles.subjectOptionStats}>
-                        {correctCount} / {subjectQuestions.length} correct
-                      </ThemedText>
+                    <View style={[styles.answerIndicator, indicatorStyle]}>
+                      {iconName && <MaterialIcons name={iconName} size={16} color={iconColor} />}
                     </View>
-                    {isSelected && (
-                      <MaterialIcons name="check-circle" size={24} color={tintColor} />
-                    )}
-                  </TouchableOpacity>
+                    <ThemedText style={styles.answerText}>
+                      {answer.order ? `${answer.order}. ` : ''}{answer.answer_text}
+                    </ThemedText>
+                  </View>
                 );
-              })}
-            </ScrollView>
+              })
+            }
+
+            {/* Input Questions */}
+            {(currentResult.question.question_type === 'text_input' || currentResult.question.question_type === 'numeric_input') && (
+              <View style={styles.inputResultsContainer}>
+                <View style={[styles.inputBox, { borderColor: borderColor }]}>
+                  <ThemedText style={styles.inputLabel}>Your Answer:</ThemedText>
+                  <ThemedText style={[styles.inputValue, { color: currentResult.is_correct ? successColor : errorColor }]}>
+                    {currentResult.user_answer?.answer_text || 'No answer provided'}
+                  </ThemedText>
+                </View>
+                {!currentResult.is_correct && (
+                  <View style={[styles.inputBox, { borderColor: successColor }]}>
+                    <ThemedText style={styles.inputLabel}>Correct Answer:</ThemedText>
+                    <ThemedText style={[styles.inputValue, { color: successColor }]}>
+                      {currentResult.correct_answer?.answer_text || currentResult.question.expected_answer}
+                    </ThemedText>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Explanation */}
+            {currentResult.question.explanation && (
+              <View style={[styles.explanationCard, { backgroundColor: backgroundSecondary }]}>
+                <View style={styles.explanationHeader}>
+                  <MaterialIcons name="info" size={20} color={tintColor} />
+                  <ThemedText type="subtitle" style={styles.explanationTitle}>Explanation</ThemedText>
+                </View>
+                <ThemedText style={styles.explanationText}>
+                  {currentResult.question.explanation}
+                </ThemedText>
+              </View>
+            )}
           </View>
+        </ScrollView>
+
+        {/* Navigation Footer to match ExamScreen */}
+        <View
+          style={[
+            styles.footer,
+            { backgroundColor: cardBackground, borderTopColor: borderColor },
+          ]}
+        >
+          <View style={styles.questionGrid}>
+            {currentQuestions.map((q, index) => {
+              const isCurrent = index === currentQuestionIndex;
+              const isCorrect = q.is_correct;
+              const isAnswered = q.user_answer !== null && q.user_answer !== undefined;
+
+              return (
+                <TouchableOpacity
+                  key={q.question.id}
+                  style={[
+                    styles.questionDot,
+                    {
+                      backgroundColor: isCurrent
+                        ? tintColor
+                        : isAnswered
+                          ? isCorrect ? successColor + '80' : errorColor + '80'
+                          : 'transparent',
+                      borderColor: isCurrent
+                        ? tintColor
+                        : isAnswered
+                          ? isCorrect ? successColor : errorColor
+                          : borderColor,
+                    },
+                  ]}
+                  onPress={() => goToQuestion(index)}
+                >
+                  <ThemedText
+                    style={[
+                      styles.questionDotText,
+                      { color: isCurrent || isAnswered ? '#fff' : textColor },
+                    ]}
+                  >
+                    {index + 1}
+                  </ThemedText>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <View style={styles.footerButtons}>
+            <Button
+              title="Previous"
+              onPress={handlePrevious}
+              variant="outline"
+              disabled={currentQuestionIndex === 0}
+              style={styles.footerButton}
+            />
+            <Button
+              title="Next"
+              onPress={handleNext}
+              disabled={currentQuestionIndex === currentQuestions.length - 1}
+              style={styles.footerButton}
+            />
+          </View>
+          <Button
+            title="Back to Results"
+            onPress={() => navigation.goBack()}
+            variant="outline"
+            style={StyleSheet.flatten([styles.footerButton, { marginTop: 12 }])}
+          />
         </View>
-      </Modal>
+      </View>
     </AppLayout>
   );
 }
@@ -480,7 +495,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: 20,
   },
   loadingText: {
     marginTop: 16,
@@ -491,113 +506,110 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     opacity: 0.7,
   },
-  subjectHeader: {
+  header: {
+    padding: 16,
+    borderBottomWidth: 1,
+  },
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
   },
   subjectSelector: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    flex: 1,
+    gap: 4,
   },
-  subjectName: {
-    fontSize: 18,
+  headerTitle: {
+    fontSize: 16,
     fontWeight: '600',
   },
-  questionCounter: {
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  correctionsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    opacity: 0.6,
+  },
+  content: {
+    flex: 1,
+    padding: 16,
+  },
+  questionCard: {
+    marginBottom: 20,
+  },
+  questionNumber: {
     fontSize: 14,
     opacity: 0.7,
-  },
-  progressBar: {
-    padding: 16,
     marginBottom: 8,
-  },
-  progressTrack: {
-    height: 6,
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  correctionCard: {
-    margin: 16,
-    marginBottom: 8,
-    padding: 20,
-    borderRadius: 12,
-  },
-  correctionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    gap: 6,
-  },
-  statusText: {
-    fontSize: 14,
-    fontWeight: '600',
   },
   questionText: {
     fontSize: 18,
     lineHeight: 26,
-    marginBottom: 16,
-    fontWeight: '600',
   },
   questionImage: {
-    width: "100%",
+    width: '100%',
     height: 200,
-    marginBottom: 16,
+    marginTop: 16,
     borderRadius: 8,
   },
-  answersSection: {
+  answersContainer: {
     gap: 12,
-    marginBottom: 16,
+    marginBottom: 24,
   },
-  answerBox: {
-    padding: 16,
-    borderRadius: 8,
-    borderWidth: 2,
-  },
-  answerHeader: {
+  answerCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 8,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 12,
   },
-  answerLabel: {
-    fontSize: 14,
-    fontWeight: '600',
+  answerIndicator: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   answerText: {
+    flex: 1,
     fontSize: 16,
-    lineHeight: 24,
+    lineHeight: 22,
   },
-  explanationBox: {
+  inputResultsContainer: {
+    gap: 12,
+  },
+  inputBox: {
     padding: 16,
-    borderRadius: 8,
-    marginTop: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  inputLabel: {
+    fontSize: 12,
+    opacity: 0.6,
+    marginBottom: 4,
+  },
+  inputValue: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  explanationCard: {
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 12,
   },
   explanationHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
     marginBottom: 8,
   },
-  explanationLabel: {
-    fontSize: 14,
+  explanationTitle: {
+    fontSize: 16,
     fontWeight: '600',
   },
   explanationText: {
@@ -614,7 +626,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
     marginBottom: 16,
-    justifyContent: 'flex-start',
   },
   questionDot: {
     width: 36,
@@ -644,7 +655,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
-    maxHeight: '80%',
+    maxHeight: '70%',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -661,7 +672,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
     marginBottom: 12,
   },
@@ -669,10 +680,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   subjectOptionName: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: '600',
     marginBottom: 4,
   },
-  subjectOptionStats: {
+  subjectOptionProgress: {
     fontSize: 14,
     opacity: 0.7,
   },
