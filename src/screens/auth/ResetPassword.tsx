@@ -124,7 +124,6 @@ export function ResetPassword() {
                             secureTextEntry
                             error={errors.password}
                             leftIcon="lock-closed-outline"
-                            style={styles.input}
                         />
 
                         <Input
@@ -138,7 +137,6 @@ export function ResetPassword() {
                             secureTextEntry
                             error={errors.password}
                             leftIcon="lock-closed-outline"
-                            style={styles.input}
                         />
 
                         <Button

@@ -9,6 +9,7 @@ import {
   Modal,
   BackHandler,
   TextInput,
+  Image,
 } from "react-native";
 import * as ScreenCapture from 'expo-screen-capture';
 import { ThemedText } from "@/components/ThemedText";
@@ -29,6 +30,7 @@ import { CalculatorModal } from "@/components/CalculatorModal";
 interface Question {
   id: number;
   question_text: string;
+  image?: string | null;
   question_type: string;
   points: number;
   order: number;
@@ -121,7 +123,8 @@ export function ExamScreen() {
   const textColor = useThemeColor({}, "text");
   const cardBackground = useThemeColor({}, "card");
   const borderColor = useThemeColor({}, "border");
-  const backgroundSecondary = useThemeColor({}, "backgroundSecondary");
+  // const backgroundSecondary = useThemeColor({}, "backgroundSecondary");
+  const backgroundSecondary = useThemeColor({}, 'cardBackground');
 
   // Get current subject's questions and progress
   const currentQuestions = subjectsQuestions[currentSubject] || [];
@@ -147,17 +150,33 @@ export function ExamScreen() {
     });
   });
 
-  // Handle back button press - prevent screen departure and auto-submit
+  // Handle back button press - ask permission before leaving
   useEffect(() => {
-    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+    const unsubscribe = navigation.addListener("beforeRemove", (e) => {
+      // If already submitted, let them leave
       if (hasSubmittedRef.current) return;
 
+      // Prevent default behavior of leaving the screen
       e.preventDefault();
 
-      // We explicitly bypass handleCompleteExam to reliably trigger submit without stale closures
-      submitExam().then(() => {
-        navigation.dispatch(e.data.action);
-      });
+      // Prompt the user
+      Alert.alert(
+        "Submit Practice Exam?",
+        "Are you sure you want to leave? Your exam will be submitted.",
+        [
+          { text: "Cancel", style: "cancel", onPress: () => { } },
+          {
+            text: "Submit & Leave",
+            style: "destructive",
+            onPress: () => {
+              // Submit exam and dispatch the original navigation action
+              submitExam().then(() => {
+                navigation.dispatch(e.data.action);
+              });
+            },
+          },
+        ]
+      );
     });
 
     return unsubscribe;
@@ -195,20 +214,31 @@ export function ExamScreen() {
     try {
       setLoading(true);
 
-      const promises = [];
+      // Prepare bulk answers payload
+      const answersPayload: any[] = [];
 
-      // Submit all text answers in parallel
+      // Add text/numeric answers
       for (const [questionId, textValue] of Object.entries(textInputAnswersRef.current)) {
         if (!textValue || textValue.trim() === '') continue;
-        promises.push(
-          api.post(`/exam-attempts/${params.attemptId}/submit-answer`, {
-            question_id: parseInt(questionId),
-            answer_text: textValue.trim(),
-          })
-        );
+        answersPayload.push({
+          question_id: parseInt(questionId),
+          answer_text: textValue.trim(),
+        });
       }
 
-      await Promise.all(promises);
+      // Add multiple choice/true false answers
+      for (const [questionId, answerId] of Object.entries(selectedAnswersRef.current)) {
+        answersPayload.push({
+          question_id: parseInt(questionId),
+          answer_id: answerId as number,
+        });
+      }
+
+      if (answersPayload.length > 0) {
+        await api.post(`/exam-attempts/${params.attemptId}/submit-answers-bulk`, {
+          answers: answersPayload,
+        });
+      }
 
       // Prepare subjects data for multi-subject exams
       const subjectsData = routeSubjects.map((subject) => ({
@@ -306,16 +336,6 @@ export function ExamScreen() {
       ...selectedAnswers,
       [currentQuestion.id]: answerId,
     });
-
-    // Auto-submit immediately in background
-    try {
-      await api.post(`/exam-attempts/${params.attemptId}/submit-answer`, {
-        question_id: currentQuestion.id,
-        answer_id: answerId,
-      });
-    } catch (e) {
-      console.error("Auto submit answer failed:", e);
-    }
   };
 
   const handleTextInputChange = (value: string) => {
@@ -545,6 +565,13 @@ export function ExamScreen() {
             <ThemedText style={styles.questionText}>
               {currentQuestion.question_text}
             </ThemedText>
+            {currentQuestion.image && (
+              <Image
+                source={{ uri: currentQuestion.image }}
+                style={styles.questionImage}
+                resizeMode="contain"
+              />
+            )}
           </View>
 
           {/* Answers */}
@@ -886,8 +913,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     padding: 16,
-    borderRadius: 12,
-    borderWidth: 2,
+    borderRadius: 10,
+    borderWidth: 1,
     marginBottom: 12,
   },
   subjectOptionContent: {
@@ -917,6 +944,12 @@ const styles = StyleSheet.create({
   questionText: {
     fontSize: 18,
     lineHeight: 26,
+  },
+  questionImage: {
+    width: "100%",
+    height: 200,
+    marginTop: 16,
+    borderRadius: 8,
   },
   answersContainer: {
     gap: 12,
