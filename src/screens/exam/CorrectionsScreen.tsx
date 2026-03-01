@@ -620,6 +620,7 @@ const styles = StyleSheet.create({
   footer: {
     padding: 16,
     borderTopWidth: 1,
+    marginBottom: 12
   },
   questionGrid: {
     flexDirection: 'row',
@@ -642,6 +643,7 @@ const styles = StyleSheet.create({
   footerButtons: {
     flexDirection: 'row',
     gap: 12,
+    
   },
   footerButton: {
     flex: 1,
