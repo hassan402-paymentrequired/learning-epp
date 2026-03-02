@@ -125,6 +125,7 @@ export function ExamScreen() {
   const borderColor = useThemeColor({}, "border");
   // const backgroundSecondary = useThemeColor({}, "backgroundSecondary");
   const backgroundSecondary = useThemeColor({}, 'cardBackground');
+  const placeholderColor = useThemeColor({}, "placeholder");
 
   // Get current subject's questions and progress
   const currentQuestions = subjectsQuestions[currentSubject] || [];
@@ -352,6 +353,7 @@ export function ExamScreen() {
       [currentQuestion.id]: value,
     });
   };
+
 
   const handleNext = () => {
     if (currentQuestionIndex < totalQuestionsForSubject - 1) {
@@ -698,7 +700,7 @@ export function ExamScreen() {
                   value={textInputAnswers[currentQuestion.id] || ""}
                   onChangeText={handleTextInputChange}
                   placeholder={currentQuestion.question_type === "numeric_input" ? "Enter a number..." : "Type your answer here..."}
-                  placeholderTextColor={useThemeColor({}, "placeholder")}
+                  placeholderTextColor={placeholderColor}
                   keyboardType={currentQuestion.question_type === "numeric_input" ? "numeric" : "default"}
                 />
               </View>
