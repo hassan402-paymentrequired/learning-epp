@@ -1,69 +1,8 @@
-# Custom Font Setup Guide
+a will be dropping some bug not each bug i dropped treat it like a task on it own.
 
-## How to Add Custom Fonts
+1. on the exam screen @beautifulMention if a qquestion has an image it not currently shown
 
-### Step 1: Download Font Files
-1. Download your desired font files (`.ttf` or `.otf` format)
-2. You'll need different files for different weights:
-   - Regular (400)
-   - Medium (500)
-   - SemiBold (600)
-   - Bold (700)
+2. if the user tried to go back out of the exam screen ask for thier permission to submit thier practice first before they can leave the exam screen @beautifulMention
 
-### Step 2: Add Fonts to Project
-1. Place your font files in `src/assets/fonts/`
-2. Example structure:
-   ```
-   src/assets/fonts/
-     - Inter-Regular.ttf
-     - Inter-Medium.ttf
-     - Inter-SemiBold.ttf
-     - Inter-Bold.ttf
-   ```
+3. I can see that when the user submit the code it looping through all the questions and submitting them one after the other. let's imagine the user practice 300 questions are you now telling me this is how each of them will be submitted, oh my God. what if it was now 500 users at once practice 300 question the app is server is coming down. what i want you to do now is maybe you will have to modify the endpoint to accept bulk upload of practices questions @beautifulMention @beautifulMention@beautifulMention
 
-### Step 3: Update Font Configuration
-1. Open `src/constants/Fonts.ts`
-2. Update the font names to match your font files:
-   ```typescript
-   export const Fonts = {
-     primary: {
-       regular: 'Inter-Regular',    // Must match filename (without .ttf)
-       medium: 'Inter-Medium',
-       semiBold: 'Inter-SemiBold',
-       bold: 'Inter-Bold',
-     },
-   };
-   ```
-
-### Step 4: Load Fonts in AppContent
-1. Open `src/components/AppContent.tsx`
-2. Update the `useFonts` hook:
-   ```typescript
-   const [loaded] = useFonts({
-     'Inter-Regular': require("../assets/fonts/Inter-Regular.ttf"),
-     'Inter-Medium': require("../assets/fonts/Inter-Medium.ttf"),
-     'Inter-SemiBold': require("../assets/fonts/Inter-SemiBold.ttf"),
-     'Inter-Bold': require("../assets/fonts/Inter-Bold.ttf"),
-   });
-   ```
-
-### Step 5: Restart the App
-After adding fonts, restart your Expo development server:
-```bash
-npx expo start --clear
-```
-
-## Recommended Free Fonts
-
-- **Inter** - Modern, clean, highly readable (Google Fonts)
-- **Poppins** - Friendly, geometric (Google Fonts)
-- **Roboto** - Professional, widely used (Google Fonts)
-- **Open Sans** - Clean, versatile (Google Fonts)
-
-## Notes
-
-- Font names must match exactly (case-sensitive)
-- On iOS, use the PostScript name if different
-- On Android, use the filename without extension
-- Font files should be in `.ttf` or `.otf` format
-- The app will fall back to system fonts if custom fonts fail to load

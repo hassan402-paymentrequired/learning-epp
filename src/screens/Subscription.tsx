@@ -54,6 +54,8 @@ export function Subscription() {
   const [callbackUrl, setCallbackUrl] = useState<string | null>(null);
   const [cancelUrl, setCancelUrl] = useState<string | null>(null);
   const [paymentReference, setPaymentReference] = useState<string | null>(null);
+  const [pin, setPin] = useState("");
+  const [pinProcessing, setPinProcessing] = useState(false);
 
   const tintColor = useThemeColor({}, "tint");
   const borderColor = useThemeColor({}, "border");
@@ -125,6 +127,41 @@ export function Subscription() {
       );
     } finally {
       setProcessing(false);
+    }
+  };
+
+  const handlePinRedeem = async () => {
+    if (pin.length !== 6) {
+      Alert.alert("Error", "PIN must be exactly 6 digits.");
+      return;
+    }
+
+    setPinProcessing(true);
+    try {
+      const response = await api.post("/subscriptions/redeem-pin", { pin });
+
+      if (response.data.success) {
+        // Register device after successful pin
+        try {
+          await api.post("/subscriptions/register-device");
+        } catch (deviceError) {
+          // ignore already bound device
+        }
+
+        await refreshUser();
+        await fetchStatus();
+
+        Alert.alert("Success", "Your subscription has been activated via PIN!");
+        setPin(""); // clear out the pin
+      }
+    } catch (error: any) {
+      console.error("Error redeeming PIN:", error);
+      Alert.alert(
+        "PIN Error",
+        error.response?.data?.message || "Failed to redeem PIN. Please try again."
+      );
+    } finally {
+      setPinProcessing(false);
     }
   };
 
@@ -312,22 +349,55 @@ export function Subscription() {
 
             {!hasActiveSubscription && (
               <>
-                <Input
-                  label="Referral Code (Optional)"
-                  placeholder="Enter referral code for 5% discount"
-                  value={referralCode}
-                  onChangeText={setReferralCode}
-                  autoCapitalize="characters"
-                  leftIcon="gift-outline"
-                />
+                <View style={styles.optionContainer}>
+                  <ThemedText type="subtitle" style={styles.optionTitle}>Pay Online</ThemedText>
+                  <Input
+                    label="Referral Code (Optional)"
+                    placeholder="Enter referral code for discount"
+                    value={referralCode}
+                    onChangeText={setReferralCode}
+                    autoCapitalize="characters"
+                    leftIcon="gift-outline"
+                  />
+                  <Button
+                    title={`Subscribe for ₦${plan.price.toLocaleString()}/year`}
+                    onPress={handleSubscribe}
+                    loading={processing}
+                    disabled={processing || pinProcessing}
+                    style={styles.subscribeButton}
+                  />
+                  <ThemedText style={styles.secureText}>Secure payment powered by Paystack</ThemedText>
+                </View>
 
-                <Button
-                  title={`Subscribe for ₦${plan.price.toLocaleString()}/year`}
-                  onPress={handleSubscribe}
-                  loading={processing}
-                  disabled={processing}
-                  style={styles.subscribeButton}
-                />
+                <View style={styles.divider}>
+                  <View style={[styles.dividerLine, { backgroundColor: borderColor }]} />
+                  <ThemedText style={styles.dividerText}>OR</ThemedText>
+                  <View style={[styles.dividerLine, { backgroundColor: borderColor }]} />
+                </View>
+
+                <View style={styles.optionContainer}>
+                  <ThemedText type="subtitle" style={styles.optionTitle}>Activate via PIN</ThemedText>
+                  <ThemedText style={styles.optionDescription}>
+                    Enter a 6-digit PIN received from an administrator.
+                  </ThemedText>
+                  <Input
+                    label="6-Digit PIN"
+                    placeholder="e.g. 123456"
+                    value={pin}
+                    onChangeText={(text) => setPin(text.replace(/[^0-9]/g, ''))}
+                    keyboardType="numeric"
+                    maxLength={6}
+                    leftIcon="key-outline"
+                    autoCapitalize="none"
+                  />
+                  <Button
+                    title="Activate Subscription"
+                    onPress={handlePinRedeem}
+                    loading={pinProcessing}
+                    disabled={pinProcessing || processing || pin.length !== 6}
+                    style={styles.subscribeButton}
+                  />
+                </View>
               </>
             )}
 
@@ -483,5 +553,39 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     opacity: 0.7,
+  },
+  optionContainer: {
+    marginTop: 16,
+    paddingTop: 8,
+  },
+  optionTitle: {
+    fontSize: 18,
+    marginBottom: 8,
+  },
+  optionDescription: {
+    fontSize: 14,
+    opacity: 0.7,
+    marginBottom: 12,
+  },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 24,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    fontSize: 14,
+    opacity: 0.5,
+    fontWeight: "600",
+  },
+  secureText: {
+    textAlign: "center",
+    fontSize: 12,
+    opacity: 0.6,
+    marginTop: 8,
   },
 });

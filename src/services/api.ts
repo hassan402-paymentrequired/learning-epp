@@ -2,11 +2,11 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const API_BASE_URL = __DEV__
-  ? 'https://58c9-41-67-156-54.ngrok-free.app/api'
+  ? 'https://8c25-41-67-156-54.ngrok-free.app/api'
   : 'https://admin.stepra.com.ng/api';
 
 export const BACKEND_BASE_URL = __DEV__
-  ? 'https://58c9-41-67-156-54.ngrok-free.app'
+  ? 'https://8c25-41-67-156-54.ngrok-free.app'
   : 'https://admin.stepra.com.ng';
 
 const api = axios.create({
