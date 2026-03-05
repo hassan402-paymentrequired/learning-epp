@@ -30,10 +30,12 @@ type SubscriptionPlan = {
 
 type SubscriptionStatus = {
   has_active_subscription: boolean;
+  other_devices_active: boolean;
   subscription_status: string;
   subscription_expires_at: string | null;
   subscription: {
     id: number;
+    type: string;
     plan: {
       name: string;
       price: number;
@@ -347,6 +349,18 @@ export function Subscription() {
               </View>
             </View>
 
+            {!hasActiveSubscription && status?.other_devices_active && (
+              <View style={[styles.infoBox, { backgroundColor: cardBackground, borderColor: tintColor }]}>
+                <MaterialIcons name="info-outline" size={24} color={tintColor} />
+                <View style={styles.infoBoxContent}>
+                  <ThemedText style={styles.infoBoxTitle}>Multi-Device Subscription</ThemedText>
+                  <ThemedText style={styles.infoBoxText}>
+                    You have an active subscription on another device. To use Stepra on this device as well, you can purchase a new plan below.
+                  </ThemedText>
+                </View>
+              </View>
+            )}
+
             {!hasActiveSubscription && (
               <>
                 <View style={styles.optionContainer}>
@@ -587,5 +601,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     opacity: 0.6,
     marginTop: 8,
+  },
+  infoBox: {
+    flexDirection: "row",
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 20,
+    alignItems: "center",
+  },
+  infoBoxContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  infoBoxTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  infoBoxText: {
+    fontSize: 14,
+    lineHeight: 20,
+    opacity: 0.9,
   },
 });
