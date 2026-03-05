@@ -42,13 +42,21 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
-// Request interceptor to add token
+// Request interceptor to add token and device id
 api.interceptors.request.use(
   async (config) => {
     const token = await AsyncStorage.getItem('auth_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    let deviceId = await AsyncStorage.getItem('device_id');
+    if (!deviceId) {
+      deviceId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      await AsyncStorage.setItem('device_id', deviceId);
+    }
+    config.headers['X-Device-Id'] = deviceId;
+
     return config;
   },
   (error) => {

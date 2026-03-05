@@ -144,7 +144,7 @@ export function Profile() {
           </TouchableOpacity>
 
       
-          {/* <TouchableOpacity style={styles.settingItem} onPress={toggleTheme}>
+          <TouchableOpacity style={styles.settingItem} onPress={toggleTheme}>
             <View style={styles.settingLeft}>
               <MaterialIcons
                 name={colorScheme === "dark" ? "dark-mode" : "light-mode"}
@@ -160,7 +160,7 @@ export function Profile() {
               </ThemedText>
               <MaterialIcons name="chevron-right" size={20} color={tintColor} />
             </View>
-          </TouchableOpacity> */}
+          </TouchableOpacity>
         </View>
 
         <Button
