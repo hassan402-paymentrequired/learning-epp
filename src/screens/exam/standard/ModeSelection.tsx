@@ -34,7 +34,7 @@ export function StandardModeSelection() {
     }
   };
 
-  const examTypeLabel = selection.examType || "Exam";
+  const examTypeLabel = selection.examTypeSlug || "Exam";
 
   return (
     <AppLayout showBackButton={true} headerTitle="">
@@ -43,7 +43,7 @@ export function StandardModeSelection() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <ThemedText style={styles.badge}>{examTypeLabel.toUpperCase()}</ThemedText>
+          <ThemedText style={styles.badge}>{String(examTypeLabel).toUpperCase()}</ThemedText>
           <ThemedText type="title" style={styles.title}>
             Choose Your Mode
           </ThemedText>

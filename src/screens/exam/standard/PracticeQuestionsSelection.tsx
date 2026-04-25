@@ -44,6 +44,7 @@ export function StandardPracticeQuestionsSelection() {
   const [startingPractice, setStartingPractice] = useState(false);
 
   const examType = selection.examType || "JAMB";
+  const examTypeLabel = selection.examTypeSlug || "JAMB";
 
   const hasActiveSubscription =
     user?.subscription_status === "active" &&
@@ -128,7 +129,7 @@ export function StandardPracticeQuestionsSelection() {
           attemptId: attempt.id,
           examId: attempt.exam_id,
           subjectsQuestions,
-          exam: { id: attempt.exam_id, title: `${examType} Practice Questions`, duration, total_questions: Object.values(subjectsQuestions).flat().length },
+          exam: { id: attempt.exam_id, title: `${examTypeLabel} Practice Questions`, duration, total_questions: Object.values(subjectsQuestions).flat().length },
           timeMinutes: duration,
           subjects: selectedSubjects,
           isPractice: true,
@@ -145,7 +146,7 @@ export function StandardPracticeQuestionsSelection() {
     <AppLayout showBackButton={true} headerTitle="">
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <ThemedText style={styles.badge}>{examType}</ThemedText>
+          <ThemedText style={styles.badge}>{examTypeLabel.toUpperCase()}</ThemedText>
           <ThemedText type="title" style={styles.title}>Study Mode</ThemedText>
           <ThemedText style={styles.subtitle}>Select subjects to study. Randomized questions to help you master topics.</ThemedText>
 

@@ -61,6 +61,7 @@ export function StandardPastQuestionsSelection() {
   const [startingExam, setStartingExam] = useState(false);
 
   const examType = selection.examType || "JAMB";
+  const examTypeLabel = selection.examTypeSlug || "JAMB";
 
   const hasActiveSubscription =
     user?.subscription_status === "active" &&
@@ -179,7 +180,7 @@ export function StandardPastQuestionsSelection() {
         attemptId: attempt.id,
         examId: firstExamId,
         subjectsQuestions,
-        exam: { id: firstExamId, title: `${examType} Past Questions`, duration: selectedSubjects.length * 30, total_questions: Object.values(subjectsQuestions).flat().length },
+        exam: { id: firstExamId, title: `${examTypeLabel} Past Questions`, duration: selectedSubjects.length * 30, total_questions: Object.values(subjectsQuestions).flat().length },
         timeMinutes: selectedSubjects.length * 30,
         subjects: selectedSubjects,
         isPractice: false,
@@ -195,7 +196,7 @@ export function StandardPastQuestionsSelection() {
     <AppLayout showBackButton={true} headerTitle="">
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <ThemedText style={styles.badge}>{examType}</ThemedText>
+          <ThemedText style={styles.badge}>{examTypeLabel.toUpperCase()}</ThemedText>
           <ThemedText type="title" style={styles.title}>Past Questions</ThemedText>
           <ThemedText style={styles.subtitle}>Select up to 4 subjects and choose your preferred years.</ThemedText>
           
