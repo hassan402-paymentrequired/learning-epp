@@ -151,7 +151,7 @@ export function Home() {
   };
 
   const handleCategoryPress = (category: ExamCategory) => {
-    setExamType(category.id, category.slug, category.flow_type);
+    setExamType(category.id, category.slug, category.name, category.flow_type);
     if (category.flow_type === 'departmental') {
       // @ts-ignore
       navigation.navigate("DepartmentsList");

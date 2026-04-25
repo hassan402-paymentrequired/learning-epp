@@ -11,6 +11,7 @@ export interface SubjectQuestionCount {
 export interface ExamSelectionState {
   examType: ExamType; // This will now be the ID
   examTypeSlug: string | null;
+  examTypeName: string | null;
   flowType: 'standard' | 'departmental' | null;
   subjects: string[]; // Array of selected subjects (max 4 for JAMB)
   questionMode: QuestionMode;
@@ -21,7 +22,7 @@ export interface ExamSelectionState {
 
 interface ExamSelectionContextType {
   selection: ExamSelectionState;
-  setExamType: (id: ExamType, slug: string, flowType: 'standard' | 'departmental') => void;
+  setExamType: (id: ExamType, slug: string, name: string, flowType: 'standard' | 'departmental') => void;
   setSubjects: (subjects: string[]) => void;
   addSubject: (subject: string) => void;
   removeSubject: (subject: string) => void;
@@ -41,6 +42,7 @@ interface ExamSelectionContextType {
 const initialState: ExamSelectionState = {
   examType: null,
   examTypeSlug: null,
+  examTypeName: null,
   flowType: null,
   subjects: [],
   questionMode: null,
@@ -55,11 +57,12 @@ export function ExamSelectionProvider({ children }: { children: ReactNode }) {
   const [selection, setSelection] = useState<ExamSelectionState>(initialState);
   const [practiceSessions, setPracticeSessions] = useState<Record<string, number>>({});
 
-  const setExamType = useCallback((id: ExamType, slug: string, flowType: 'standard' | 'departmental') => {
+  const setExamType = useCallback((id: ExamType, slug: string, name: string, flowType: 'standard' | 'departmental') => {
     setSelection((prev) => ({
       ...prev,
       examType: id,
       examTypeSlug: slug,
+      examTypeName: name,
       flowType: flowType,
       // Reset subjects when exam type changes
       subjects: [],

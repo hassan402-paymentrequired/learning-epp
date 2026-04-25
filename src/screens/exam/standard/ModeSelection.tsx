@@ -12,6 +12,7 @@ import { useExamSelection } from "@/contexts/ExamSelectionContext";
 import { useNavigation } from "@react-navigation/native";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { Fonts } from "@/constants/Fonts";
 
 const { width } = Dimensions.get("window");
 
@@ -34,16 +35,15 @@ export function StandardModeSelection() {
     }
   };
 
-  const examTypeLabel = selection.examTypeSlug || "Exam";
+  const examTypeLabel = selection.examTypeName || "Exam";
 
   return (
-    <AppLayout showBackButton={true} headerTitle="">
+    <AppLayout showBackButton={true} headerTitle="Practice mode">
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <ThemedText style={styles.badge}>{String(examTypeLabel).toUpperCase()}</ThemedText>
           <ThemedText type="title" style={styles.title}>
             Choose Your Mode
           </ThemedText>
@@ -67,7 +67,6 @@ export function StandardModeSelection() {
                 Take a complete {examTypeLabel} paper from a specific year. Best for simulation.
               </ThemedText>
             </View>
-            <MaterialIcons name="chevron-right" size={24} color={borderColor} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -84,7 +83,6 @@ export function StandardModeSelection() {
                 Practice with a random mix of questions. Limit of 4 sessions per subject.
               </ThemedText>
             </View>
-            <MaterialIcons name="chevron-right" size={24} color={borderColor} />
           </TouchableOpacity>
         </View>
 
@@ -105,7 +103,6 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   header: {
-    marginTop: 10,
     marginBottom: 40,
   },
   badge: {
@@ -116,9 +113,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   title: {
-    fontSize: 32,
-    fontWeight: "800",
-    marginBottom: 12,
+     fontSize: 24,
+        fontFamily: Fonts.primary.bold,
+        color: '#4800b2',
+        marginBottom: 4,
   },
   subtitle: {
     fontSize: 16,
@@ -131,31 +129,31 @@ const styles = StyleSheet.create({
   modeCard: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 20,
-    borderRadius: 12,
+    padding: 13,
+    borderRadius: 8,
     borderWidth: 1,
   },
   iconBox: {
-    width: 60,
-    height: 60,
+    width: 70,
+    height:70,
     borderRadius: 8,
     justifyContent: "center",
     alignItems: "center",
   },
   modeContent: {
     flex: 1,
-    marginLeft: 16,
-    marginRight: 8,
+    marginHorizontal: 16,
   },
   modeTitle: {
     fontSize: 18,
-    fontWeight: "700",
     marginBottom: 4,
+    fontFamily: Fonts.primary.bold,
   },
   modeDesc: {
     fontSize: 14,
     opacity: 0.6,
     lineHeight: 20,
+    fontFamily: Fonts.primary.regular,
   },
   infoSection: {
       marginTop: 40,

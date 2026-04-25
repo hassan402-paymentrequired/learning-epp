@@ -44,7 +44,7 @@ export function StandardPracticeQuestionsSelection() {
   const [startingPractice, setStartingPractice] = useState(false);
 
   const examType = selection.examType || "JAMB";
-  const examTypeLabel = selection.examTypeSlug || "JAMB";
+  const examTypeLabel = selection.examTypeName || "JAMB";
 
   const hasActiveSubscription =
     user?.subscription_status === "active" &&

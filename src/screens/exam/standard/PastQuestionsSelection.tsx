@@ -61,7 +61,7 @@ export function StandardPastQuestionsSelection() {
   const [startingExam, setStartingExam] = useState(false);
 
   const examType = selection.examType || "JAMB";
-  const examTypeLabel = selection.examTypeSlug || "JAMB";
+  const examTypeLabel = selection.examTypeName || "JAMB";
 
   const hasActiveSubscription =
     user?.subscription_status === "active" &&
