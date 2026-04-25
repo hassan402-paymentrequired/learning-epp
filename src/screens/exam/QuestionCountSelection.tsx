@@ -206,7 +206,7 @@ export function QuestionCountSelection() {
         subjectsQuestions: subjectsQuestions, // Pass all subjects' questions
         exam: {
           id: firstExamId,
-          title: `${selection.examType} ${selection.subjects.join(', ')} Practice`,
+          title: `${selection.examTypeSlug} ${selection.subjects.join(', ')} Practice`,
           duration: selection.timeMinutes || 30,
           total_questions: totalQuestions,
         },

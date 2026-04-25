@@ -20,7 +20,7 @@ export function QuestionModeSelection() {
   const tintColor = useThemeColor({}, "tint");
 
   // DLI can only practice past questions
-  const isDLI = selection.examType === "DLI";
+  const isDLI = selection.flowType === "departmental";
 
   const handleSelectMode = (mode: "past_question" | "practice") => {
     setQuestionMode(mode);

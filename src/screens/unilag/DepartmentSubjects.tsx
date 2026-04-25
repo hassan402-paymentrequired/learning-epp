@@ -5,8 +5,11 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   Modal,
+  TextInput,
+  Platform,
+  RefreshControl,
+  Alert
 } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { AppLayout } from "@/components/AppLayout";
@@ -17,6 +20,7 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import api from "@/services/api";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { Fonts } from "@/constants/Fonts";
 
 interface SubjectTest {
   id: number;
@@ -28,11 +32,13 @@ interface Subject {
   id: number;
   name: string;
   slug: string;
+  description: string;
+  questions_count: number;
   tests?: SubjectTest[];
 }
 
 export function DepartmentSubjects() {
-  const { setQuestionMode, addSubject, removeSubject, setQuestionCount, setTimeMinutes } =
+  const { selection, setQuestionMode, addSubject, removeSubject, setQuestionCount, setTimeMinutes } =
     useExamSelection();
   const { user } = useAuth();
   const navigation = useNavigation();
@@ -41,67 +47,35 @@ export function DepartmentSubjects() {
 
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  
+  const [selectedSubjectObj, setSelectedSubjectObj] = useState<Subject | null>(null);
   const [selectedTestId, setSelectedTestId] = useState<number | null>(null);
   const [questionCount, setQuestionCountLocal] = useState<number | null>(null);
   const [timeMinutes, setTimeMinutesLocal] = useState<number | null>(null);
-  const [showSubjectModal, setShowSubjectModal] = useState(false);
+  
+  const [showConfigModal, setShowConfigModal] = useState(false);
   const [showTestModal, setShowTestModal] = useState(false);
   const [showQuestionCountModal, setShowQuestionCountModal] = useState(false);
   const [showTimeModal, setShowTimeModal] = useState(false);
+  
   const [startingExam, setStartingExam] = useState(false);
-  const [showLimitedModal, setShowLimitedModal] = useState(false);
-  const [limitedData, setLimitedData] = useState<{
-    available: number;
-    requested: number;
-    subject: string;
-  } | null>(null);
-  const [pendingQuestions, setPendingQuestions] = useState<any[]>([]);
   const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const tintColor = useThemeColor({}, "tint");
-  const cardBackground = useThemeColor({}, "cardBackground");
-  const borderColor = useThemeColor({}, "border");
-  const textColor = useThemeColor({}, "text");
-  const placeholderColor = useThemeColor({}, "placeholder");
-
-  const selectedSubjectData = subjects.find((s) => s.name === selectedSubject);
-  const testsForSubject = selectedSubjectData?.tests ?? [];
-  const requiresTestSelection = testsForSubject.length > 0;
-
-  const maxQuestionsPerSubject = hasActiveSubscription ? 50 : 5;
-  const questionCountOptions = Array.from(
-    { length: maxQuestionsPerSubject },
-    (_, i) => i + 1
-  );
-  const timeOptions = Array.from({ length: 120 }, (_, i) => i + 1);
+  const tintColor = "#4800b2";
+  const borderColor = "#f1f5f9";
+  const textColor = "#1a1c1d";
 
   useEffect(() => {
     setQuestionMode("practice");
-  }, [setQuestionMode]);
-
-  useEffect(() => {
     const checkSubscription = async () => {
       try {
         const response = await api.get("/subscriptions/status");
         if (response.data.success && response.data.data) {
-          setHasActiveSubscription(
-            response.data.data.has_active_subscription || false
-          );
-        } else {
-          const userActive =
-            user?.subscription_status === "active" &&
-            user?.subscription_expires_at &&
-            new Date(user.subscription_expires_at) > new Date();
-          setHasActiveSubscription(userActive || false);
+          setHasActiveSubscription(response.data.data.has_active_subscription || false);
         }
-      } catch {
-        const userActive =
-          user?.subscription_status === "active" &&
-          user?.subscription_expires_at &&
-          new Date(user.subscription_expires_at) > new Date();
-        setHasActiveSubscription(userActive || false);
-      }
+      } catch (e) {}
     };
     if (user) checkSubscription();
   }, [user]);
@@ -120,450 +94,226 @@ export function DepartmentSubjects() {
     try {
       setLoading(true);
       const response = await api.get(`/departments/${departmentId}/subjects`, {
-        params: { exam_type: "DLI" },
+        params: { exam_type: selection.examType },
       });
       if (response.data.success && response.data.data) {
         setSubjects(response.data.data);
-        if (response.data.data.length === 0) {
-          Alert.alert(
-            "No Subjects",
-            "No subjects are available for this department at the moment.",
-            [{ text: "OK", onPress: () => navigation.goBack() }]
-          );
-        }
       }
     } catch (err: any) {
-      Alert.alert(
-        "Error",
-        err.response?.data?.message || "Failed to load subjects. Please try again.",
-        [{ text: "OK" }]
-      );
     } finally {
       setLoading(false);
+      setRefreshing(false)
     }
   };
 
-  const selectSubject = (subject: string) => {
-    if (selectedSubject === subject) {
-      setSelectedSubject(null);
-      removeSubject(subject);
-    } else {
-      if (selectedSubject) removeSubject(selectedSubject);
-      setSelectedSubject(subject);
-      addSubject(subject);
-    }
+  const handleSubjectPress = (subject: Subject) => {
+    setSelectedSubjectObj(subject);
+    addSubject(subject.name);
     setSelectedTestId(null);
     setQuestionCountLocal(null);
     setTimeMinutesLocal(null);
-    setShowSubjectModal(false);
+    setShowConfigModal(true);
   };
 
-  const selectTest = (testId: number) => {
-    setSelectedTestId(testId);
-    setQuestionCountLocal(null);
-    setTimeMinutesLocal(null);
-    setShowTestModal(false);
-  };
-
-  const selectQuestionCount = (count: number) => {
-    setQuestionCountLocal(count);
-    setTimeMinutesLocal(null);
-    setShowQuestionCountModal(false);
-  };
-
-  const selectTime = (minutes: number) => {
-    setTimeMinutesLocal(minutes);
-    setShowTimeModal(false);
-  };
-
-  const proceedWithPractice = async (
-    allQuestions: any[],
-    subj: string,
-    count: number,
-    mins: number
-  ) => {
-    const questionsWithSubject = allQuestions.map((q: any) => ({
-      ...q,
-      subject: subj,
-    }));
-
-    const sessionResponse = await api.post("/practice/start", {
-      exam_type: "DLI",
-      subjects: [{ subject: subj, question_count: Math.min(count, allQuestions.length) }],
-      duration_minutes: mins,
-    });
-
-    if (sessionResponse.data.success && sessionResponse.data.data?.attempt) {
-      const attempt = sessionResponse.data.data.attempt;
-      setQuestionCount(subj, Math.min(count, allQuestions.length));
-      setTimeMinutes(mins);
-
-      // @ts-ignore
-      navigation.navigate("ExamScreen", {
-        attemptId: attempt.id,
-        examId: attempt.exam_id || 0,
-        subjectsQuestions: { [subj]: questionsWithSubject },
-        exam: {
-          id: attempt.exam_id || 0,
-          title: `DLI ${subj} Practice Questions`,
-          duration: mins,
-          total_questions: questionsWithSubject.length,
-        },
-        timeMinutes: mins,
-        subjects: [subj],
-        isPractice: true,
-      });
-    } else {
-      Alert.alert(
-        "Error",
-        sessionResponse.data?.message || "Failed to start practice session."
-      );
-    }
-  };
-
-  const handleStartPractice = async () => {
-    if (!selectedSubject) {
-      Alert.alert("No Course", "Please select a course to continue.");
-      return;
-    }
-    if (requiresTestSelection && !selectedTestId) {
-      Alert.alert("No Test", "Please select a test to continue.");
-      return;
-    }
-    if (!questionCount || questionCount < 1) {
-      Alert.alert("Invalid Count", "Please select a valid number of questions.");
-      return;
-    }
-    if (questionCount > maxQuestionsPerSubject) {
-      Alert.alert(
-        "Too Many",
-        `Maximum allowed is ${maxQuestionsPerSubject} questions per course.`
-      );
-      return;
-    }
-    if (!timeMinutes || timeMinutes < 1) {
-      Alert.alert("Invalid Time", "Please select a valid duration.");
-      return;
-    }
-    if (timeMinutes > 120) {
-      Alert.alert("Time Limit", "Maximum allowed time is 120 minutes.");
-      return;
-    }
-
+  const startPractice = async () => {
+    if (!selectedSubjectObj || !questionCount || !timeMinutes) return;
+    
     try {
       setStartingExam(true);
-
-      const params: Record<string, string | number> = {
-        exam_type: "DLI",
-        subject: selectedSubject,
-        count: questionCount,
+      const subj = selectedSubjectObj.name;
+      
+      const payload: any = {
+        exam_type: selection.examType,
+        subjects: [
+          { 
+            subject: subj, 
+            question_count: questionCount,
+            subject_test_id: selectedTestId || undefined
+          }
+        ],
+        duration_minutes: timeMinutes,
       };
-      if (selectedTestId) params.subject_test_id = selectedTestId;
 
-      const questionsResponse = await api.get("/questions/practice", {
-        params,
-      });
+      const sessionResponse = await api.post("/practice/start", payload);
 
-      if (!questionsResponse.data.success) {
-        Alert.alert(
-          "Error",
-          `Failed to load questions for ${selectedSubject}. Please try again.`
-        );
-        return;
-      }
+      if (sessionResponse.data.success && sessionResponse.data.data?.attempt) {
+        const { attempt, questions } = sessionResponse.data.data;
+        const allQuestions = questions[subj] || [];
 
-      const allQuestions = questionsResponse.data.data || [];
+        if (allQuestions.length === 0) {
+          Alert.alert("No Questions", "Sorry, there are no questions available for this selection yet.");
+          return;
+        }
 
-      if (allQuestions.length === 0) {
-        Alert.alert(
-          "No Questions",
-          `No practice questions available for ${selectedSubject}. Please try a different course.`
-        );
-        return;
-      }
+        // Update local context state
+        setQuestionCount(subj, allQuestions.length);
+        setTimeMinutes(timeMinutes);
 
-      if (allQuestions.length < questionCount) {
-        setLimitedData({
-          available: allQuestions.length,
-          requested: questionCount,
-          subject: selectedSubject,
+        // Navigate to ExamScreen
+        // @ts-ignore
+        navigation.navigate("ExamScreen", {
+          attemptId: attempt.id,
+          examId: attempt.exam_id || 0,
+          subjectsQuestions: { [subj]: allQuestions },
+          exam: {
+            id: attempt.exam_id || 0,
+            title: `${subj} Practice`,
+            duration: timeMinutes,
+            total_questions: allQuestions.length,
+          },
+          timeMinutes: timeMinutes,
+          subjects: [subj],
+          isPractice: true,
         });
-        setPendingQuestions(allQuestions);
-        setShowLimitedModal(true);
-        return;
+        setShowConfigModal(false);
+      } else {
+        Alert.alert("Error", "Failed to start practice session. Please try again.");
       }
-
-      await proceedWithPractice(
-        allQuestions,
-        selectedSubject,
-        questionCount,
-        timeMinutes
-      );
-    } catch (err: any) {
-      Alert.alert(
-        "Error",
-        err.response?.data?.message || "Failed to start practice. Please try again."
-      );
+    } catch (e: any) {
+      console.error("Start practice error:", e);
+      const message = e.response?.data?.message || "An error occurred while starting the practice session.";
+      Alert.alert("Error", message);
     } finally {
       setStartingExam(false);
     }
   };
 
-  const handleLimitedProceed = async () => {
-    if (
-      limitedData &&
-      selectedSubject &&
-      timeMinutes &&
-      pendingQuestions.length > 0
-    ) {
-      setShowLimitedModal(false);
-      await proceedWithPractice(
-        pendingQuestions,
-        limitedData.subject,
-        limitedData.available,
-        timeMinutes
-      );
-      setLimitedData(null);
-      setPendingQuestions([]);
-    }
-  };
+  const filteredSubjects = subjects.filter(s => 
+    s.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   if (loading) {
     return (
-      <AppLayout showBackButton={true} headerTitle="Select Subject">
+      <AppLayout showBackButton={true} headerTitle="Select Course">
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={tintColor} />
-          <ThemedText style={styles.loadingText}>Loading subjects...</ThemedText>
         </View>
       </AppLayout>
     );
   }
 
+  const maxQuestions = hasActiveSubscription ? 50 : 5;
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadSubjects();
+  };
+
   return (
-    <AppLayout showBackButton={true} headerTitle="Select Subject">
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.header}>
-          <ThemedText type="title" style={styles.title}>
-            Select Subject
-          </ThemedText>
-          <ThemedText style={styles.subtitle}>
-            Select your course, number of questions, and time.
-          </ThemedText>
-          {!hasActiveSubscription && (
-            <ThemedText
-              style={[styles.hint, { color: tintColor, fontWeight: "600" }]}
-            >
-              ⚠️ Non-subscribed users are limited to 5 questions per session.
-            </ThemedText>
-          )}
-        </View>
+    <AppLayout showBackButton={true} headerTitle="Exam Subject List">
+      <View style={styles.searchContainer}>
+        <MaterialIcons name="search" size={20} color="#a1a1aa" style={styles.searchIcon} />
+        <TextInput
+          placeholder="Search Here"
+          style={styles.searchInput}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholderTextColor="#a1a1aa"
+        />
+      </View>
 
-        {/* Subject Selection */}
-        <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>Select Course *</ThemedText>
-          <TouchableOpacity
-            style={[
-              styles.selector,
-              {
-                borderColor: selectedSubject ? tintColor : borderColor,
-                backgroundColor: cardBackground,
-              },
-            ]}
-            onPress={() => setShowSubjectModal(true)}
-            disabled={subjects.length === 0}
-          >
-            <ThemedText
-              style={{
-                color: selectedSubject ? textColor : placeholderColor,
-                fontSize: 16,
-              }}
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}
+        refreshControl={
+                  <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                }
+        >
+        <View style={styles.listContainer}>
+          {filteredSubjects.map((subject) => (
+            <TouchableOpacity 
+              key={subject.id} 
+              style={styles.listItem}
+              onPress={() => handleSubjectPress(subject)}
+              activeOpacity={0.6}
             >
-              {selectedSubject || "Choose a course"}
-            </ThemedText>
-            <MaterialIcons name="arrow-drop-down" size={24} color={textColor} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Test Selection - only when subject has tests */}
-        {selectedSubject && requiresTestSelection && (
-          <View style={styles.section}>
-            <ThemedText style={styles.sectionTitle}>Select Test *</ThemedText>
-            <TouchableOpacity
-              style={[
-                styles.selector,
-                {
-                  borderColor: selectedTestId ? tintColor : borderColor,
-                  backgroundColor: cardBackground,
-                },
-              ]}
-              onPress={() => setShowTestModal(true)}
-            >
-              <ThemedText
-                style={{
-                  color: selectedTestId ? textColor : placeholderColor,
-                  fontSize: 16,
-                }}
-              >
-                {selectedTestId
-                  ? testsForSubject.find((t) => t.id === selectedTestId)?.name
-                  : "Choose a test"}
-              </ThemedText>
-              <MaterialIcons name="arrow-drop-down" size={24} color={textColor} />
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Question Count - show when subject (and test if required) selected */}
-        {selectedSubject && (!requiresTestSelection || selectedTestId) && (
-          <View style={styles.section}>
-            <ThemedText style={styles.sectionTitle}>
-              Number of Questions *
-            </ThemedText>
-            <TouchableOpacity
-              style={[
-                styles.selector,
-                {
-                  borderColor: questionCount ? tintColor : borderColor,
-                  backgroundColor: cardBackground,
-                },
-              ]}
-              onPress={() => setShowQuestionCountModal(true)}
-            >
-              <ThemedText
-                style={{
-                  color: questionCount ? textColor : placeholderColor,
-                  fontSize: 16,
-                }}
-              >
-                {questionCount || "Select number of questions"}
-              </ThemedText>
-              <MaterialIcons name="arrow-drop-down" size={24} color={textColor} />
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Time */}
-        {selectedSubject &&
-          (!requiresTestSelection || selectedTestId) &&
-          questionCount && (
-            <View style={styles.section}>
-              <ThemedText style={styles.sectionTitle}>Time (Minutes) *</ThemedText>
-              <TouchableOpacity
-                style={[
-                  styles.selector,
-                  {
-                    borderColor: timeMinutes ? tintColor : borderColor,
-                    backgroundColor: cardBackground,
-                  },
-                ]}
-                onPress={() => setShowTimeModal(true)}
-              >
-                <ThemedText
-                  style={{
-                    color: timeMinutes ? textColor : placeholderColor,
-                    fontSize: 16,
-                  }}
+              <View style={styles.iconBox}>
+                <MaterialIcons name="calculate" size={32} style={{ opacity: 0.2 }} />
+              </View>
+              <View style={styles.infoBox}>
+                <ThemedText style={styles.subjectTitle}>{subject.name}</ThemedText>
+                <ThemedText 
+                  style={styles.subjectSubtitle} 
+                  numberOfLines={2} 
+                  ellipsizeMode="tail"
                 >
-                  {timeMinutes || "Select duration"}
+                  {subject.description}
                 </ThemedText>
-                <MaterialIcons name="arrow-drop-down" size={24} color={textColor} />
-              </TouchableOpacity>
-            </View>
-          )}
+                <ThemedText style={styles.subjectAvailable}>Total questions : {subject.questions_count}</ThemedText>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
       </ScrollView>
 
-      {/* Subject Modal */}
-      <Modal
-        visible={showSubjectModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowSubjectModal(false)}
-      >
+      {/* Configuration Modal */}
+      <Modal visible={showConfigModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: cardBackground }]}>
+          <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <ThemedText type="subtitle" style={styles.modalTitle}>
-                Select Course
-              </ThemedText>
-              <TouchableOpacity
-                onPress={() => setShowSubjectModal(false)}
-                style={styles.closeButton}
-              >
+              <ThemedText style={styles.modalTitle}>Practice Settings</ThemedText>
+              <TouchableOpacity onPress={() => setShowConfigModal(false)}>
                 <MaterialIcons name="close" size={24} color={textColor} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={styles.modalScrollView}>
-              {subjects.map((s) => (
-                <TouchableOpacity
-                  key={s.id}
-                  style={[
-                    styles.option,
-                    { backgroundColor: selectedSubject === s.name ? tintColor + "20" : "transparent" },
-                  ]}
-                  onPress={() => selectSubject(s.name)}
-                >
-                  <ThemedText
-                    style={{
-                      color: selectedSubject === s.name ? tintColor : textColor,
-                      fontWeight: selectedSubject === s.name ? "600" : "400",
-                    }}
-                  >
-                    {s.name}
+            
+            <View style={styles.configBody}>
+              <ThemedText style={styles.configLabel}>Faculty Course: {selectedSubjectObj?.name}</ThemedText>
+              
+              {/* Test Selection */}
+              {selectedSubjectObj?.tests && selectedSubjectObj.tests.length > 0 && (
+                <TouchableOpacity style={styles.configInput} onPress={() => setShowTestModal(true)}>
+                  <ThemedText style={styles.inputText}>
+                    {selectedTestId ? selectedSubjectObj.tests.find(t => t.id === selectedTestId)?.name : 'Select Test'}
                   </ThemedText>
-                  {selectedSubject === s.name && (
-                    <MaterialIcons name="check" size={24} color={tintColor} />
-                  )}
+                  <MaterialIcons name="arrow-drop-down" size={24} color="#a1a1aa" />
                 </TouchableOpacity>
-              ))}
-            </ScrollView>
+              )}
+
+              {/* Count Selection */}
+              <TouchableOpacity style={styles.configInput} onPress={() => setShowQuestionCountModal(true)}>
+                <ThemedText style={styles.inputText}>
+                  {questionCount ? `${questionCount} Questions` : 'Number of Questions'}
+                </ThemedText>
+                <MaterialIcons name="arrow-drop-down" size={24} color="#a1a1aa" />
+              </TouchableOpacity>
+
+              {/* Time Selection */}
+              <TouchableOpacity style={styles.configInput} onPress={() => setShowTimeModal(true)}>
+                <ThemedText style={styles.inputText}>
+                  {timeMinutes ? `${timeMinutes} Minutes` : 'Duration'}
+                </ThemedText>
+                <MaterialIcons name="arrow-drop-down" size={24} color="#a1a1aa" />
+              </TouchableOpacity>
+
+              <Button 
+                title={startingExam ? "Preparing..." : "Start Now"} 
+                onPress={startPractice}
+                disabled={!questionCount || !timeMinutes || startingExam}
+                style={styles.startBtn}
+              />
+            </View>
           </View>
         </View>
       </Modal>
 
       {/* Test Modal */}
-      <Modal
-        visible={showTestModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowTestModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: cardBackground }]}>
+      <Modal visible={showTestModal} transparent animationType="fade">
+        <View style={styles.nestedModalOverlay}>
+          <View style={styles.nestedModalContent}>
             <View style={styles.modalHeader}>
-              <ThemedText type="subtitle" style={styles.modalTitle}>
-                Select Test
-              </ThemedText>
-              <TouchableOpacity
-                onPress={() => setShowTestModal(false)}
-                style={styles.closeButton}
-              >
+              <ThemedText style={styles.modalTitle}>Select Test</ThemedText>
+              <TouchableOpacity onPress={() => setShowTestModal(false)}>
                 <MaterialIcons name="close" size={24} color={textColor} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={styles.modalScrollView}>
-              {testsForSubject.map((t) => (
-                <TouchableOpacity
-                  key={t.id}
-                  style={[
-                    styles.option,
-                    { backgroundColor: selectedTestId === t.id ? tintColor + "20" : "transparent" },
-                  ]}
-                  onPress={() => selectTest(t.id)}
+            <ScrollView style={{maxHeight: 400}}>
+              {selectedSubjectObj?.tests?.map((t) => (
+                <TouchableOpacity 
+                  key={t.id} 
+                  style={styles.optionItem}
+                  onPress={() => { setSelectedTestId(t.id); setShowTestModal(false); }}
                 >
-                  <ThemedText
-                    style={{
-                      color: selectedTestId === t.id ? tintColor : textColor,
-                      fontWeight: selectedTestId === t.id ? "600" : "400",
-                    }}
-                  >
-                    {t.name}
-                  </ThemedText>
-                  {selectedTestId === t.id && (
-                    <MaterialIcons name="check" size={24} color={tintColor} />
-                  )}
+                  <ThemedText style={styles.optionText}>{t.name}</ThemedText>
+                  {selectedTestId === t.id && <MaterialIcons name="check-circle" size={20} color={tintColor} />}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -572,46 +322,24 @@ export function DepartmentSubjects() {
       </Modal>
 
       {/* Question Count Modal */}
-      <Modal
-        visible={showQuestionCountModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowQuestionCountModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: cardBackground }]}>
+      <Modal visible={showQuestionCountModal} transparent animationType="fade">
+        <View style={styles.nestedModalOverlay}>
+          <View style={styles.nestedModalContent}>
             <View style={styles.modalHeader}>
-              <ThemedText type="subtitle" style={styles.modalTitle}>
-                Number of Questions
-              </ThemedText>
-              <TouchableOpacity
-                onPress={() => setShowQuestionCountModal(false)}
-                style={styles.closeButton}
-              >
+              <ThemedText style={styles.modalTitle}>Questions Count</ThemedText>
+              <TouchableOpacity onPress={() => setShowQuestionCountModal(false)}>
                 <MaterialIcons name="close" size={24} color={textColor} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={styles.modalScrollView}>
-              {questionCountOptions.map((c) => (
-                <TouchableOpacity
-                  key={c}
-                  style={[
-                    styles.option,
-                    { backgroundColor: questionCount === c ? tintColor + "20" : "transparent" },
-                  ]}
-                  onPress={() => selectQuestionCount(c)}
+            <ScrollView style={{maxHeight: 400}}>
+              {Array.from({ length: maxQuestions }, (_, i) => i + 1).map((c) => (
+                <TouchableOpacity 
+                  key={c} 
+                  style={styles.optionItem}
+                  onPress={() => { setQuestionCountLocal(c); setShowQuestionCountModal(false); }}
                 >
-                  <ThemedText
-                    style={{
-                      color: questionCount === c ? tintColor : textColor,
-                      fontWeight: questionCount === c ? "600" : "400",
-                    }}
-                  >
-                    {c} question{c !== 1 ? "s" : ""}
-                  </ThemedText>
-                  {questionCount === c && (
-                    <MaterialIcons name="check" size={24} color={tintColor} />
-                  )}
+                  <ThemedText style={styles.optionText}>{c} Questions</ThemedText>
+                  {questionCount === c && <MaterialIcons name="check-circle" size={20} color={tintColor} />}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -620,172 +348,93 @@ export function DepartmentSubjects() {
       </Modal>
 
       {/* Time Modal */}
-      <Modal
-        visible={showTimeModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowTimeModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: cardBackground }]}>
+      <Modal visible={showTimeModal} transparent animationType="fade">
+        <View style={styles.nestedModalOverlay}>
+          <View style={styles.nestedModalContent}>
             <View style={styles.modalHeader}>
-              <ThemedText type="subtitle" style={styles.modalTitle}>
-                Time (Minutes)
-              </ThemedText>
-              <TouchableOpacity
-                onPress={() => setShowTimeModal(false)}
-                style={styles.closeButton}
-              >
+              <ThemedText style={styles.modalTitle}>Select Duration</ThemedText>
+              <TouchableOpacity onPress={() => setShowTimeModal(false)}>
                 <MaterialIcons name="close" size={24} color={textColor} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={styles.modalScrollView}>
-              {timeOptions.map((m) => (
-                <TouchableOpacity
-                  key={m}
-                  style={[
-                    styles.option,
-                    { backgroundColor: timeMinutes === m ? tintColor + "20" : "transparent" },
-                  ]}
-                  onPress={() => selectTime(m)}
+            <ScrollView style={{maxHeight: 400}}>
+              {[5, 10, 15, 20, 30, 45, 60, 90, 120].map((m) => (
+                <TouchableOpacity 
+                  key={m} 
+                  style={styles.optionItem}
+                  onPress={() => { setTimeMinutesLocal(m); setShowTimeModal(false); }}
                 >
-                  <ThemedText
-                    style={{
-                      color: timeMinutes === m ? tintColor : textColor,
-                      fontWeight: timeMinutes === m ? "600" : "400",
-                    }}
-                  >
-                    {m} min
-                  </ThemedText>
-                  {timeMinutes === m && (
-                    <MaterialIcons name="check" size={24} color={tintColor} />
-                  )}
+                  <ThemedText style={styles.optionText}>{m} Minutes</ThemedText>
+                  {timeMinutes === m && <MaterialIcons name="check-circle" size={20} color={tintColor} />}
                 </TouchableOpacity>
               ))}
             </ScrollView>
           </View>
         </View>
       </Modal>
-
-      {/* Limited Questions Modal */}
-      <Modal
-        visible={showLimitedModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowLimitedModal(false)}
-      >
-        <View style={styles.limitedOverlay}>
-          <View style={[styles.limitedContent, { backgroundColor: cardBackground }]}>
-            <ThemedText style={styles.limitedTitle}>Limited Questions Available</ThemedText>
-            <ThemedText style={styles.limitedText}>
-              Only {limitedData?.available} question{limitedData?.available !== 1 ? "s" : ""}{" "}
-              available for {limitedData?.subject} (requested {limitedData?.requested}). Proceed
-              with {limitedData?.available}?
-            </ThemedText>
-            <View style={styles.limitedActions}>
-              <Button title="Proceed" onPress={handleLimitedProceed} />
-              <Button
-                title="Cancel"
-                variant="outline"
-                onPress={() => {
-                  setShowLimitedModal(false);
-                  setLimitedData(null);
-                  setPendingQuestions([]);
-                }}
-              />
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      <View style={styles.footer}>
-        <Button
-          title={startingExam ? "Starting..." : "Start Practice"}
-          onPress={handleStartPractice}
-          disabled={
-            !selectedSubject ||
-            (requiresTestSelection && !selectedTestId) ||
-            !questionCount ||
-            !timeMinutes ||
-            startingExam
-          }
-          loading={startingExam}
-        />
-      </View>
     </AppLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContent: { flexGrow: 1, padding: 24, paddingBottom: 100 },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-  loadingText: { marginTop: 16, opacity: 0.7 },
-  header: { marginBottom: 24 },
-  title: { fontSize: 28, fontWeight: "bold", marginBottom: 8 },
-  subtitle: { fontSize: 16, opacity: 0.7, marginBottom: 8 },
-  hint: { fontSize: 14, opacity: 0.6, fontStyle: "italic", marginTop: 8 },
-  section: { marginBottom: 32 },
-  sectionTitle: { fontSize: 18, fontWeight: "600", marginBottom: 16 },
-  selector: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderWidth: 2,
+  scrollContent: { paddingBottom: 40 },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f1f5f9',
+    marginHorizontal: 16,
+    paddingHorizontal: 12,
     borderRadius: 8,
-    padding: 16,
+    marginTop: 16,
+    marginBottom: 20,
+    height: 48,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "flex-end",
+  searchIcon: { marginRight: 8 },
+  searchInput: { flex: 1, height: '100%', fontFamily: Fonts.primary.regular, fontSize: 14, color: '#1a1c1d' },
+  listContainer: { marginHorizontal: 16, gap: 12 },
+  listItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
   },
-  modalContent: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingTop: 20,
-    maxHeight: "70%",
+  iconBox: {
+    width: 70,
+    height: 70,
+    borderRadius: 8,
+    backgroundColor: '#ebe2f5ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
   },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
+  infoBox: { flex: 1 },
+  subjectTitle: { fontSize: 16, fontFamily: Fonts.primary.semiBold, color: '#1a1c1d', marginBottom: 2 },
+  subjectSubtitle: { fontSize: 14, fontFamily: Fonts.primary.medium, color: '#71717a', marginBottom: 6 },
+  subjectAvailable: { fontSize: 13, fontFamily: Fonts.primary.regular, color: '#71717a' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24 },
+  nestedModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', padding: 20 },
+  nestedModalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 5 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  modalTitle: { fontSize: 18, fontFamily: Fonts.primary.bold, color: '#1a1c1d' },
+  configBody: { gap: 16 },
+  configLabel: { fontSize: 14, fontFamily: Fonts.primary.medium, color: '#615b6e' },
+  configInput: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    padding: 16, 
+    borderRadius: 8, 
+    borderWidth: 1, 
+    borderColor: '#f1f5f9',
+    backgroundColor: '#fafafa'
   },
-  modalTitle: { fontSize: 20, fontWeight: "bold" },
-  closeButton: { padding: 4 },
-  modalScrollView: { maxHeight: 400 },
-  option: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
-  limitedOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    padding: 24,
-  },
-  limitedContent: {
-    borderRadius: 16,
-    padding: 24,
-  },
-  limitedTitle: { fontSize: 20, fontWeight: "bold", marginBottom: 12, textAlign: "center" },
-  limitedText: { opacity: 0.8, marginBottom: 24, textAlign: "center" },
-  limitedActions: { gap: 12 },
-  footer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 24,
-    backgroundColor: "rgba(255,255,255,0.95)",
-    borderTopWidth: 1,
-    borderTopColor: "#e9ecef",
-  },
+  inputText: { fontSize: 15, fontFamily: Fonts.primary.regular, color: '#1a1c1d' },
+  startBtn: { marginTop: 8 },
+  optionItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  optionText: { fontSize: 15, fontFamily: Fonts.primary.regular, color: '#4b5563' },
 });

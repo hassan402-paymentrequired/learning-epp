@@ -97,7 +97,7 @@ export function YearSelection() {
             Choose the year of past questions you want to practice
           </ThemedText>
           <ThemedText style={styles.hint}>
-            {selection.examType} • {selection.subjects.join(", ")}
+            {selection.examTypeSlug} • {selection.subjects.join(", ")}
           </ThemedText>
         </View>
 
@@ -155,7 +155,7 @@ export function YearSelection() {
           <View style={styles.summaryRow}>
             <ThemedText style={styles.summaryLabel}>Type:</ThemedText>
             <ThemedText style={styles.summaryValue}>
-              {selection.examType}
+              {selection.examTypeSlug}
             </ThemedText>
           </View>
           <View style={styles.summaryRow}>

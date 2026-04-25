@@ -42,8 +42,8 @@ export function TimeSelection() {
 
   // Calculate default time based on number of subjects (30 min per subject)
   // For Standard categorical flows, allow standard time combinations (e.g. 30min - 120min)
-  const isStandardFlow = selection.examType !== 'DLI';
-  const isDLI = selection.examType === 'DLI';
+  const isStandardFlow = selection.flowType === 'standard';
+  const isDLI = selection.flowType === 'departmental';
   const defaultMinutes = selection.subjects.length * 30;
   const maxMinutes = isStandardFlow 
     ? 120 // Standard: maximum 2 hours (120 minutes)
@@ -87,8 +87,8 @@ export function TimeSelection() {
       Alert.alert(
         "Invalid Input",
         isStandardFlow
-          ? `For ${selection.examType}, please enter a duration between 30 minutes and 2 hours (120 minutes).`
-          : `Please enter a valid duration (minimum ${minMinutes} minute)`
+          ? `For ${selection.examTypeSlug}, please enter a duration between 30 minutes and 2 hours (120 minutes).`
+          : `For ${selection.examTypeSlug}, maximum allowed time is 2 hours (120 minutes).`
       );
       return;
     }
@@ -233,7 +233,7 @@ export function TimeSelection() {
             // For DLI, sort by year descending to get the latest year automatically
             const exams = examResponse.data.data;
             let exam;
-            if (selection.examType === 'DLI') {
+            if (selection.flowType === 'departmental') {
               // Sort by year descending to get the latest year
               exams.sort((a: any, b: any) => (b.year || 0) - (a.year || 0));
               exam = exams[0]; // Use the latest year exam
@@ -311,7 +311,7 @@ export function TimeSelection() {
         subjectsQuestions: subjectsQuestions, // Pass all subjects' questions
         exam: {
           id: firstExamId,
-          title: `${selection.examType} ${selection.subjects.join(', ')} ${
+          title: `${selection.examTypeSlug} ${selection.subjects.join(', ')} ${
             selection.questionMode === 'practice' 
               ? 'Practice' 
               : isStandardFlow

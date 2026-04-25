@@ -61,8 +61,8 @@ export function SubjectSelection() {
       setLoading(true);
       // For DLI, always use 'past_question' mode (DLI only supports past questions)
       // For other exam types, use the selected questionMode or default to 'past_question'
-      const questionMode = selection.examType === 'DLI' 
-        ? 'past_question' 
+      const questionMode = selection.examTypeSlug === 'DLI' 
+        ? 'practice' 
         : (selection.questionMode || 'past_question');
       
       const response = await api.get('/exams/subjects', {
@@ -77,7 +77,7 @@ export function SubjectSelection() {
         setSubjectsList(subjects);
         
         // If no subjects found for DLI, show an error
-        if (subjects.length === 0 && selection.examType === 'DLI') {
+        if (subjects.length === 0 && selection.examTypeSlug === 'DLI') {
           Alert.alert(
             'No Subjects Available',
             'No DLI past question subjects are available at the moment. Please try again later.',
@@ -250,7 +250,7 @@ export function SubjectSelection() {
     // Navigate based on question mode and exam type
     // Only JAMB past questions need year selection
     // DLI past questions and practice questions skip year selection
-    if (selection.questionMode === 'past_question' && selection.examType === 'JAMB') {
+    if (selection.questionMode === 'past_question' && selection.examTypeSlug === 'JAMB') {
       // @ts-ignore
       navigation.navigate('YearSelection');
     } else {
@@ -271,8 +271,8 @@ export function SubjectSelection() {
   }
 
   const maxSubjects = getMaxSubjects();
-  const isJAMB = selection.examType === 'JAMB';
-  const isDLI = selection.examType === 'DLI';
+  const isJAMB = selection.examTypeSlug === 'JAMB';
+  const isDLI = selection.examTypeSlug === 'DLI' || selection.flowType === 'departmental';
   const isPracticeMode = selection.questionMode === 'practice';
   
   // For practice mode: non-subscribed users limited to 5 questions, subscribed users up to 100
