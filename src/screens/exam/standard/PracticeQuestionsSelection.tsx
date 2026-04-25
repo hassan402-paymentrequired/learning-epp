@@ -18,6 +18,7 @@ import { useThemeColor } from "@/hooks/useThemeColor";
 import { useExamSelection } from "@/contexts/ExamSelectionContext";
 import api from "@/services/api";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { Fonts } from "@/constants/Fonts";
 
 const { width } = Dimensions.get("window");
 
@@ -32,13 +33,13 @@ export function StandardPracticeQuestionsSelection() {
   const { user } = useAuth();
   const { selection } = useExamSelection();
   const navigation = useNavigation();
-  
+
   const [subjects, setSubjectsList] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedSubject, setExpandedSubject] = useState<string | null>(null);
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
   const [questionCounts, setQuestionCounts] = useState<Record<string, number>>({});
-  
+
   const [showCountModal, setShowCountModal] = useState(false);
   const [currentSubjectForCount, setCurrentSubjectForCount] = useState<string | null>(null);
   const [startingPractice, setStartingPractice] = useState(false);
@@ -143,17 +144,16 @@ export function StandardPracticeQuestionsSelection() {
   };
 
   return (
-    <AppLayout showBackButton={true} headerTitle="">
+    <AppLayout showBackButton={true} headerTitle="Study Mode">
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <ThemedText style={styles.badge}>{examTypeLabel.toUpperCase()}</ThemedText>
           <ThemedText type="title" style={styles.title}>Study Mode</ThemedText>
           <ThemedText style={styles.subtitle}>Select subjects to study. Randomized questions to help you master topics.</ThemedText>
 
           {!hasActiveSubscription && (
             <TouchableOpacity style={[styles.proBanner, { backgroundColor: tintColor + "10" }]}>
-                <MaterialIcons name="stars" size={20} color={tintColor} />
-                <ThemedText style={[styles.proText, { color: tintColor }]}>Unlimited questions with Pro</ThemedText>
+              <MaterialIcons name="stars" size={20} color={tintColor} />
+              <ThemedText style={[styles.proText, { color: tintColor }]}>Unlimited questions with Pro</ThemedText>
             </TouchableOpacity>
           )}
         </View>
@@ -169,40 +169,40 @@ export function StandardPracticeQuestionsSelection() {
 
               return (
                 <View key={subject} style={[styles.card, { backgroundColor: cardBg, borderColor: isSelected ? tintColor : borderColor }]}>
-                  <TouchableOpacity 
-                    style={styles.cardHeader} 
+                  <TouchableOpacity
+                    style={styles.cardHeader}
                     onPress={() => handleToggleSubject(subject)}
                     activeOpacity={0.7}
                   >
                     <View style={[styles.check, { backgroundColor: isSelected ? tintColor : backgroundSecondary }]}>
-                        {isSelected && <MaterialIcons name="check" size={16} color="white" />}
+                      {isSelected && <MaterialIcons name="check" size={16} color="white" />}
                     </View>
                     <View style={styles.subjectInfo}>
-                        <ThemedText style={[styles.subjectName, isSelected && { color: tintColor }]}>{subject}</ThemedText>
-                        {isSelected && count && (
-                             <ThemedText style={styles.subjectSub}>{count} Random Questions</ThemedText>
-                        )}
+                      <ThemedText style={[styles.subjectName, isSelected && { color: tintColor }]}>{subject}</ThemedText>
+                      {isSelected && count && (
+                        <ThemedText style={styles.subjectSub}>{count} Random Questions</ThemedText>
+                      )}
                     </View>
                     {isSelected && (
-                        <TouchableOpacity onPress={(e) => { e.stopPropagation(); setExpandedSubject(isExpanded ? null : subject); }}>
-                            <MaterialIcons name={isExpanded ? "expand-less" : "expand-more"} size={24} color={tintColor} />
-                        </TouchableOpacity>
+                      <TouchableOpacity onPress={(e) => { e.stopPropagation(); setExpandedSubject(isExpanded ? null : subject); }}>
+                        <MaterialIcons name={isExpanded ? "expand-less" : "expand-more"} size={24} color={tintColor} />
+                      </TouchableOpacity>
                     )}
                   </TouchableOpacity>
 
                   {isExpanded && (
                     <View style={styles.expandArea}>
-                        <View style={styles.divider} />
-                        <TouchableOpacity 
-                            style={[styles.countBtn, { borderColor: borderColor }]}
-                            onPress={() => { setCurrentSubjectForCount(subject); setShowCountModal(true); }}
-                        >
-                            <View>
-                                <ThemedText style={styles.countLabel}>Number of Questions</ThemedText>
-                                <ThemedText style={styles.countVal}>{count}</ThemedText>
-                            </View>
-                            <MaterialIcons name="chevron-right" size={20} color={borderColor} />
-                        </TouchableOpacity>
+                      <View style={styles.divider} />
+                      <TouchableOpacity
+                        style={[styles.countBtn, { borderColor: borderColor }]}
+                        onPress={() => { setCurrentSubjectForCount(subject); setShowCountModal(true); }}
+                      >
+                        <View>
+                          <ThemedText style={styles.countLabel}>Number of Questions</ThemedText>
+                          <ThemedText style={styles.countVal}>{count}</ThemedText>
+                        </View>
+                        <MaterialIcons name="chevron-right" size={20} color={borderColor} />
+                      </TouchableOpacity>
                     </View>
                   )}
                 </View>
@@ -215,12 +215,12 @@ export function StandardPracticeQuestionsSelection() {
       {selectedSubjects.length > 0 && (
         <View style={[styles.footer, { borderTopColor: borderColor, backgroundColor: cardBg }]}>
           <View style={styles.footerInfo}>
-             <ThemedText style={styles.footerLabel}>{selectedSubjects.length} Modeled Subjects</ThemedText>
-             <ThemedText style={styles.footerSub}>{selectedSubjects.join(", ")}</ThemedText>
+            <ThemedText style={styles.footerLabel}>{selectedSubjects.length} Modeled Subjects</ThemedText>
+            <ThemedText style={styles.footerSub}>{selectedSubjects.join(", ")}</ThemedText>
           </View>
-          <Button 
-            title={startingPractice ? "Preparing..." : "Start Practice"} 
-            onPress={handleStartPractice} 
+          <Button
+            title={startingPractice ? "Preparing..." : "Start Practice"}
+            onPress={handleStartPractice}
             disabled={startingPractice}
             style={styles.startBtn}
           />
@@ -229,27 +229,27 @@ export function StandardPracticeQuestionsSelection() {
 
       <Modal visible={showCountModal} transparent animationType="slide" onRequestClose={() => setShowCountModal(false)}>
         <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: cardBg }]}>
-                <View style={styles.modalHeader}>
-                    <ThemedText style={styles.modalTitle}>Question Count</ThemedText>
-                    <TouchableOpacity onPress={() => setShowCountModal(false)}><MaterialIcons name="close" size={24} color="#666" /></TouchableOpacity>
-                </View>
-                <ScrollView contentContainerStyle={styles.modalList}>
-                    {countOptions.map(opt => (
-                        <TouchableOpacity 
-                            key={opt} 
-                            style={[styles.modalItem, { borderColor: borderColor }, questionCounts[currentSubjectForCount!] === opt && { backgroundColor: tintColor + "10", borderColor: tintColor }]}
-                            onPress={() => {
-                                setQuestionCounts(prev => ({ ...prev, [currentSubjectForCount!]: opt }));
-                                setShowCountModal(false);
-                            }}
-                        >
-                            <ThemedText style={[styles.modalItemText, questionCounts[currentSubjectForCount!] === opt && { color: tintColor, fontWeight: '700' }]}>{opt} Questions</ThemedText>
-                            {questionCounts[currentSubjectForCount!] === opt && <MaterialIcons name="check" size={20} color={tintColor} />}
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
+          <View style={[styles.modalContent, { backgroundColor: cardBg }]}>
+            <View style={styles.modalHeader}>
+              <ThemedText style={styles.modalTitle}>Question Count</ThemedText>
+              <TouchableOpacity onPress={() => setShowCountModal(false)}><MaterialIcons name="close" size={24} color="#666" /></TouchableOpacity>
             </View>
+            <ScrollView contentContainerStyle={styles.modalList}>
+              {countOptions.map(opt => (
+                <TouchableOpacity
+                  key={opt}
+                  style={[styles.modalItem, { borderColor: borderColor }, questionCounts[currentSubjectForCount!] === opt && { backgroundColor: tintColor + "10", borderColor: tintColor }]}
+                  onPress={() => {
+                    setQuestionCounts(prev => ({ ...prev, [currentSubjectForCount!]: opt }));
+                    setShowCountModal(false);
+                  }}
+                >
+                  <ThemedText style={[styles.modalItemText, questionCounts[currentSubjectForCount!] === opt && { color: tintColor, fontWeight: '700' }]}>{opt} Questions</ThemedText>
+                  {questionCounts[currentSubjectForCount!] === opt && <MaterialIcons name="check" size={20} color={tintColor} />}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
         </View>
       </Modal>
     </AppLayout>
@@ -260,9 +260,14 @@ const styles = StyleSheet.create({
   container: { padding: 24, paddingBottom: 120 },
   header: { marginBottom: 32 },
   badge: { fontSize: 12, fontWeight: "900", color: "#8B5CF6", letterSpacing: 2, marginBottom: 8 },
-  title: { fontSize: 32, fontWeight: "800", marginBottom: 8 },
+  title: {
+    fontSize: 24,
+    fontFamily: Fonts.primary.bold,
+    color: '#4800b2',
+    marginBottom: 4,
+  },
   subtitle: { fontSize: 15, opacity: 0.6, lineHeight: 22 },
-  proBanner: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 10, marginTop: 16, gap: 8 },
+  proBanner: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 10, marginTop: 16, gap: 8, width: '100%' },
   proText: { fontSize: 13, fontWeight: '700' },
   list: { gap: 12 },
   card: { borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
