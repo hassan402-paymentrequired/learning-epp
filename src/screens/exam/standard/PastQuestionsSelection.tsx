@@ -18,6 +18,7 @@ import { useThemeColor } from "@/hooks/useThemeColor";
 import { useExamSelection } from "@/contexts/ExamSelectionContext";
 import api from "@/services/api";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { Fonts } from "@/constants/Fonts";
 
 const { width } = Dimensions.get("window");
 
