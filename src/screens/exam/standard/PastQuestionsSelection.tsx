@@ -39,7 +39,7 @@ interface Answer {
   order: string;
 }
 
-export function JAMBPastQuestionsSelection() {
+export function StandardPastQuestionsSelection() {
   const { user } = useAuth();
   const navigation = useNavigation();
   const [subjects, setSubjectsList] = useState<string[]>([]);
@@ -93,7 +93,7 @@ export function JAMBPastQuestionsSelection() {
       setLoading(true);
       const response = await api.get("/exams/subjects", {
         params: {
-          exam_type: "JAMB",
+          exam_type: examType || "JAMB",
           type: "past_question",
         },
       });
@@ -105,7 +105,7 @@ export function JAMBPastQuestionsSelection() {
         if (subjectsList.length === 0) {
           Alert.alert(
             "No Subjects Available",
-            "No JAMB past question subjects are available at the moment. Please try again later.",
+            `No ${examType || "JAMB"} past question subjects are available at the moment. Please try again later.`,
             [{ text: "OK", onPress: () => navigation.goBack() }]
           );
         }
@@ -136,7 +136,7 @@ export function JAMBPastQuestionsSelection() {
       setLoadingYears(true);
       const response = await api.get("/exams/years", {
         params: {
-          exam_type: "JAMB",
+          exam_type: examType || "JAMB",
           subjects: [subject], // Send as array with single subject
         },
       });
@@ -189,7 +189,7 @@ export function JAMBPastQuestionsSelection() {
       } else {
         Alert.alert(
           "Maximum Subjects Reached",
-          "You can select a maximum of 4 subjects for JAMB.",
+          `You can select a maximum of 4 subjects for ${examType || "JAMB"}.`,
           [{ text: "OK" }]
         );
       }
@@ -327,7 +327,7 @@ export function JAMBPastQuestionsSelection() {
 
         const examResponse = await api.get("/exams", {
           params: {
-            exam_type: "JAMB",
+            exam_type: examType || "JAMB",
             subject: subject,
             year: subjectSelection.year,
           },
@@ -416,7 +416,7 @@ export function JAMBPastQuestionsSelection() {
         subjectsQuestions: subjectsQuestions,
         exam: {
           id: firstExamId,
-          title: `JAMB ${selectedSubjects.join(", ")} Past Questions`,
+          title: `${examType || "JAMB"} ${selectedSubjects.join(", ")} Past Questions`,
           duration: timeMinutesNum,
           total_questions: totalQuestions,
         },
@@ -439,7 +439,7 @@ export function JAMBPastQuestionsSelection() {
 
   if (loading) {
     return (
-      <AppLayout showBackButton={true} headerTitle="JAMB Past Questions">
+      <AppLayout showBackButton={true} headerTitle={`${examType || "JAMB"} Past Questions`}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={tintColor} />
           <ThemedText style={styles.loadingText}>
@@ -456,7 +456,7 @@ export function JAMBPastQuestionsSelection() {
   }, 0);
 
   return (
-    <AppLayout showBackButton={true} headerTitle="JAMB Past Questions">
+    <AppLayout showBackButton={true} headerTitle={`${examType || "JAMB"} Past Questions`}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -657,7 +657,7 @@ export function JAMBPastQuestionsSelection() {
           ) : (
             <View style={styles.emptyContainer}>
               <ThemedText style={styles.emptyText}>
-                No subjects available for JAMB past questions
+                No subjects available for {examType || "JAMB"} past questions
               </ThemedText>
             </View>
           )}

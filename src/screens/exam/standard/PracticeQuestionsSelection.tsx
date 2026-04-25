@@ -32,7 +32,7 @@ interface Answer {
   order: string;
 }
 
-export function JAMBPracticeQuestionsSelection() {
+export function StandardPracticeQuestionsSelection() {
   const { user } = useAuth();
   const navigation = useNavigation();
   const [subjects, setSubjectsList] = useState<string[]>([]);
@@ -91,7 +91,7 @@ export function JAMBPracticeQuestionsSelection() {
       setLoading(true);
       const response = await api.get("/exams/subjects", {
         params: {
-          exam_type: "JAMB",
+          exam_type: examType || "JAMB",
           type: "practice",
         },
       });
@@ -103,7 +103,7 @@ export function JAMBPracticeQuestionsSelection() {
         if (subjectsList.length === 0) {
           Alert.alert(
             "No Subjects Available",
-            "No JAMB practice subjects are available at the moment. Please try again later.",
+            `No ${examType || "JAMB"} practice subjects are available at the moment. Please try again later.`,
             [{ text: "OK", onPress: () => navigation.goBack() }],
           );
         }
@@ -149,7 +149,7 @@ export function JAMBPracticeQuestionsSelection() {
       } else {
         Alert.alert(
           "Maximum Subjects Reached",
-          "You can select a maximum of 4 subjects for JAMB.",
+          `You can select a maximum of 4 subjects for ${examType || "JAMB"}.`,
           [{ text: "OK" }],
         );
       }
@@ -226,7 +226,7 @@ export function JAMBPracticeQuestionsSelection() {
         // Get random practice questions from the dedicated endpoint
         const questionsResponse = await api.get("/questions/practice", {
           params: {
-            exam_type: "JAMB",
+            exam_type: examType || "JAMB",
             subject: subject,
             count: questionCount,
           },
@@ -276,7 +276,7 @@ export function JAMBPracticeQuestionsSelection() {
 
           // Use dedicated /practice/start endpoint (matches web implementation)
           const attemptResponse = await api.post("/practice/start", {
-            exam_type: "JAMB",
+            exam_type: examType || "JAMB",
             subjects: subjectsData,
             duration_minutes: timeMinutesNum,
           });
@@ -305,7 +305,7 @@ export function JAMBPracticeQuestionsSelection() {
             subjectsQuestions: subjectsQuestions,
             exam: {
               id: attempt.exam_id,
-              title: `JAMB ${selectedSubjects.join(", ")} Practice Questions`,
+              title: `${examType || "JAMB"} ${selectedSubjects.join(", ")} Practice Questions`,
               duration: timeMinutesNum,
               total_questions: totalQuestions,
             },
@@ -348,7 +348,7 @@ export function JAMBPracticeQuestionsSelection() {
 
   if (loading) {
     return (
-      <AppLayout showBackButton={true} headerTitle="JAMB Practice Questions">
+      <AppLayout showBackButton={true} headerTitle={`${examType || "JAMB"} Practice Questions`}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={tintColor} />
           <ThemedText style={styles.loadingText}>
@@ -365,7 +365,7 @@ export function JAMBPracticeQuestionsSelection() {
   }, 0);
 
   return (
-    <AppLayout showBackButton={true} headerTitle="JAMB Practice Questions">
+    <AppLayout showBackButton={true} headerTitle={`${examType || "JAMB"} Practice Questions`}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -518,7 +518,7 @@ export function JAMBPracticeQuestionsSelection() {
           ) : (
             <View style={styles.emptyContainer}>
               <ThemedText style={styles.emptyText}>
-                No subjects available for JAMB practice questions
+                No subjects available for {examType || "JAMB"} practice questions
               </ThemedText>
             </View>
           )}

@@ -94,18 +94,8 @@ export function Login() {
     navigation.navigate("ForgotPassword");
   };
 
-  const handleSocialLogin = (provider: "google" | "facebook") => {
-    Alert.alert("Social Login", `${provider} login will be available soon.`);
-  };
-
   return (
     <AppLayout showHeader={false}>
-      <LinearGradient
-        colors={[gradientStart, gradientEnd]}
-        style={StyleSheet.absoluteFillObject}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      />  
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -182,40 +172,6 @@ export function Login() {
               style={styles.signInButton}
             />
 
-            {/* Social Login Separator */}
-            <View style={styles.separator}>
-              <View
-                style={[styles.separatorLine, { backgroundColor: borderColor }]}
-              />
-              <ThemedText style={styles.separatorText}>
-                Or sign in with
-              </ThemedText>
-              <View
-                style={[styles.separatorLine, { backgroundColor: borderColor }]}
-              />
-            </View>
-
-            {/* Social Login Buttons */}
-            <View style={styles.socialButtons}>
-              <TouchableOpacity
-                style={[styles.socialButton, { backgroundColor }]}
-                onPress={() => handleSocialLogin("google")}
-                activeOpacity={0.7}
-              >
-                <ThemedText
-                  style={[styles.socialButtonText, { color: "#4285F4" }]}
-                >
-                  G
-                </ThemedText>
-                <ThemedText
-                  style={[styles.socialButtonLabel, { color: textColor }]}
-                >
-                  Continue With Google
-                </ThemedText>
-              </TouchableOpacity>
-
-            </View>
-
             {/* Footer */}
             <View style={styles.footer}>
               <ThemedText style={styles.footerText}>
@@ -247,6 +203,9 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     padding: 24,
     paddingTop: 60,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   header: {
     flexDirection: "row",
@@ -259,6 +218,9 @@ const styles = StyleSheet.create({
   },
   titleSection: {
     marginBottom: 32,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     fontSize: 32,

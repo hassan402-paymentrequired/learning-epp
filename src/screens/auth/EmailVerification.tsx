@@ -122,17 +122,10 @@ export function EmailVerification() {
       });
 
       if (response.data.success) {
-        // If we have a pending session (from signup) and not already authenticated in state,
-        // activate the session now to trigger the top-level navigation update
         if (!currentToken && pendingToken && pendingUser) {
           await activateSession(pendingToken, pendingUser);
         }
-
-        // Refresh to get the verified status in state
         await refreshUser();
-
-        // No manual navigation to 'Home' needed — Navigation index.tsx handles the switch
-        // automatically when isAuthenticated && emailVerified becomes true.
       }
     } catch (error: any) {
       Alert.alert(
@@ -183,12 +176,6 @@ export function EmailVerification() {
 
   return (
     <AppLayout showHeader={false}>
-      <LinearGradient
-        colors={[gradientStart, gradientEnd]}
-        style={StyleSheet.absoluteFillObject}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -311,7 +298,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 60,
     borderRadius: 12,
-    borderWidth: 2,
+    borderWidth: 1,
     textAlign: "center",
     fontSize: 24,
     fontWeight: "bold",

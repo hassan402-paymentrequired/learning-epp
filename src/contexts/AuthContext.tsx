@@ -147,8 +147,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       });
       const { token: newToken, user: userData } = response.data.data;
 
-      // Store token so API calls (like email verification) work immediately,
-      // but DON'T set state — user won't be "logged in" until email is verified.
       await AsyncStorage.setItem("auth_token", newToken);
 
       return { token: newToken, user: userData };

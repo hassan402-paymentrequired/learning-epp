@@ -1,22 +1,37 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Fonts } from '@/constants/Fonts';
+import { ExamCategory } from '@/screens/Home';
 
 interface QuickActionCardsProps {
-  onJambPress: () => void;
-  onDliPress: () => void;
+  categories: ExamCategory[];
+  onCategoryPress: (category: ExamCategory) => void;
 }
 
-export function QuickActionCards({ onJambPress, onDliPress }: QuickActionCardsProps) {
+export function QuickActionCards({ categories, onCategoryPress }: QuickActionCardsProps) {
   const backgroundColor = useThemeColor({}, 'background');
   const tintColor = useThemeColor({}, 'tint');
   const textColor = useThemeColor({}, 'text');
   const borderColor = useThemeColor({}, 'border');
   const cardBackground = useThemeColor({}, 'cardBackground');
+
+  if (!categories || categories.length === 0) {
+    return null;
+  }
+
+  // Determine colors based on index for variety
+  const getCardStyle = (index: number) => {
+    // Alternate between tintColor and cardBackground
+    const isTint = index % 2 === 0;
+    return {
+      backgroundColor: isTint ? tintColor : cardBackground,
+      textColor: isTint ? '#fff' : textColor,
+      iconColor: isTint ? '#fff' : tintColor,
+    };
+  };
 
   return (
     <View style={styles.container}>
@@ -24,45 +39,31 @@ export function QuickActionCards({ onJambPress, onDliPress }: QuickActionCardsPr
         Start Practice
       </ThemedText>
       <View style={styles.cardsContainer}>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={onJambPress}
-          style={[
-            styles.card,
-            {
-              backgroundColor: tintColor,
-              borderColor: borderColor,
-            },
-          ]}
-        >
-          <MaterialIcons name="school" size={32} color="#fff" />
-          <ThemedText type="subtitle" style={styles.cardTitle}>
-            JAMB Practice
-          </ThemedText>
-          <ThemedText style={styles.cardDescription}>
-            Practice with past questions and mock exams
-          </ThemedText>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={onDliPress}
-          style={[
-            styles.card,
-            {
-              backgroundColor: cardBackground,
-              borderColor: borderColor,
-            },
-          ]}
-        >
-          <MaterialIcons name="menu-book" size={32} color={tintColor} />
-          <ThemedText type="subtitle" style={[styles.cardTitle, { color: textColor }]}>
-            DLI Practice
-          </ThemedText>
-          <ThemedText style={[styles.cardDescription, { color: textColor, opacity: 0.7 }]}>
-            Practice with DLI-specific questions
-          </ThemedText>
-        </TouchableOpacity>
+        {categories.map((category, index) => {
+          const style = getCardStyle(index);
+          return (
+            <TouchableOpacity
+              key={category.id}
+              activeOpacity={0.7}
+              onPress={() => onCategoryPress(category)}
+              style={[
+                styles.card,
+                {
+                  backgroundColor: style.backgroundColor,
+                  borderColor: borderColor,
+                },
+              ]}
+            >
+              <MaterialIcons name={category.icon_name as any} size={32} color={style.iconColor} />
+              <ThemedText type="subtitle" style={[styles.cardTitle, { color: style.textColor }]}>
+                {category.name}
+              </ThemedText>
+              <ThemedText style={[styles.cardDescription, { color: style.textColor, opacity: style.textColor === '#fff' ? 0.9 : 0.7 }]}>
+                {category.description}
+              </ThemedText>
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </View>
   );

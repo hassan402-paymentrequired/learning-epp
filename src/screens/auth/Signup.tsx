@@ -40,12 +40,7 @@ export function Signup() {
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
   const navigation = useNavigation();
-  const backgroundColor = useThemeColor({}, "background");
-  const gradientStart = useThemeColor({}, "gradientStart");
-  const gradientEnd = useThemeColor({}, "gradientEnd");
   const tintColor = useThemeColor({}, "tint");
-  const borderColor = useThemeColor({}, "border");
-  const textColor = useThemeColor({}, "text");
   const errorColor = useThemeColor({}, "error");
 
   const validate = () => {
@@ -100,8 +95,6 @@ export function Signup() {
         referralCode.trim() || undefined
       );
 
-      // Navigate to email verification — pass the pending token & user
-      // so we can activate the session only AFTER OTP is confirmed.
       // @ts-ignore
       navigation.navigate("EmailVerification", {
         email: email.trim(),
@@ -115,19 +108,9 @@ export function Signup() {
     }
   };
 
-  const handleSocialLogin = (provider: "google" | "facebook") => {
-    // TODO: Implement social login
-    Alert.alert("Social Login", `${provider} login will be available soon.`);
-  };
 
   return (
     <AppLayout showHeader={false}>
-      <LinearGradient
-        colors={[gradientStart, gradientEnd]}
-        style={StyleSheet.absoluteFillObject}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -290,6 +273,9 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     padding: 24,
     paddingTop: 60,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   header: {
     flexDirection: "row",

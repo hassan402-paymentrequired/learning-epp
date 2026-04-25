@@ -66,12 +66,7 @@ export function ForgotPassword() {
 
   return (
     <AppLayout showHeader={false}>
-      <LinearGradient
-        colors={[gradientStart, gradientEnd]}
-        style={StyleSheet.absoluteFillObject}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      />
+  
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -141,6 +136,9 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     padding: 24,
     paddingTop: 60,
+     display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   container: {
     flex: 1,

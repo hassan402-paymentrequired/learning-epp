@@ -41,15 +41,15 @@ export function TimeSelection() {
   const cardBackground = useThemeColor({}, "backgroundSecondary");
 
   // Calculate default time based on number of subjects (30 min per subject)
-  // For JAMB, allow 30 minutes to 2 hours (120 minutes) regardless of subject count
-  const isJAMB = selection.examType === 'JAMB';
+  // For Standard categorical flows, allow standard time combinations (e.g. 30min - 120min)
+  const isStandardFlow = selection.examType !== 'DLI';
   const isDLI = selection.examType === 'DLI';
   const defaultMinutes = selection.subjects.length * 30;
-  const maxMinutes = isJAMB 
-    ? 120 // JAMB: maximum 2 hours (120 minutes)
+  const maxMinutes = isStandardFlow 
+    ? 120 // Standard: maximum 2 hours (120 minutes)
     : selection.subjects.length * 30; // Other exams: 30 min per subject/course
-  const minMinutes = isJAMB 
-    ? 30 // JAMB: minimum 30 minutes
+  const minMinutes = isStandardFlow 
+    ? 30 // Standard: minimum 30 minutes
     : 1; // Other exams: minimum 1 minute
 
   useEffect(() => {
@@ -86,8 +86,8 @@ export function TimeSelection() {
     if (!minutes || isNaN(numMinutes) || numMinutes < minMinutes) {
       Alert.alert(
         "Invalid Input",
-        isJAMB
-          ? `For JAMB (UTME), please enter a duration between 30 minutes and 2 hours (120 minutes).`
+        isStandardFlow
+          ? `For ${selection.examType}, please enter a duration between 30 minutes and 2 hours (120 minutes).`
           : `Please enter a valid duration (minimum ${minMinutes} minute)`
       );
       return;
@@ -96,8 +96,8 @@ export function TimeSelection() {
     if (numMinutes > maxMinutes) {
       Alert.alert(
         "Time Limit Exceeded",
-        isJAMB
-          ? `For JAMB (UTME), maximum allowed time is 2 hours (120 minutes).`
+        isStandardFlow
+          ? `For ${selection.examType}, maximum allowed time is 2 hours (120 minutes).`
           : `Maximum allowed time is ${maxMinutes} minutes (${formatTime(
               maxMinutes
             )}) for ${selection.subjects.length} ${
@@ -213,8 +213,8 @@ export function TimeSelection() {
               subject: subject,
             };
 
-            // Only include year for JAMB (DLI doesn't select year)
-            if (selection.examType === 'JAMB' && selection.selectedYear) {
+            // Only include year for Standard Past questions (DLI or Practice doesn't select year)
+            if (isStandardFlow && selection.selectedYear) {
               params.year = selection.selectedYear;
             }
 
@@ -223,7 +223,7 @@ export function TimeSelection() {
             });
 
             if (!examResponse.data.success || examResponse.data.data.length === 0) {
-              const errorMsg = selection.examType === 'JAMB'
+              const errorMsg = isStandardFlow
                 ? `No past questions found for ${subject} in ${selection.selectedYear}. Please try a different year.`
                 : `No past questions found for ${subject}. Please try a different course.`;
               Alert.alert('No Exam Found', errorMsg);
@@ -238,7 +238,7 @@ export function TimeSelection() {
               exams.sort((a: any, b: any) => (b.year || 0) - (a.year || 0));
               exam = exams[0]; // Use the latest year exam
             } else {
-              exam = exams[0]; // For JAMB, use the selected year exam
+              exam = exams[0]; // For standard flow, use the selected year exam
             }
             if (!firstExamId) {
               firstExamId = exam.id;
@@ -314,7 +314,7 @@ export function TimeSelection() {
           title: `${selection.examType} ${selection.subjects.join(', ')} ${
             selection.questionMode === 'practice' 
               ? 'Practice' 
-              : selection.examType === 'JAMB'
+              : isStandardFlow
               ? `${selection.selectedYear} Past Questions`
               : 'Past Questions'
           }`,

@@ -81,7 +81,7 @@ export function Input({
             style={styles.rightIcon}
             activeOpacity={0.7}
           >
-            <Ionicons name={rightIcon} size={20} color={iconColor} />
+            <Ionicons name={rightIcon} size={15} color={iconColor} />
           </TouchableOpacity>
         )}
       </View>
@@ -111,14 +111,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderRadius: 12,
-    minHeight: 56,
+    borderRadius: 8,
+    minHeight: 40,
   },
   input: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    fontSize: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 13,
+    fontSize: 14,
     fontFamily: Platform.select({
       ios: DEFAULT_FONT_FAMILY,
       android: DEFAULT_FONT_FAMILY,

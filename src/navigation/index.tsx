@@ -19,10 +19,10 @@ import { QuestionModeSelection } from "@/screens/exam/QuestionModeSelection";
 import { YearSelection } from "@/screens/exam/YearSelection";
 import { TimeSelection } from "@/screens/exam/TimeSelection";
 import { ExamScreen } from "@/screens/exam/ExamScreen";
-// JAMB screens
-import { JAMBModeSelection } from "@/screens/exam/jamb/ModeSelection";
-import { JAMBPastQuestionsSelection } from "@/screens/exam/jamb/PastQuestionsSelection";
-import { JAMBPracticeQuestionsSelection } from "@/screens/exam/jamb/PracticeQuestionsSelection";
+// Standard generic category screens
+import { StandardModeSelection } from "@/screens/exam/standard/ModeSelection";
+import { StandardPastQuestionsSelection } from "@/screens/exam/standard/PastQuestionsSelection";
+import { StandardPracticeQuestionsSelection } from "@/screens/exam/standard/PracticeQuestionsSelection";
 // DLI screens
 import { DLIPracticeSelection } from "@/screens/exam/dli/PracticeSelection";
 // Unilag/Department flow
@@ -69,10 +69,10 @@ function AppNavigator() {
     <AppStack.Navigator screenOptions={{ headerShown: false }}>
       <AppStack.Screen name="Home" component={Home} />
       <AppStack.Screen name="Profile" component={Profile} />
-      {/* JAMB screens */}
-      <AppStack.Screen name="JAMBModeSelection" component={JAMBModeSelection} />
-      <AppStack.Screen name="JAMBPastQuestionsSelection" component={JAMBPastQuestionsSelection} />
-      <AppStack.Screen name="JAMBPracticeQuestionsSelection" component={JAMBPracticeQuestionsSelection} />
+      {/* Standard screens */}
+      <AppStack.Screen name="StandardModeSelection" component={StandardModeSelection} />
+      <AppStack.Screen name="StandardPastQuestionsSelection" component={StandardPastQuestionsSelection} />
+      <AppStack.Screen name="StandardPracticeQuestionsSelection" component={StandardPracticeQuestionsSelection} />
       {/* DLI / Unilag screens */}
       <AppStack.Screen name="DepartmentsList" component={DepartmentsList} />
       <AppStack.Screen name="DepartmentSubjects" component={DepartmentSubjects} />

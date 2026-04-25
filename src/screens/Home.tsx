@@ -70,6 +70,16 @@ interface InProgressAttempt {
   status: string;
 }
 
+export interface ExamCategory {
+  id: number;
+  name: string;
+  slug: string;
+  description: string;
+  icon_name: string;
+  flow_type: 'standard' | 'departmental';
+  is_active: boolean;
+}
+
 export function Home() {
   const navigation = useNavigation();
   const { setExamType } = useExamSelection();
@@ -79,6 +89,7 @@ export function Home() {
   const [streakData, setStreakData] = useState<StreakData | null>(null);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [examCategories, setExamCategories] = useState<ExamCategory[]>([]);
   const [inProgressAttempt, setInProgressAttempt] =
     useState<InProgressAttempt | null>(null);
 
@@ -89,11 +100,13 @@ export function Home() {
         announcementsResponse,
         analyticsResponse,
         attemptsResponse,
+        categoriesResponse,
       ] = await Promise.all([
         api.get("/streaks"),
         api.get("/announcements"),
         api.get("/analytics"),
         api.get("/exam-attempts?status=in_progress"),
+        api.get("/exam-categories"),
       ]);
 
       if (streakResponse.data.success) {
@@ -106,6 +119,10 @@ export function Home() {
 
       if (analyticsResponse.data.success) {
         setAnalytics(analyticsResponse.data.data);
+      }
+
+      if (categoriesResponse.data.success) {
+        setExamCategories(categoriesResponse.data.data);
       }
 
       if (
@@ -133,16 +150,15 @@ export function Home() {
     fetchData();
   };
 
-  const handleJambPress = () => {
-    setExamType("JAMB");
-    // @ts-ignore
-    navigation.navigate("JAMBModeSelection");
-  };
-
-  const handleDliPress = () => {
-    setExamType("DLI");
-    // @ts-ignore
-    navigation.navigate("DepartmentsList");
+  const handleCategoryPress = (category: ExamCategory) => {
+    setExamType(category.slug);
+    if (category.flow_type === 'departmental') {
+      // @ts-ignore
+      navigation.navigate("DepartmentsList");
+    } else {
+      // @ts-ignore
+      navigation.navigate("StandardModeSelection");
+    }
   };
 
   const handleContinuePractice = () => {
@@ -206,8 +222,8 @@ export function Home() {
 
         {/* Quick Action Cards */}
         <QuickActionCards
-          onJambPress={handleJambPress}
-          onDliPress={handleDliPress}
+          categories={examCategories}
+          onCategoryPress={handleCategoryPress}
         />
 
         {/* Recent Performance */}

@@ -13,8 +13,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
-export function JAMBModeSelection() {
-  const { setQuestionMode } = useExamSelection();
+export function StandardModeSelection() {
+  const { setQuestionMode, examType } = useExamSelection();
   const navigation = useNavigation();
   const tintColor = useThemeColor({}, "tint");
 
@@ -22,15 +22,15 @@ export function JAMBModeSelection() {
     setQuestionMode(mode);
     if (mode === "past_question") {
       // @ts-ignore
-      navigation.navigate("JAMBPastQuestionsSelection");
+      navigation.navigate("StandardPastQuestionsSelection");
     } else {
       // @ts-ignore
-      navigation.navigate("JAMBPracticeQuestionsSelection");
+      navigation.navigate("StandardPracticeQuestionsSelection");
     }
   };
 
   return (
-    <AppLayout showBackButton={true} headerTitle="JAMB Practice">
+    <AppLayout showBackButton={true} headerTitle={`${examType} Practice`}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -40,7 +40,7 @@ export function JAMBModeSelection() {
             Select Question Mode
           </ThemedText>
           <ThemedText style={styles.subtitle}>
-            Choose how you want to practice JAMB questions
+            Choose how you want to practice {examType} questions
           </ThemedText>
         </View>
 
@@ -63,7 +63,7 @@ export function JAMBModeSelection() {
                 Past Questions
               </ThemedText>
               <ThemedText style={styles.optionDescription}>
-                Practice with previous JAMB exam questions
+                Practice with previous {examType} exam questions
               </ThemedText>
             </LinearGradient>
           </TouchableOpacity>
