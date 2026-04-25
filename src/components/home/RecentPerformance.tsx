@@ -85,21 +85,19 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     color: '#4800b2',
-    fontFamily: Platform.select({ ios: Fonts.primary.medium, android: Fonts.primary.medium }),
-    fontWeight: Platform.select({ web: '500', default: '500' }),
+    fontFamily: Fonts.primary.medium,
     marginBottom: 2,
   },
   title: {
     fontSize: 18,
     color: '#1a1c1d',
-    fontFamily: Platform.select({ ios: Fonts.primary.bold, android: Fonts.primary.bold }),
-    fontWeight: Platform.select({ web: '700', default: 'bold' }),
+    fontFamily: Fonts.primary.bold,
     marginBottom: 4,
   },
   caption: {
     fontSize: 12,
     color: '#615b6e',
-    fontFamily: Platform.select({ ios: Fonts.primary.regular, android: Fonts.primary.regular }),
+    fontFamily: Fonts.primary.regular,
     lineHeight: 16,
   },
 });

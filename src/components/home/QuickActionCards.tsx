@@ -88,14 +88,12 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 20,
-    fontFamily: Platform.select({ ios: Fonts.primary.bold, android: Fonts.primary.bold }),
-    fontWeight: Platform.select({ web: '700', default: 'bold' }),
+    fontFamily: Fonts.primary.bold,
   },
   viewAllBtn: {
     fontSize: 14,
     color: '#4800b2',
-    fontFamily: Platform.select({ ios: Fonts.primary.medium, android: Fonts.primary.medium }),
-    fontWeight: Platform.select({ web: '500', default: '500' }),
+    fontFamily: Fonts.primary.medium,
   },
   listContainer: {
     marginHorizontal: 16,
@@ -125,13 +123,12 @@ const styles = StyleSheet.create({
   },
   itemTitle: {
     fontSize: 16,
-    fontFamily: Platform.select({ ios: Fonts.primary.semiBold, android: Fonts.primary.semiBold }),
-    fontWeight: Platform.select({ web: '600', default: '600' }),
+    fontFamily: Fonts.primary.semiBold,
     marginBottom: 4,
   },
   itemDescription: {
     fontSize: 13,
     color: '#71717a', 
-    fontFamily: Platform.select({ ios: Fonts.primary.regular, android: Fonts.primary.regular }),
+    fontFamily: Fonts.primary.regular,
   },
 });

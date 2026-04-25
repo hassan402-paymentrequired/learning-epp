@@ -65,14 +65,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#615b6e',
     marginBottom: 4,
-    fontFamily: Platform.select({ ios: Fonts.primary.regular, android: Fonts.primary.regular }),
-    fontWeight: Platform.select({ web: '400', default: '400' }),
+    fontFamily: Fonts.primary.regular,
   },
   headlineText: {
     fontSize: 20,
     color: '#4800b2',
-    fontFamily: Platform.select({ ios: Fonts.primary.semiBold, android: Fonts.primary.semiBold }),
-    fontWeight: Platform.select({ web: '600', default: '600' }),
+    fontFamily: Fonts.primary.semiBold,
     lineHeight: 28,
   },
   streakPill: {
@@ -92,8 +90,7 @@ const styles = StyleSheet.create({
   streakNumber: {
     color: '#4800b2',
     fontSize: 14,
-    fontFamily: Platform.select({ ios: Fonts.primary.bold, android: Fonts.primary.bold }),
-    fontWeight: Platform.select({ web: '700', default: 'bold' }),
+    fontFamily: Fonts.primary.bold,
   },
   streakEmoji: {
     fontSize: 16,
