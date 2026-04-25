@@ -44,7 +44,7 @@ export function StandardPracticeQuestionsSelection() {
   const [currentSubjectForCount, setCurrentSubjectForCount] = useState<string | null>(null);
   const [startingPractice, setStartingPractice] = useState(false);
 
-  const examType = selection.examType || "JAMB";
+  const examType = selection.examTypeSlug || "JAMB";
   const examTypeLabel = selection.examTypeName || "JAMB";
 
   const hasActiveSubscription =
@@ -161,7 +161,7 @@ export function StandardPracticeQuestionsSelection() {
         <View style={styles.list}>
           {loading ? (
             <ActivityIndicator size="large" color={tintColor} style={{ marginTop: 40 }} />
-          ) : (
+          ) : subjects.length > 0 ? (
             subjects.map(subject => {
               const isSelected = selectedSubjects.includes(subject);
               const isExpanded = expandedSubject === subject;
@@ -208,6 +208,11 @@ export function StandardPracticeQuestionsSelection() {
                 </View>
               );
             })
+          ) : (
+            <View style={styles.emptyContainer}>
+              <MaterialIcons name="subject" size={48} color={borderColor} />
+              <ThemedText style={styles.emptyText}>No subjects available for {examTypeLabel} at the moment.</ThemedText>
+            </View>
           )}
         </View>
       </ScrollView>
@@ -266,26 +271,28 @@ const styles = StyleSheet.create({
     color: '#4800b2',
     marginBottom: 4,
   },
-  subtitle: { fontSize: 15, opacity: 0.6, lineHeight: 22 },
+  subtitle: { fontSize: 15, opacity: 0.6, lineHeight: 22, fontFamily: Fonts.primary.regular },
   proBanner: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 10, marginTop: 16, gap: 8, width: '100%' },
-  proText: { fontSize: 13, fontWeight: '700' },
+  proText: { fontSize: 13, fontWeight: '700', fontFamily: Fonts.primary.semiBold },
   list: { gap: 12 },
   card: { borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
   cardHeader: { flexDirection: 'row', alignItems: 'center', padding: 16 },
   check: { width: 28, height: 28, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
   subjectInfo: { flex: 1, marginLeft: 16 },
-  subjectName: { fontSize: 17, fontWeight: '700' },
-  subjectSub: { fontSize: 13, opacity: 0.5, marginTop: 2 },
+  subjectName: { fontSize: 17, fontFamily: Fonts.primary.bold },
+  subjectSub: { fontSize: 13, opacity: 0.5, marginTop: 2, fontFamily: Fonts.primary.regular },
   expandArea: { padding: 16, paddingTop: 0 },
   divider: { height: 1, backgroundColor: 'rgba(0,0,0,0.05)', marginBottom: 16 },
   countBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, borderRadius: 12, borderWidth: 1 },
-  countLabel: { fontSize: 11, opacity: 0.5, textTransform: 'uppercase', marginBottom: 2, fontWeight: '700' },
-  countVal: { fontSize: 16, fontWeight: '700' },
+  countLabel: { fontSize: 11, opacity: 0.5, textTransform: 'uppercase', marginBottom: 2, fontWeight: '700', fontFamily: Fonts.primary.bold },
+  countVal: { fontSize: 16, fontWeight: '700', fontFamily: Fonts.primary.bold },
   footer: { position: 'absolute', bottom: 0, width: width, padding: 20, paddingBottom: 34, flexDirection: 'row', alignItems: 'center', borderTopWidth: 1 },
   footerInfo: { flex: 1 },
-  footerLabel: { fontSize: 16, fontWeight: '800' },
-  footerSub: { fontSize: 12, opacity: 0.5, marginTop: 2 },
+  footerLabel: { fontSize: 16, fontFamily: Fonts.primary.bold },
+  footerSub: { fontSize: 12, opacity: 0.5, marginTop: 2, fontFamily: Fonts.primary.regular },
   startBtn: { minWidth: 120 },
+  emptyContainer: { padding: 40, alignItems: 'center', gap: 12 },
+  emptyText: { fontSize: 16, opacity: 0.5, textAlign: 'center', fontFamily: Fonts.primary.regular },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContent: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '80%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },

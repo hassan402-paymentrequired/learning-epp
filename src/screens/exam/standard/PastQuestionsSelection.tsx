@@ -60,7 +60,7 @@ export function StandardPastQuestionsSelection() {
   const [currentSubjectForQuestionCount, setCurrentSubjectForQuestionCount] = useState<string | null>(null);
   const [startingExam, setStartingExam] = useState(false);
 
-  const examType = selection.examType || "JAMB";
+  const examType = selection.examTypeSlug || "JAMB";
   const examTypeLabel = selection.examTypeName || "JAMB";
 
   const hasActiveSubscription =
@@ -211,7 +211,7 @@ export function StandardPastQuestionsSelection() {
         <View style={styles.list}>
           {loading ? (
             <ActivityIndicator size="large" color={tintColor} style={{ marginTop: 40 }} />
-          ) : (
+          ) : subjects.length > 0 ? (
             subjects.map(subject => {
               const isSelected = selectedSubjects.includes(subject);
               const isExpanded = expandedSubject === subject;
@@ -219,8 +219,8 @@ export function StandardPastQuestionsSelection() {
 
               return (
                 <View key={subject} style={[styles.card, { backgroundColor: cardBackground, borderColor: isSelected ? tintColor : borderColor }]}>
-                  <TouchableOpacity 
-                    style={styles.cardHeader} 
+                  <TouchableOpacity
+                    style={styles.cardHeader}
                     onPress={() => handleToggleSubject(subject)}
                     activeOpacity={0.7}
                   >
@@ -244,7 +244,7 @@ export function StandardPastQuestionsSelection() {
                     <View style={styles.expandArea}>
                         <View style={styles.divider} />
                         <View style={styles.settingsRow}>
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 style={[styles.settingBtn, { borderColor: borderColor }]}
                                 onPress={() => { setCurrentSubjectForYear(subject); setShowYearModal(true); loadYearsForSubject(subject); }}
                             >
@@ -252,7 +252,7 @@ export function StandardPastQuestionsSelection() {
                                 <ThemedText style={styles.settingVal}>{sel.year || "Select"}</ThemedText>
                             </TouchableOpacity>
 
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 style={[styles.settingBtn, { borderColor: borderColor }]}
                                 onPress={() => { setCurrentSubjectForQuestionCount(subject); setShowQuestionCountModal(true); }}
                             >
@@ -265,6 +265,11 @@ export function StandardPastQuestionsSelection() {
                 </View>
               );
             })
+          ) : (
+            <View style={styles.emptyContainer}>
+              <MaterialIcons name="auto-stories" size={48} color={borderColor} />
+              <ThemedText style={styles.emptyText}>No past questions found for {examTypeLabel}.</ThemedText>
+            </View>
           )}
         </View>
       </ScrollView>
@@ -348,28 +353,35 @@ function SelectionModal({ visible, title, options, selected, onSelect, onClose, 
 const styles = StyleSheet.create({
   container: { padding: 24, paddingBottom: 120 },
   header: { marginBottom: 32 },
-  badge: { fontSize: 12, fontWeight: "900", color: "#8B5CF6", letterSpacing: 2, marginBottom: 8 },
-  title: { fontSize: 32, fontWeight: "800", marginBottom: 8 },
-  subtitle: { fontSize: 15, opacity: 0.6, lineHeight: 22 },
+  badge: { fontSize: 12, fontWeight: "900", color: "#8B5CF6", letterSpacing: 2, marginBottom: 8, fontFamily: Fonts.primary.bold },
+  title: {
+    fontSize: 24,
+    fontFamily: Fonts.primary.bold,
+    color: '#4800b2',
+    marginBottom: 4,
+  },
+  subtitle: { fontSize: 15, opacity: 0.6, lineHeight: 22, fontFamily: Fonts.primary.regular },
   proBanner: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 10, marginTop: 16, gap: 8 },
-  proText: { fontSize: 13, fontWeight: '700' },
+  proText: { fontSize: 13, fontWeight: '700', fontFamily: Fonts.primary.semiBold },
   list: { gap: 12 },
   card: { borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
   cardHeader: { flexDirection: 'row', alignItems: 'center', padding: 16 },
   check: { width: 28, height: 28, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
   subjectInfo: { flex: 1, marginLeft: 16 },
-  subjectName: { fontSize: 17, fontWeight: '700' },
-  subjectSub: { fontSize: 13, opacity: 0.5, marginTop: 2 },
+  subjectName: { fontSize: 17, fontFamily: Fonts.primary.bold },
+  subjectSub: { fontSize: 13, opacity: 0.5, marginTop: 2, fontFamily: Fonts.primary.regular },
   expandArea: { padding: 16, paddingTop: 0 },
   divider: { height: 1, backgroundColor: 'rgba(0,0,0,0.05)', marginBottom: 16 },
   settingsRow: { flexDirection: 'row', gap: 12 },
   settingBtn: { flex: 1, padding: 12, borderRadius: 12, borderWidth: 1 },
-  settingLabel: { fontSize: 11, opacity: 0.5, textTransform: 'uppercase', marginBottom: 4, fontWeight: '700' },
-  settingVal: { fontSize: 15, fontWeight: '700' },
+  settingLabel: { fontSize: 11, opacity: 0.5, textTransform: 'uppercase', marginBottom: 4, fontWeight: '700', fontFamily: Fonts.primary.bold },
+  settingVal: { fontSize: 15, fontWeight: '700', fontFamily: Fonts.primary.bold },
   footer: { position: 'absolute', bottom: 0, width: width, padding: 20, paddingBottom: 34, flexDirection: 'row', alignItems: 'center', borderTopWidth: 1 },
   footerInfo: { flex: 1 },
-  footerLabel: { fontSize: 16, fontWeight: '800' },
-  footerSub: { fontSize: 12, opacity: 0.5, marginTop: 2 },
+  footerLabel: { fontSize: 16, fontFamily: Fonts.primary.bold },
+  footerSub: { fontSize: 12, opacity: 0.5, marginTop: 2, fontFamily: Fonts.primary.regular },
+  emptyContainer: { padding: 40, alignItems: 'center', gap: 12 },
+  emptyText: { fontSize: 16, opacity: 0.5, textAlign: 'center', fontFamily: Fonts.primary.regular },
   startBtn: { minWidth: 120 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContent: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '80%' },
