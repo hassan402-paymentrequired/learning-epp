@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  Dimensions,
 } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { AppLayout } from "@/components/AppLayout";
@@ -14,111 +15,64 @@ import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigation } from "@react-navigation/native";
 import { useThemeColor } from "@/hooks/useThemeColor";
+import { useExamSelection } from "@/contexts/ExamSelectionContext";
 import api from "@/services/api";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+
+const { width } = Dimensions.get("window");
 
 interface Question {
   id: number;
   question_text: string;
   question_type: string;
-  points: number;
-  order: number;
-  answers: Answer[];
-}
-
-interface Answer {
-  id: number;
-  answer_text: string;
-  order: string;
+  subject: string;
 }
 
 export function StandardPracticeQuestionsSelection() {
   const { user } = useAuth();
+  const { selection } = useExamSelection();
   const navigation = useNavigation();
+  
   const [subjects, setSubjectsList] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(
-    new Set(),
-  );
+  const [expandedSubject, setExpandedSubject] = useState<string | null>(null);
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
-  const [questionCounts, setQuestionCounts] = useState<Record<string, number>>(
-    {},
-  );
-  const [showQuestionCountModal, setShowQuestionCountModal] = useState(false);
-  const [currentSubjectForQuestionCount, setCurrentSubjectForQuestionCount] =
-    useState<string | null>(null);
-  const [startingExam, setStartingExam] = useState(false);
-  const [hasActiveSubscription, setHasActiveSubscription] = useState(
-    user?.subscription_status === "active" &&
-    !!user?.subscription_expires_at &&
-    new Date(user.subscription_expires_at) > new Date(),
-  );
+  const [questionCounts, setQuestionCounts] = useState<Record<string, number>>({});
+  
+  const [showCountModal, setShowCountModal] = useState(false);
+  const [currentSubjectForCount, setCurrentSubjectForCount] = useState<string | null>(null);
+  const [startingPractice, setStartingPractice] = useState(false);
 
-  const tintColor = useThemeColor({}, "tint");
-  const cardBackground = useThemeColor({}, "cardBackground");
-  const borderColor = useThemeColor({}, "border");
-  const textColor = useThemeColor({}, "text");
-  const placeholderColor = useThemeColor({}, "placeholder");
+  const examType = selection.examType || "JAMB";
+
+  const hasActiveSubscription =
+    user?.subscription_status === "active" &&
+    user?.subscription_expires_at &&
+    new Date(user.subscription_expires_at) > new Date();
 
   const maxQuestionsPerSubject = hasActiveSubscription ? 100 : 5;
-  const defaultQuestionCount = hasActiveSubscription ? 10 : 5;
-  // Generate question count options based on subscription
-  const questionCountOptions = Array.from(
-    { length: maxQuestionsPerSubject },
-    (_, i) => i + 1,
-  );
+  const countOptions = [5, 10, 15, 20, 25, 30, 40, 50, 60, 80, 100].filter(c => c <= maxQuestionsPerSubject);
+
+  const tintColor = useThemeColor({}, "tint");
+  const cardBg = useThemeColor({}, "cardBackground");
+  const borderColor = useThemeColor({}, "border");
+  const backgroundSecondary = useThemeColor({}, "backgroundSecondary");
 
   useEffect(() => {
     loadSubjects();
-    checkSubscriptionFromApi();
   }, []);
-
-  const checkSubscriptionFromApi = async () => {
-    try {
-      const response = await api.get("/subscriptions/status");
-      if (response.data.success && response.data.data) {
-        setHasActiveSubscription(
-          response.data.data.has_active_subscription || false,
-        );
-      }
-    } catch (error) {
-      // Silently fall back to stale user data — already set as initial state
-    }
-  };
 
   const loadSubjects = async () => {
     try {
       setLoading(true);
       const response = await api.get("/exams/subjects", {
-        params: {
-          exam_type: examType || "JAMB",
-          type: "practice",
-        },
+        params: { exam_type: examType, type: "practice" },
       });
-
       if (response.data.success) {
-        const subjectsList = response.data.data || [];
-        setSubjectsList(subjectsList);
-
-        if (subjectsList.length === 0) {
-          Alert.alert(
-            "No Subjects Available",
-            `No ${examType || "JAMB"} practice subjects are available at the moment. Please try again later.`,
-            [{ text: "OK", onPress: () => navigation.goBack() }],
-          );
-        }
-      } else {
-        setSubjectsList([]);
+        setSubjectsList(response.data.data || []);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error loading subjects:", error);
-      setSubjectsList([]);
-      Alert.alert(
-        "Error",
-        error.response?.data?.message ||
-        "Failed to load subjects. Please try again.",
-        [{ text: "OK" }],
-      );
     } finally {
       setLoading(false);
     }
@@ -126,702 +80,211 @@ export function StandardPracticeQuestionsSelection() {
 
   const handleToggleSubject = (subject: string) => {
     if (selectedSubjects.includes(subject)) {
-      setSelectedSubjects((prev) => prev.filter((s) => s !== subject));
-      setExpandedSubjects((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(subject);
-        return newSet;
+      setSelectedSubjects(prev => prev.filter(s => s !== subject));
+      setQuestionCounts(prev => {
+        const next = { ...prev };
+        delete next[subject];
+        return next;
       });
-      setQuestionCounts((prev) => {
-        const newCounts = { ...prev };
-        delete newCounts[subject];
-        return newCounts;
-      });
+      if (expandedSubject === subject) setExpandedSubject(null);
     } else {
       if (selectedSubjects.length < 4) {
-        setSelectedSubjects((prev) => [...prev, subject]);
-        setExpandedSubjects((prev) => new Set(prev).add(subject));
-        // Auto-set default question count for better UX (matches web)
-        setQuestionCounts((prev) => ({
-          ...prev,
-          [subject]: defaultQuestionCount,
-        }));
+        setSelectedSubjects(prev => [...prev, subject]);
+        setQuestionCounts(prev => ({ ...prev, [subject]: 10 > maxQuestionsPerSubject ? maxQuestionsPerSubject : 10 }));
+        setExpandedSubject(subject);
       } else {
-        Alert.alert(
-          "Maximum Subjects Reached",
-          `You can select a maximum of 4 subjects for ${examType || "JAMB"}.`,
-          [{ text: "OK" }],
-        );
+        Alert.alert("Maximum Subjects", "You can select up to 4 subjects.");
       }
     }
   };
 
-  const toggleAccordion = (subject: string) => {
-    if (!selectedSubjects.includes(subject)) return;
-
-    setExpandedSubjects((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(subject)) {
-        newSet.delete(subject);
-      } else {
-        newSet.add(subject);
-      }
-      return newSet;
-    });
-  };
-
-  const selectQuestionCount = (count: number) => {
-    if (currentSubjectForQuestionCount) {
-      setQuestionCounts((prev) => ({
-        ...prev,
-        [currentSubjectForQuestionCount]: count,
-      }));
-      setShowQuestionCountModal(false);
-      setCurrentSubjectForQuestionCount(null);
-    }
-  };
-
-  const handleStartExam = async () => {
-    if (selectedSubjects.length === 0) {
-      Alert.alert(
-        "No Subjects Selected",
-        "Please select at least one subject to continue.",
-      );
-      return;
-    }
-
-    // Validate all selected subjects have question counts
-    const missingSubjects: string[] = [];
-    selectedSubjects.forEach((subject) => {
-      const count = questionCounts[subject];
-      if (!count || count < 1) {
-        missingSubjects.push(subject);
-      }
-    });
-
-    if (missingSubjects.length > 0) {
-      Alert.alert(
-        "Incomplete Selection",
-        `Please select question count for: ${missingSubjects.join(", ")}`,
-        [{ text: "OK" }],
-      );
-      return;
-    }
-
+  const handleStartPractice = async () => {
     try {
-      setStartingExam(true);
-
-      // Calculate default time (30 minutes per subject)
-      const timeMinutesNum = selectedSubjects.length * 30;
-
-      // Fetch practice questions for all subjects in parallel
+      setStartingPractice(true);
       const subjectsQuestions: Record<string, Question[]> = {};
-      let hasErrors = false;
-
-      const limitedWarnings: string[] = [];
 
       for (const subject of selectedSubjects) {
-        const questionCount = questionCounts[subject];
-
-        // Get random practice questions from the dedicated endpoint
-        const questionsResponse = await api.get("/questions/practice", {
-          params: {
-            exam_type: examType || "JAMB",
-            subject: subject,
-            count: questionCount,
-          },
+        const count = questionCounts[subject];
+        const res = await api.get("/questions/practice", {
+          params: { exam_type: examType, subject, count }
         });
-
-        if (!questionsResponse.data.success) {
-          Alert.alert(
-            "Error",
-            `Failed to load questions for ${subject}. Please try again.`,
-          );
-          hasErrors = true;
-          break;
+        if (res.data.success) {
+          subjectsQuestions[subject] = (res.data.data || []).map((q: any) => ({ ...q, subject }));
         }
-
-        const allQuestions = questionsResponse.data.data || [];
-
-        if (allQuestions.length === 0) {
-          Alert.alert(
-            "No Questions Found",
-            `No practice questions available for ${subject}. Please try a different subject.`,
-          );
-          hasErrors = true;
-          break;
-        }
-
-        if (allQuestions.length < questionCount) {
-          limitedWarnings.push(
-            `${subject}: ${allQuestions.length} available (requested ${questionCount})`,
-          );
-        }
-
-        subjectsQuestions[subject] = allQuestions.map((q: any) => ({
-          ...q,
-          subject: subject,
-        }));
       }
 
-      if (hasErrors) return;
+      const subjectsData = selectedSubjects.map(s => ({ subject: s, question_count: questionCounts[s] }));
+      const duration = selectedSubjects.length * 30;
 
-      const startPracticeSession = async () => {
-        try {
-          // Prepare subjects data
-          const subjectsData = selectedSubjects.map((subject) => ({
-            subject: subject,
-            question_count: questionCounts[subject],
-          }));
+      const attemptRes = await api.post("/practice/start", {
+        exam_type: examType,
+        subjects: subjectsData,
+        duration_minutes: duration,
+      });
 
-          // Use dedicated /practice/start endpoint (matches web implementation)
-          const attemptResponse = await api.post("/practice/start", {
-            exam_type: examType || "JAMB",
-            subjects: subjectsData,
-            duration_minutes: timeMinutesNum,
-          });
-
-          if (!attemptResponse.data.success) {
-            Alert.alert(
-              "Error",
-              "Failed to start practice session. Please try again.",
-            );
-            return;
-          }
-
-          const attempt = attemptResponse.data.data.attempt;
-
-          // Calculate total questions actually fetched
-          const totalQuestions = Object.values(subjectsQuestions).reduce(
-            (sum, qs) => sum + qs.length,
-            0,
-          );
-
-          // Navigate to exam screen with isPractice flag (matches web)
-          // @ts-ignore
-          navigation.navigate("ExamScreen", {
-            attemptId: attempt.id,
-            examId: attempt.exam_id,
-            subjectsQuestions: subjectsQuestions,
-            exam: {
-              id: attempt.exam_id,
-              title: `${examType || "JAMB"} ${selectedSubjects.join(", ")} Practice Questions`,
-              duration: timeMinutesNum,
-              total_questions: totalQuestions,
-            },
-            timeMinutes: timeMinutesNum,
-            subjects: selectedSubjects,
-            questionCounts: questionCounts,
-            isPractice: true,
-          });
-        } catch (error: any) {
-          console.error("Error creating practice attempt:", error);
-          Alert.alert("Error", "Failed to initialize practice session.");
-        }
-      };
-
-      if (limitedWarnings.length > 0) {
-        Alert.alert(
-          "Limited Questions",
-          `The following subjects have fewer questions than requested:\n\n${limitedWarnings.join(
-            "\n",
-          )}\n\nProceed with the available questions?`,
-          [
-            { text: "Cancel", style: "cancel", onPress: () => setStartingExam(false) },
-            { text: "Continue", onPress: startPracticeSession },
-          ],
-        );
-      } else {
-        await startPracticeSession();
+      if (attemptRes.data.success) {
+        const attempt = attemptRes.data.data.attempt;
+        navigation.navigate("ExamScreen" as never, {
+          attemptId: attempt.id,
+          examId: attempt.exam_id,
+          subjectsQuestions,
+          exam: { id: attempt.exam_id, title: `${examType} Practice Questions`, duration, total_questions: Object.values(subjectsQuestions).flat().length },
+          timeMinutes: duration,
+          subjects: selectedSubjects,
+          isPractice: true,
+        } as never);
       }
-    } catch (error: any) {
-      console.error("Error starting practice:", error);
-      Alert.alert(
-        "Error",
-        error.response?.data?.message ||
-        "Failed to start practice. Please check your connection and try again.",
-      );
+    } catch (e) {
+      Alert.alert("Error", "Failed to start practice session.");
     } finally {
-      setStartingExam(false);
+      setStartingPractice(false);
     }
   };
 
-  if (loading) {
-    return (
-      <AppLayout showBackButton={true} headerTitle={`${examType || "JAMB"} Practice Questions`}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={tintColor} />
-          <ThemedText style={styles.loadingText}>
-            Loading subjects...
-          </ThemedText>
-        </View>
-      </AppLayout>
-    );
-  }
-
-  const totalQuestions = selectedSubjects.reduce((sum, subject) => {
-    const count = questionCounts[subject] || 0;
-    return sum + count;
-  }, 0);
-
   return (
-    <AppLayout showBackButton={true} headerTitle={`${examType || "JAMB"} Practice Questions`}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+    <AppLayout showBackButton={true} headerTitle="">
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <ThemedText type="title" style={styles.title}>
-            Select Subjects
-          </ThemedText>
-          <ThemedText style={styles.subtitle}>
-            Choose up to 4 subjects and set question count for each (
-            {selectedSubjects.length}/4 selected)
-          </ThemedText>
+          <ThemedText style={styles.badge}>{examType}</ThemedText>
+          <ThemedText type="title" style={styles.title}>Study Mode</ThemedText>
+          <ThemedText style={styles.subtitle}>Select subjects to study. Randomized questions to help you master topics.</ThemedText>
+
           {!hasActiveSubscription && (
-            <ThemedText
-              style={[styles.hint, { color: tintColor, fontWeight: "600" }]}
-            >
-              ⚠️ Non-subscribed users are limited to 5 questions per practice
-              session. Subscribe to unlock unlimited practice questions.
-            </ThemedText>
+            <TouchableOpacity style={[styles.proBanner, { backgroundColor: tintColor + "10" }]}>
+                <MaterialIcons name="stars" size={20} color={tintColor} />
+                <ThemedText style={[styles.proText, { color: tintColor }]}>Unlimited questions with Pro</ThemedText>
+            </TouchableOpacity>
           )}
         </View>
 
-        <View style={styles.subjectsContainer}>
-          {subjects.length > 0 ? (
-            subjects.map((subject) => {
+        <View style={styles.list}>
+          {loading ? (
+            <ActivityIndicator size="large" color={tintColor} style={{ marginTop: 40 }} />
+          ) : (
+            subjects.map(subject => {
               const isSelected = selectedSubjects.includes(subject);
-              const isExpanded = expandedSubjects.has(subject);
+              const isExpanded = expandedSubject === subject;
               const count = questionCounts[subject];
 
               return (
-                <View
-                  key={subject}
-                  style={[
-                    styles.subjectCard,
-                    {
-                      backgroundColor: isSelected
-                        ? tintColor + "10"
-                        : cardBackground,
-                      borderColor: isSelected ? tintColor : borderColor,
-                      borderWidth: isSelected ? 2 : 1,
-                    },
-                  ]}
-                >
-                  {/* Subject Header - Clickable to select/deselect */}
-                  <TouchableOpacity
-                    style={styles.subjectHeader}
+                <View key={subject} style={[styles.card, { backgroundColor: cardBg, borderColor: isSelected ? tintColor : borderColor }]}>
+                  <TouchableOpacity 
+                    style={styles.cardHeader} 
                     onPress={() => handleToggleSubject(subject)}
                     activeOpacity={0.7}
                   >
-                    <View style={styles.subjectHeaderLeft}>
-                      <View
-                        style={[
-                          styles.checkbox,
-                          {
-                            backgroundColor: isSelected
-                              ? tintColor
-                              : "transparent",
-                            borderColor: isSelected ? tintColor : borderColor,
-                          },
-                        ]}
-                      >
-                        {isSelected && (
-                          <MaterialIcons name="check" size={20} color="#fff" />
-                        )}
-                      </View>
-                      <View style={styles.subjectInfo}>
-                        <ThemedText type="subtitle" style={styles.subjectName}>
-                          {subject}
-                        </ThemedText>
+                    <View style={[styles.check, { backgroundColor: isSelected ? tintColor : backgroundSecondary }]}>
+                        {isSelected && <MaterialIcons name="check" size={16} color="white" />}
+                    </View>
+                    <View style={styles.subjectInfo}>
+                        <ThemedText style={[styles.subjectName, isSelected && { color: tintColor }]}>{subject}</ThemedText>
                         {isSelected && count && (
-                          <ThemedText style={styles.questionCountPreview}>
-                            {count} question{count !== 1 ? "s" : ""}
-                          </ThemedText>
+                             <ThemedText style={styles.subjectSub}>{count} Random Questions</ThemedText>
                         )}
-                      </View>
                     </View>
                     {isSelected && (
-                      <TouchableOpacity
-                        onPress={() => toggleAccordion(subject)}
-                        style={styles.expandButton}
-                      >
-                        <MaterialIcons
-                          name={isExpanded ? "expand-less" : "expand-more"}
-                          size={24}
-                          color={tintColor}
-                        />
-                      </TouchableOpacity>
+                        <TouchableOpacity onPress={(e) => { e.stopPropagation(); setExpandedSubject(isExpanded ? null : subject); }}>
+                            <MaterialIcons name={isExpanded ? "expand-less" : "expand-more"} size={24} color={tintColor} />
+                        </TouchableOpacity>
                     )}
                   </TouchableOpacity>
 
-                  {/* Accordion Content - Question Count Selection */}
-                  {isSelected && isExpanded && (
-                    <View style={styles.accordionContent}>
-                      <View style={styles.inputSection}>
-                        <ThemedText style={styles.inputLabel}>
-                          Number of questions
-                        </ThemedText>
-                        <TouchableOpacity
-                          style={[
-                            styles.yearSelector,
-                            {
-                              borderColor:
-                                count && count > 0 ? tintColor : borderColor,
-                              backgroundColor: cardBackground,
-                            },
-                          ]}
-                          onPress={() => {
-                            setCurrentSubjectForQuestionCount(subject);
-                            setShowQuestionCountModal(true);
-                          }}
+                  {isExpanded && (
+                    <View style={styles.expandArea}>
+                        <View style={styles.divider} />
+                        <TouchableOpacity 
+                            style={[styles.countBtn, { borderColor: borderColor }]}
+                            onPress={() => { setCurrentSubjectForCount(subject); setShowCountModal(true); }}
                         >
-                          <ThemedText
-                            style={{
-                              color:
-                                count && count > 0
-                                  ? textColor
-                                  : placeholderColor,
-                              fontSize: 16,
-                            }}
-                          >
-                            {count ? `${count}` : "Select number of questions"}
-                          </ThemedText>
-                          <MaterialIcons
-                            name="arrow-drop-down"
-                            size={24}
-                            color={textColor}
-                          />
+                            <View>
+                                <ThemedText style={styles.countLabel}>Number of Questions</ThemedText>
+                                <ThemedText style={styles.countVal}>{count}</ThemedText>
+                            </View>
+                            <MaterialIcons name="chevron-right" size={20} color={borderColor} />
                         </TouchableOpacity>
-                        <ThemedText style={styles.hint}>
-                          Minimum: 1, Maximum: {maxQuestionsPerSubject}{" "}
-                          {!hasActiveSubscription ? "(Free users)" : ""}
-                        </ThemedText>
-                        {!hasActiveSubscription && (
-                          <ThemedText
-                            style={[
-                              styles.hint,
-                              { color: tintColor, marginTop: 4 },
-                            ]}
-                          >
-                            💡 Subscribe to practice up to 100 questions per
-                            session
-                          </ThemedText>
-                        )}
-                      </View>
                     </View>
                   )}
                 </View>
               );
             })
-          ) : (
-            <View style={styles.emptyContainer}>
-              <ThemedText style={styles.emptyText}>
-                No subjects available for {examType || "JAMB"} practice questions
-              </ThemedText>
-            </View>
           )}
         </View>
-
-        {selectedSubjects.length > 0 && (
-          <View
-            style={[styles.summaryCard, { backgroundColor: cardBackground }]}
-          >
-            <ThemedText style={styles.summaryTitle}>Summary</ThemedText>
-            <View style={styles.summaryRow}>
-              <ThemedText style={styles.summaryLabel}>
-                Selected Subjects:
-              </ThemedText>
-              <ThemedText style={styles.summaryValue}>
-                {selectedSubjects.length} of 4
-              </ThemedText>
-            </View>
-            <View style={styles.summaryRow}>
-              <ThemedText style={styles.summaryLabel}>
-                Total Questions:
-              </ThemedText>
-              <ThemedText style={styles.summaryValue}>
-                {totalQuestions || "Not set"}
-              </ThemedText>
-            </View>
-            <View style={styles.summaryRow}>
-              <ThemedText style={styles.summaryLabel}>
-                Estimated Time:
-              </ThemedText>
-              <ThemedText style={styles.summaryValue}>
-                {selectedSubjects.length * 30} minutes
-              </ThemedText>
-            </View>
-          </View>
-        )}
       </ScrollView>
 
-      {/* Question Count Selection Modal */}
-      <Modal
-        visible={showQuestionCountModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowQuestionCountModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View
-            style={[styles.modalContent, { backgroundColor: cardBackground }]}
-          >
-            <View style={styles.modalHeader}>
-              <ThemedText type="subtitle" style={styles.modalTitle}>
-                Select Number of Questions
-              </ThemedText>
-              <TouchableOpacity
-                onPress={() => setShowQuestionCountModal(false)}
-                style={styles.closeButton}
-              >
-                <MaterialIcons name="close" size={24} color={textColor} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={styles.modalScrollView}>
-              {questionCountOptions.map((optionCount) => (
-                <TouchableOpacity
-                  key={optionCount}
-                  style={[
-                    styles.yearOption,
-                    {
-                      backgroundColor:
-                        questionCounts[currentSubjectForQuestionCount || ""] ===
-                          optionCount
-                          ? tintColor + "20"
-                          : "transparent",
-                    },
-                  ]}
-                  onPress={() => selectQuestionCount(optionCount)}
-                >
-                  <ThemedText
-                    style={[
-                      styles.yearOptionText,
-                      {
-                        color:
-                          questionCounts[
-                            currentSubjectForQuestionCount || ""
-                          ] === optionCount
-                            ? tintColor
-                            : textColor,
-                        fontWeight:
-                          questionCounts[
-                            currentSubjectForQuestionCount || ""
-                          ] === optionCount
-                            ? "600"
-                            : "400",
-                      },
-                    ]}
-                  >
-                    {optionCount}
-                  </ThemedText>
-                  {questionCounts[currentSubjectForQuestionCount || ""] ===
-                    optionCount && (
-                      <MaterialIcons name="check" size={24} color={tintColor} />
-                    )}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+      {selectedSubjects.length > 0 && (
+        <View style={[styles.footer, { borderTopColor: borderColor, backgroundColor: cardBg }]}>
+          <View style={styles.footerInfo}>
+             <ThemedText style={styles.footerLabel}>{selectedSubjects.length} Modeled Subjects</ThemedText>
+             <ThemedText style={styles.footerSub}>{selectedSubjects.join(", ")}</ThemedText>
           </View>
+          <Button 
+            title={startingPractice ? "Preparing..." : "Start Practice"} 
+            onPress={handleStartPractice} 
+            disabled={startingPractice}
+            style={styles.startBtn}
+          />
+        </View>
+      )}
+
+      <Modal visible={showCountModal} transparent animationType="slide" onRequestClose={() => setShowCountModal(false)}>
+        <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: cardBg }]}>
+                <View style={styles.modalHeader}>
+                    <ThemedText style={styles.modalTitle}>Question Count</ThemedText>
+                    <TouchableOpacity onPress={() => setShowCountModal(false)}><MaterialIcons name="close" size={24} color="#666" /></TouchableOpacity>
+                </View>
+                <ScrollView contentContainerStyle={styles.modalList}>
+                    {countOptions.map(opt => (
+                        <TouchableOpacity 
+                            key={opt} 
+                            style={[styles.modalItem, { borderColor: borderColor }, questionCounts[currentSubjectForCount!] === opt && { backgroundColor: tintColor + "10", borderColor: tintColor }]}
+                            onPress={() => {
+                                setQuestionCounts(prev => ({ ...prev, [currentSubjectForCount!]: opt }));
+                                setShowCountModal(false);
+                            }}
+                        >
+                            <ThemedText style={[styles.modalItemText, questionCounts[currentSubjectForCount!] === opt && { color: tintColor, fontWeight: '700' }]}>{opt} Questions</ThemedText>
+                            {questionCounts[currentSubjectForCount!] === opt && <MaterialIcons name="check" size={20} color={tintColor} />}
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+            </View>
         </View>
       </Modal>
-
-      <View style={styles.footer}>
-        <Button
-          title={`Continue (${selectedSubjects.length} subject${selectedSubjects.length === 1 ? "" : "s"
-            })`}
-          onPress={handleStartExam}
-          disabled={selectedSubjects.length === 0 || startingExam}
-          loading={startingExam}
-        />
-      </View>
     </AppLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    flexGrow: 1,
-    padding: 24,
-    paddingBottom: 100,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadingText: {
-    marginTop: 16,
-    opacity: 0.7,
-  },
-  header: {
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    opacity: 0.7,
-    marginBottom: 8,
-  },
-  hint: {
-    fontSize: 14,
-    opacity: 0.6,
-    fontStyle: "italic",
-  },
-  subjectsContainer: {
-    gap: 12,
-    paddingBottom: 20,
-  },
-  subjectCard: {
-    borderRadius: 6,
-    overflow: "hidden",
-  },
-  subjectHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 13,
-  },
-  subjectHeaderLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-    flex: 1,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    borderWidth: 2,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  subjectInfo: {
-    flex: 1,
-  },
-  subjectName: {
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  questionCountPreview: {
-    fontSize: 14,
-    opacity: 0.7,
-    marginTop: 4,
-  },
-  expandButton: {
-    padding: 4,
-  },
-  accordionContent: {
-    padding: 16,
-    paddingTop: 0,
-    borderTopWidth: 1,
-    borderTopColor: "#E5E7EB",
-  },
-  inputSection: {
-    marginBottom: 16,
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 8,
-  },
-  yearSelector: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderWidth: 2,
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 8,
-  },
-  emptyContainer: {
-    padding: 32,
-    alignItems: "center",
-  },
-  emptyText: {
-    fontSize: 16,
-    opacity: 0.7,
-    textAlign: "center",
-  },
-  summaryCard: {
-    marginVertical: 24,
-    padding: 20,
-    borderRadius: 2,
-  },
-  summaryTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 16,
-  },
-  summaryRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
-  summaryLabel: {
-    fontSize: 16,
-    opacity: 0.7,
-  },
-  summaryValue: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "flex-end",
-  },
-  modalContent: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingTop: 20,
-    maxHeight: "70%",
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-  },
-  closeButton: {
-    padding: 4,
-  },
-  modalScrollView: {
-    maxHeight: 400,
-  },
-  yearOption: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
-  yearOptionText: {
-    fontSize: 18,
-  },
-  footer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 24,
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    borderTopWidth: 1,
-    borderTopColor: "#e9ecef",
-  },
+  container: { padding: 24, paddingBottom: 120 },
+  header: { marginBottom: 32 },
+  badge: { fontSize: 12, fontWeight: "900", color: "#8B5CF6", letterSpacing: 2, marginBottom: 8 },
+  title: { fontSize: 32, fontWeight: "800", marginBottom: 8 },
+  subtitle: { fontSize: 15, opacity: 0.6, lineHeight: 22 },
+  proBanner: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 10, marginTop: 16, gap: 8 },
+  proText: { fontSize: 13, fontWeight: '700' },
+  list: { gap: 12 },
+  card: { borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', padding: 16 },
+  check: { width: 28, height: 28, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  subjectInfo: { flex: 1, marginLeft: 16 },
+  subjectName: { fontSize: 17, fontWeight: '700' },
+  subjectSub: { fontSize: 13, opacity: 0.5, marginTop: 2 },
+  expandArea: { padding: 16, paddingTop: 0 },
+  divider: { height: 1, backgroundColor: 'rgba(0,0,0,0.05)', marginBottom: 16 },
+  countBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, borderRadius: 12, borderWidth: 1 },
+  countLabel: { fontSize: 11, opacity: 0.5, textTransform: 'uppercase', marginBottom: 2, fontWeight: '700' },
+  countVal: { fontSize: 16, fontWeight: '700' },
+  footer: { position: 'absolute', bottom: 0, width: width, padding: 20, paddingBottom: 34, flexDirection: 'row', alignItems: 'center', borderTopWidth: 1 },
+  footerInfo: { flex: 1 },
+  footerLabel: { fontSize: 16, fontWeight: '800' },
+  footerSub: { fontSize: 12, opacity: 0.5, marginTop: 2 },
+  startBtn: { minWidth: 120 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '80%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+  modalTitle: { fontSize: 20, fontWeight: '800' },
+  modalList: { gap: 8, paddingBottom: 20 },
+  modalItem: { padding: 18, borderRadius: 12, borderWidth: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  modalItemText: { fontSize: 16, fontWeight: '600' }
 });

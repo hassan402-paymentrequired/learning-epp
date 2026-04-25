@@ -7,16 +7,19 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  Dimensions,
 } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/Button";
-
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigation } from "@react-navigation/native";
 import { useThemeColor } from "@/hooks/useThemeColor";
+import { useExamSelection } from "@/contexts/ExamSelectionContext";
 import api from "@/services/api";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+
+const { width } = Dimensions.get("window");
 
 interface SubjectSelection {
   subject: string;
@@ -41,48 +44,37 @@ interface Answer {
 
 export function StandardPastQuestionsSelection() {
   const { user } = useAuth();
+  const { selection } = useExamSelection();
   const navigation = useNavigation();
   const [subjects, setSubjectsList] = useState<string[]>([]);
-  const [years, setYears] = useState<number[]>([]);
-  const [yearsBySubject, setYearsBySubject] = useState<
-    Record<string, number[]>
-  >({});
+  const [yearsBySubject, setYearsBySubject] = useState<Record<string, number[]>>({});
   const [loading, setLoading] = useState(true);
   const [loadingYears, setLoadingYears] = useState(false);
-  const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(
-    new Set()
-  );
+  const [expandedSubject, setExpandedSubject] = useState<string | null>(null);
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
-  const [subjectSelections, setSubjectSelections] = useState<
-    Record<string, SubjectSelection>
-  >({});
+  const [subjectSelections, setSubjectSelections] = useState<Record<string, SubjectSelection>>({});
+  
   const [showYearModal, setShowYearModal] = useState(false);
-  const [currentSubjectForYear, setCurrentSubjectForYear] = useState<
-    string | null
-  >(null);
+  const [currentSubjectForYear, setCurrentSubjectForYear] = useState<string | null>(null);
   const [showQuestionCountModal, setShowQuestionCountModal] = useState(false);
-  const [currentSubjectForQuestionCount, setCurrentSubjectForQuestionCount] =
-    useState<string | null>(null);
+  const [currentSubjectForQuestionCount, setCurrentSubjectForQuestionCount] = useState<string | null>(null);
   const [startingExam, setStartingExam] = useState(false);
 
-  // Check if user has active subscription
+  const examType = selection.examType || "JAMB";
+
   const hasActiveSubscription =
     user?.subscription_status === "active" &&
     user?.subscription_expires_at &&
     new Date(user.subscription_expires_at) > new Date();
 
   const maxQuestionsPerSubject = hasActiveSubscription ? 100 : 5;
-  // Generate question count options based on subscription
-  const questionCountOptions = Array.from(
-    { length: maxQuestionsPerSubject },
-    (_, i) => i + 1
-  );
+  const questionCountOptions = [5, 10, 15, 20, 25, 30, 40, 50, 60, 80, 100].filter(c => c <= maxQuestionsPerSubject);
 
   const tintColor = useThemeColor({}, "tint");
   const cardBackground = useThemeColor({}, "cardBackground");
   const borderColor = useThemeColor({}, "border");
   const textColor = useThemeColor({}, "text");
-  const placeholderColor = useThemeColor({}, "placeholder");
+  const backgroundSecondary = useThemeColor({}, "backgroundSecondary");
 
   useEffect(() => {
     loadSubjects();
@@ -92,70 +84,31 @@ export function StandardPastQuestionsSelection() {
     try {
       setLoading(true);
       const response = await api.get("/exams/subjects", {
-        params: {
-          exam_type: examType || "JAMB",
-          type: "past_question",
-        },
+        params: { exam_type: examType, type: "past_question" },
       });
 
       if (response.data.success) {
-        const subjectsList = response.data.data || [];
-        setSubjectsList(subjectsList);
-
-        if (subjectsList.length === 0) {
-          Alert.alert(
-            "No Subjects Available",
-            `No ${examType || "JAMB"} past question subjects are available at the moment. Please try again later.`,
-            [{ text: "OK", onPress: () => navigation.goBack() }]
-          );
-        }
-      } else {
-        setSubjectsList([]);
+        setSubjectsList(response.data.data || []);
       }
     } catch (error: any) {
       console.error("Error loading subjects:", error);
-      setSubjectsList([]);
-      Alert.alert(
-        "Error",
-        error.response?.data?.message ||
-        "Failed to load subjects. Please try again.",
-        [{ text: "OK" }]
-      );
     } finally {
       setLoading(false);
     }
   };
 
   const loadYearsForSubject = async (subject: string) => {
-    // If years already loaded for this subject, don't load again
-    if (yearsBySubject[subject] && yearsBySubject[subject].length > 0) {
-      return;
-    }
-
+    if (yearsBySubject[subject]?.length > 0) return;
     try {
       setLoadingYears(true);
       const response = await api.get("/exams/years", {
-        params: {
-          exam_type: examType || "JAMB",
-          subjects: [subject], // Send as array with single subject
-        },
+        params: { exam_type: examType, subjects: [subject] },
       });
-
       if (response.data.success) {
-        const subjectYears = response.data.data || [];
-        setYearsBySubject((prev) => ({
-          ...prev,
-          [subject]: subjectYears,
-        }));
-        // Also update the main years state for backward compatibility
-        setYears(subjectYears);
+        setYearsBySubject(prev => ({ ...prev, [subject]: response.data.data || [] }));
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error loading years:", error);
-      setYearsBySubject((prev) => ({
-        ...prev,
-        [subject]: [],
-      }));
     } finally {
       setLoadingYears(false);
     }
@@ -163,912 +116,265 @@ export function StandardPastQuestionsSelection() {
 
   const handleToggleSubject = (subject: string) => {
     if (selectedSubjects.includes(subject)) {
-      setSelectedSubjects((prev) => prev.filter((s) => s !== subject));
-      setExpandedSubjects((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(subject);
-        return newSet;
+      setSelectedSubjects(prev => prev.filter(s => s !== subject));
+      setSubjectSelections(prev => {
+        const next = { ...prev };
+        delete next[subject];
+        return next;
       });
-      setSubjectSelections((prev) => {
-        const newSelections = { ...prev };
-        delete newSelections[subject];
-        return newSelections;
-      });
+      if (expandedSubject === subject) setExpandedSubject(null);
     } else {
       if (selectedSubjects.length < 4) {
-        setSelectedSubjects((prev) => [...prev, subject]);
-        setExpandedSubjects((prev) => new Set(prev).add(subject));
-        setSubjectSelections((prev) => ({
+        setSelectedSubjects(prev => [...prev, subject]);
+        setSubjectSelections(prev => ({
           ...prev,
-          [subject]: {
-            subject,
-            questionCount: 0,
-            year: null,
-          },
+          [subject]: { subject, questionCount: 10 > maxQuestionsPerSubject ? maxQuestionsPerSubject : 10, year: null }
         }));
-      } else {
-        Alert.alert(
-          "Maximum Subjects Reached",
-          `You can select a maximum of 4 subjects for ${examType || "JAMB"}.`,
-          [{ text: "OK" }]
-        );
-      }
-    }
-  };
-
-  const toggleAccordion = (subject: string) => {
-    if (!selectedSubjects.includes(subject)) return;
-
-    setExpandedSubjects((prev) => {
-      const newSet = new Set(prev);
-      const wasExpanded = newSet.has(subject);
-
-      if (wasExpanded) {
-        newSet.delete(subject);
-      } else {
-        newSet.add(subject);
-        // Load years when expanding the accordion
+        setExpandedSubject(subject);
         loadYearsForSubject(subject);
+      } else {
+        Alert.alert("Max Subjects", "You can select up to 4 subjects.");
       }
-      return newSet;
-    });
-  };
-
-  const handleQuestionCountChange = (subject: string, count: string) => {
-    const numCount = parseInt(count) || 0;
-    setSubjectSelections((prev) => ({
-      ...prev,
-      [subject]: {
-        ...prev[subject],
-        questionCount: numCount,
-      },
-    }));
-  };
-
-  const openYearModal = (subject: string) => {
-    // Ensure years are loaded for this subject
-    if (!yearsBySubject[subject] || yearsBySubject[subject].length === 0) {
-      loadYearsForSubject(subject);
-    }
-    setCurrentSubjectForYear(subject);
-    setShowYearModal(true);
-  };
-
-  const selectYear = (year: number) => {
-    if (currentSubjectForYear) {
-      setSubjectSelections((prev) => ({
-        ...prev,
-        [currentSubjectForYear]: {
-          ...prev[currentSubjectForYear],
-          year,
-        },
-      }));
-      setShowYearModal(false);
-      setCurrentSubjectForYear(null);
-    }
-  };
-
-  const selectQuestionCount = (count: number) => {
-    if (currentSubjectForQuestionCount) {
-      handleQuestionCountChange(
-        currentSubjectForQuestionCount,
-        count.toString()
-      );
-      setShowQuestionCountModal(false);
-      setCurrentSubjectForQuestionCount(null);
     }
   };
 
   const handleStartExam = async () => {
-    if (selectedSubjects.length === 0) {
-      Alert.alert(
-        "No Subjects Selected",
-        "Please select at least one subject to continue."
-      );
+    // Validation
+    const incomplete = selectedSubjects.filter(s => !subjectSelections[s].year || !subjectSelections[s].questionCount);
+    if (incomplete.length > 0) {
+      Alert.alert("Incomplete", "Please select a year and question count for all subjects.");
       return;
-    }
-
-    // Validate all subjects have question counts and years
-    const missingData: string[] = [];
-    selectedSubjects.forEach((subject) => {
-      const selection = subjectSelections[subject];
-      if (
-        !selection ||
-        !selection.questionCount ||
-        selection.questionCount < 1
-      ) {
-        missingData.push(`${subject} - question count`);
-      }
-      if (!selection || !selection.year) {
-        missingData.push(`${subject} - year`);
-      }
-    });
-
-    if (missingData.length > 0) {
-      Alert.alert(
-        "Incomplete Selection",
-        `Please complete the following:\n${missingData.join("\n")}`,
-        [{ text: "OK" }]
-      );
-      return;
-    }
-
-    // Validate question counts based on subscription
-    for (const subject of selectedSubjects) {
-      const subjectSelection = subjectSelections[subject];
-      if (subjectSelection.questionCount > maxQuestionsPerSubject) {
-        Alert.alert(
-          "Too Many Questions",
-          `Maximum allowed is ${maxQuestionsPerSubject} questions per subject. ${subject} has ${subjectSelection.questionCount} questions.`,
-          [{ text: "OK" }]
-        );
-        return;
-      }
     }
 
     try {
       setStartingExam(true);
-
-      const resolvedQuestionCounts: Record<string, number> = {};
-      selectedSubjects.forEach((subject) => {
-        const subjectSelection = subjectSelections[subject];
-        resolvedQuestionCounts[subject] = subjectSelection.questionCount;
-      });
-
-      // Calculate default time (30 minutes per subject)
-      const timeMinutesNum = selectedSubjects.length * 30;
-
-      // Fetch questions for all subjects
       const subjectsQuestions: Record<string, Question[]> = {};
       let firstExamId: number | null = null;
 
       for (const subject of selectedSubjects) {
-        const subjectSelection = subjectSelections[subject];
-
+        const sel = subjectSelections[subject];
         const examResponse = await api.get("/exams", {
-          params: {
-            exam_type: examType || "JAMB",
-            subject: subject,
-            year: subjectSelection.year,
-          },
+          params: { exam_type: examType, subject, year: sel.year }
         });
 
-        if (!examResponse.data.success || examResponse.data.data.length === 0) {
-          Alert.alert(
-            "No Exam Found",
-            `No past questions found for ${subject} in ${subjectSelection.year}. Please try a different year.`
-          );
-          return;
+        if (examResponse.data.success && examResponse.data.data.length > 0) {
+          const exam = examResponse.data.data[0];
+          if (!firstExamId) firstExamId = exam.id;
+          
+          const questionsResponse = await api.get(`/exams/${exam.id}/questions`);
+          const questions = questionsResponse.data.data.questions || [];
+          subjectsQuestions[subject] = questions.slice(0, sel.questionCount).map((q: any) => ({ ...q, subject }));
         }
-
-        const exam = examResponse.data.data[0];
-        if (!firstExamId) {
-          firstExamId = exam.id;
-        }
-
-        // Get questions for this subject's exam
-        const questionsResponse = await api.get(`/exams/${exam.id}/questions`);
-
-        if (!questionsResponse.data.success) {
-          Alert.alert(
-            "Error",
-            `Failed to load questions for ${subject}. Please try again.`
-          );
-          return;
-        }
-
-        const questionsData = questionsResponse.data.data;
-        const allQuestions = questionsData.questions || [];
-
-        // Limit questions to selected count for this subject
-        const limitedQuestions = allQuestions.slice(
-          0,
-          subjectSelection.questionCount
-        );
-
-        // Add subject identifier to questions
-        const questionsWithSubject = limitedQuestions.map((q: any) => ({
-          ...q,
-          subject: subject,
-        }));
-
-        subjectsQuestions[subject] = questionsWithSubject;
       }
 
-      if (!firstExamId) {
-        Alert.alert("Error", "Failed to start exam. Please try again.");
-        return;
-      }
+      if (!firstExamId) throw new Error("No exam data found");
 
-      // Prepare subjects data
-      const subjectsData = selectedSubjects.map((subject) => {
-        const subjectSelection = subjectSelections[subject];
-        return {
-          subject: subject,
-          question_count: subjectSelection.questionCount,
-        };
-      });
-
-      // Start exam attempt
       const attemptResponse = await api.post(`/exams/${firstExamId}/start`, {
-        subjects: subjectsData,
-        duration_minutes: timeMinutesNum,
+        subjects: selectedSubjects.map(s => ({ subject: s, question_count: subjectSelections[s].questionCount })),
+        duration_minutes: selectedSubjects.length * 30,
       });
-
-      if (!attemptResponse.data.success) {
-        Alert.alert("Error", "Failed to start exam. Please try again.");
-        return;
-      }
 
       const attempt = attemptResponse.data.data.attempt;
-
-      // Calculate total questions
-      const totalQuestions = Object.values(subjectsQuestions).reduce(
-        (sum, qs) => sum + qs.length,
-        0
-      );
-
-      // Navigate to exam screen
-      // @ts-ignore
-      navigation.navigate("ExamScreen", {
+      navigation.navigate("ExamScreen" as never, {
         attemptId: attempt.id,
         examId: firstExamId,
-        subjectsQuestions: subjectsQuestions,
-        exam: {
-          id: firstExamId,
-          title: `${examType || "JAMB"} ${selectedSubjects.join(", ")} Past Questions`,
-          duration: timeMinutesNum,
-          total_questions: totalQuestions,
-        },
-        timeMinutes: timeMinutesNum,
+        subjectsQuestions,
+        exam: { id: firstExamId, title: `${examType} Past Questions`, duration: selectedSubjects.length * 30, total_questions: Object.values(subjectsQuestions).flat().length },
+        timeMinutes: selectedSubjects.length * 30,
         subjects: selectedSubjects,
-        questionCounts: resolvedQuestionCounts,
         isPractice: false,
-      });
-    } catch (error: any) {
-      console.error("Error starting exam:", error);
-      Alert.alert(
-        "Error",
-        error.response?.data?.message ||
-        "Failed to start exam. Please check your connection and try again."
-      );
+      } as never);
+    } catch (e) {
+      Alert.alert("Error", "Failed to start. Please check your connection.");
     } finally {
       setStartingExam(false);
     }
   };
 
-  if (loading) {
-    return (
-      <AppLayout showBackButton={true} headerTitle={`${examType || "JAMB"} Past Questions`}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={tintColor} />
-          <ThemedText style={styles.loadingText}>
-            Loading subjects...
-          </ThemedText>
-        </View>
-      </AppLayout>
-    );
-  }
-
-  const totalQuestions = selectedSubjects.reduce((sum, subject) => {
-    const selection = subjectSelections[subject];
-    return sum + (selection?.questionCount || 0);
-  }, 0);
-
   return (
-    <AppLayout showBackButton={true} headerTitle={`${examType || "JAMB"} Past Questions`}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+    <AppLayout showBackButton={true} headerTitle="">
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <ThemedText type="title" style={styles.title}>
-            Select Subjects
-          </ThemedText>
-          <ThemedText style={styles.subtitle}>
-            Choose up to 4 subjects and set question count and year for each (
-            {selectedSubjects.length}/4 selected)
-          </ThemedText>
+          <ThemedText style={styles.badge}>{examType}</ThemedText>
+          <ThemedText type="title" style={styles.title}>Past Questions</ThemedText>
+          <ThemedText style={styles.subtitle}>Select up to 4 subjects and choose your preferred years.</ThemedText>
+          
           {!hasActiveSubscription && (
-            <ThemedText
-              style={[styles.hint, { color: tintColor, fontWeight: "600" }]}
-            >
-              ⚠️ Non-subscribed users are limited to 5 questions per subject.
-              Subscribe to unlock up to 100 questions per subject.
-            </ThemedText>
+            <TouchableOpacity style={[styles.proBanner, { backgroundColor: tintColor + "10" }]}>
+                <MaterialIcons name="stars" size={20} color={tintColor} />
+                <ThemedText style={[styles.proText, { color: tintColor }]}>Upgrade to Pro for more questions</ThemedText>
+            </TouchableOpacity>
           )}
-          <ThemedText style={styles.hint}>
-            Each subject takes 30 minutes. Total time will be calculated
-            automatically.
-          </ThemedText>
         </View>
 
-        <View style={styles.subjectsContainer}>
-          {subjects.length > 0 ? (
-            subjects.map((subject) => {
+        <View style={styles.list}>
+          {loading ? (
+            <ActivityIndicator size="large" color={tintColor} style={{ marginTop: 40 }} />
+          ) : (
+            subjects.map(subject => {
               const isSelected = selectedSubjects.includes(subject);
-              const isExpanded = expandedSubjects.has(subject);
-              const subjectSelection = subjectSelections[subject];
+              const isExpanded = expandedSubject === subject;
+              const sel = subjectSelections[subject];
 
               return (
-                <View
-                  key={subject}
-                  style={[
-                    styles.subjectCard,
-                    {
-                      backgroundColor: isSelected
-                        ? tintColor + "10"
-                        : cardBackground,
-                      borderColor: isSelected ? tintColor : borderColor,
-                      borderWidth: isSelected ? 2 : 1,
-                    },
-                  ]}
-                >
-                  {/* Subject Header - Clickable to select/deselect */}
-                  <TouchableOpacity
-                    style={styles.subjectHeader}
+                <View key={subject} style={[styles.card, { backgroundColor: cardBackground, borderColor: isSelected ? tintColor : borderColor }]}>
+                  <TouchableOpacity 
+                    style={styles.cardHeader} 
                     onPress={() => handleToggleSubject(subject)}
                     activeOpacity={0.7}
                   >
-                    <View style={styles.subjectHeaderLeft}>
-                      <View
-                        style={[
-                          styles.checkbox,
-                          {
-                            backgroundColor: isSelected
-                              ? tintColor
-                              : "transparent",
-                            borderColor: isSelected ? tintColor : borderColor,
-                          },
-                        ]}
-                      >
-                        {isSelected && (
-                          <MaterialIcons name="check" size={20} color="#fff" />
+                    <View style={[styles.check, { backgroundColor: isSelected ? tintColor : backgroundSecondary }]}>
+                        {isSelected && <MaterialIcons name="check" size={16} color="white" />}
+                    </View>
+                    <View style={styles.subjectInfo}>
+                        <ThemedText style={[styles.subjectName, isSelected && { color: tintColor }]}>{subject}</ThemedText>
+                        {isSelected && sel.year && (
+                             <ThemedText style={styles.subjectSub}>Year {sel.year} • {sel.questionCount} Qs</ThemedText>
                         )}
-                      </View>
-                      <View style={styles.subjectInfo}>
-                        <ThemedText type="subtitle"  style={styles.subjectName} >
-                          {subject}
-                        </ThemedText>
-                        {isSelected && subjectSelection && (
-                          <ThemedText style={styles.questionCountPreview}>
-                            {subjectSelection.questionCount} questions
-                            {subjectSelection.year &&
-                              ` • Year ${subjectSelection.year}`}
-                          </ThemedText>
-                        )}
-                      </View>
                     </View>
                     {isSelected && (
-                      <TouchableOpacity
-                        onPress={() => toggleAccordion(subject)}
-                        style={styles.expandButton}
-                      >
-                        <MaterialIcons
-                          name={isExpanded ? "expand-less" : "expand-more"}
-                          size={24}
-                          color={tintColor}
-                        />
-                      </TouchableOpacity>
+                        <TouchableOpacity onPress={(e) => { e.stopPropagation(); setExpandedSubject(isExpanded ? null : subject); }}>
+                            <MaterialIcons name={isExpanded ? "expand-less" : "expand-more"} size={24} color={tintColor} />
+                        </TouchableOpacity>
                     )}
                   </TouchableOpacity>
 
-                  {/* Accordion Content - Question Count and Year Selection */}
-                  {isSelected && isExpanded && (
-                    <View style={styles.accordionContent}>
-                      {/* Question Count */}
-                      <View style={styles.inputSection}>
-                        <ThemedText style={styles.inputLabel}>
-                          Number of questions
-                        </ThemedText>
-                        <TouchableOpacity
-                          style={[
-                            styles.yearSelector,
-                            {
-                              borderColor:
-                                subjectSelection?.questionCount &&
-                                  subjectSelection.questionCount > 0
-                                  ? tintColor
-                                  : borderColor,
-                              backgroundColor: cardBackground,
-                            },
-                          ]}
-                          onPress={() => {
-                            setCurrentSubjectForQuestionCount(subject);
-                            setShowQuestionCountModal(true);
-                          }}
-                        >
-                          <ThemedText
-                            style={{
-                              color:
-                                subjectSelection?.questionCount &&
-                                  subjectSelection.questionCount > 0
-                                  ? textColor
-                                  : placeholderColor,
-                              fontSize: 16,
-                            }}
-                          >
-                            {subjectSelection?.questionCount
-                              ? `${subjectSelection.questionCount}`
-                              : "Select number of questions"}
-                          </ThemedText>
-                          <MaterialIcons
-                            name="arrow-drop-down"
-                            size={24}
-                            color={textColor}
-                          />
-                        </TouchableOpacity>
-                        <ThemedText style={styles.hint}>
-                          Minimum: 1, Maximum: {maxQuestionsPerSubject}{" "}
-                          {!hasActiveSubscription ? "(Free users)" : ""}
-                        </ThemedText>
-                        {!hasActiveSubscription && (
-                          <ThemedText
-                            style={[
-                              styles.hint,
-                              { color: tintColor, marginTop: 4 },
-                            ]}
-                          >
-                            💡 Subscribe to practice up to 100 questions per
-                            subject
-                          </ThemedText>
-                        )}
-                      </View>
+                  {isExpanded && (
+                    <View style={styles.expandArea}>
+                        <View style={styles.divider} />
+                        <View style={styles.settingsRow}>
+                            <TouchableOpacity 
+                                style={[styles.settingBtn, { borderColor: borderColor }]}
+                                onPress={() => { setCurrentSubjectForYear(subject); setShowYearModal(true); loadYearsForSubject(subject); }}
+                            >
+                                <ThemedText style={styles.settingLabel}>Year</ThemedText>
+                                <ThemedText style={styles.settingVal}>{sel.year || "Select"}</ThemedText>
+                            </TouchableOpacity>
 
-                      {/* Year Selection */}
-                      <View style={styles.inputSection}>
-                        <ThemedText style={styles.inputLabel}>Year</ThemedText>
-                        <TouchableOpacity
-                          style={[
-                            styles.yearSelector,
-                            {
-                              borderColor: subjectSelection?.year
-                                ? tintColor
-                                : borderColor,
-                              backgroundColor: cardBackground,
-                            },
-                          ]}
-                          onPress={() => openYearModal(subject)}
-                        >
-                          <ThemedText
-                            style={{
-                              color: subjectSelection?.year
-                                ? textColor
-                                : placeholderColor,
-                              fontSize: 16,
-                            }}
-                          >
-                            {subjectSelection?.year
-                              ? `${subjectSelection.year}`
-                              : "Select year"}
-                          </ThemedText>
-                          <MaterialIcons
-                            name="arrow-drop-down"
-                            size={24}
-                            color={textColor}
-                          />
-                        </TouchableOpacity>
-                      </View>
+                            <TouchableOpacity 
+                                style={[styles.settingBtn, { borderColor: borderColor }]}
+                                onPress={() => { setCurrentSubjectForQuestionCount(subject); setShowQuestionCountModal(true); }}
+                            >
+                                <ThemedText style={styles.settingLabel}>Questions</ThemedText>
+                                <ThemedText style={styles.settingVal}>{sel.questionCount}</ThemedText>
+                            </TouchableOpacity>
+                        </View>
                     </View>
                   )}
                 </View>
               );
             })
-          ) : (
-            <View style={styles.emptyContainer}>
-              <ThemedText style={styles.emptyText}>
-                No subjects available for {examType || "JAMB"} past questions
-              </ThemedText>
-            </View>
           )}
         </View>
-
-        {selectedSubjects.length > 0 && (
-          <View
-            style={[styles.summaryCard, { backgroundColor: cardBackground }]}
-          >
-            <ThemedText style={styles.summaryTitle}>Summary</ThemedText>
-            <View style={styles.summaryRow}>
-              <ThemedText style={styles.summaryLabel}>
-                Selected Subjects:
-              </ThemedText>
-              <ThemedText style={styles.summaryValue}>
-                {selectedSubjects.length}
-              </ThemedText>
-            </View>
-            <View style={styles.summaryRow}>
-              <ThemedText style={styles.summaryLabel}>
-                Total Questions:
-              </ThemedText>
-              <ThemedText style={styles.summaryValue}>
-                {totalQuestions || "Not set"}
-              </ThemedText>
-            </View>
-          </View>
-        )}
       </ScrollView>
 
-      {/* Question Count Selection Modal */}
-      <Modal
-        visible={showQuestionCountModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowQuestionCountModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View
-            style={[styles.modalContent, { backgroundColor: cardBackground }]}
-          >
-            <View style={styles.modalHeader}>
-              <ThemedText type="subtitle" style={styles.modalTitle}>
-                Select Number of Questions
-              </ThemedText>
-              <TouchableOpacity
-                onPress={() => setShowQuestionCountModal(false)}
-                style={styles.closeButton}
-              >
-                <MaterialIcons name="close" size={24} color={textColor} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={styles.modalScrollView}>
-              {questionCountOptions.map((count) => (
-                <TouchableOpacity
-                  key={count}
-                  style={[
-                    styles.yearOption,
-                    {
-                      backgroundColor:
-                        subjectSelections[currentSubjectForQuestionCount || ""]
-                          ?.questionCount === count
-                          ? tintColor + "20"
-                          : "transparent",
-                    },
-                  ]}
-                  onPress={() => selectQuestionCount(count)}
-                >
-                  <ThemedText
-                    style={[
-                      styles.yearOptionText,
-                      {
-                        color:
-                          subjectSelections[
-                            currentSubjectForQuestionCount || ""
-                          ]?.questionCount === count
-                            ? tintColor
-                            : textColor,
-                        fontWeight:
-                          subjectSelections[
-                            currentSubjectForQuestionCount || ""
-                          ]?.questionCount === count
-                            ? "600"
-                            : "400",
-                      },
-                    ]}
-                  >
-                    {count}
-                  </ThemedText>
-                  {subjectSelections[currentSubjectForQuestionCount || ""]
-                    ?.questionCount === count && (
-                      <MaterialIcons name="check" size={24} color={tintColor} />
-                    )}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+      {selectedSubjects.length > 0 && (
+        <View style={[styles.footer, { borderTopColor: borderColor, backgroundColor: cardBackground }]}>
+          <View style={styles.footerInfo}>
+             <ThemedText style={styles.footerLabel}>{selectedSubjects.length} Subjects</ThemedText>
+             <ThemedText style={styles.footerSub}>{selectedSubjects.join(", ")}</ThemedText>
           </View>
+          <Button 
+            title={startingExam ? "Starting..." : "Start Now"} 
+            onPress={handleStartExam} 
+            disabled={startingExam}
+            style={styles.startBtn}
+          />
         </View>
-      </Modal>
+      )}
 
-      {/* Year Selection Modal */}
-      <Modal
+      {/* Modals for selection */}
+      <SelectionModal 
         visible={showYearModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowYearModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View
-            style={[styles.modalContent, { backgroundColor: cardBackground }]}
-          >
-            <View style={styles.modalHeader}>
-              <ThemedText type="subtitle" style={styles.modalTitle}>
-                Select Year
-              </ThemedText>
-              <TouchableOpacity
-                onPress={() => setShowYearModal(false)}
-                style={styles.closeButton}
-              >
-                <MaterialIcons name="close" size={24} color={textColor} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={styles.modalScrollView}>
-              {loadingYears ? (
-                <View style={styles.modalLoadingContainer}>
-                  <ActivityIndicator size="large" color={tintColor} />
-                  <ThemedText style={styles.modalLoadingText}>
-                    Loading years...
-                  </ThemedText>
-                </View>
-              ) : currentSubjectForYear &&
-                yearsBySubject[currentSubjectForYear] &&
-                yearsBySubject[currentSubjectForYear].length > 0 ? (
-                yearsBySubject[currentSubjectForYear].map((year) => (
-                  <TouchableOpacity
-                    key={year}
-                    style={[
-                      styles.yearOption,
-                      {
-                        backgroundColor:
-                          subjectSelections[currentSubjectForYear || ""]
-                            ?.year === year
-                            ? tintColor + "20"
-                            : "transparent",
-                      },
-                    ]}
-                    onPress={() => selectYear(year)}
-                  >
-                    <ThemedText
-                      style={[
-                        styles.yearOptionText,
-                        {
-                          color:
-                            subjectSelections[currentSubjectForYear || ""]
-                              ?.year === year
-                              ? tintColor
-                              : textColor,
-                          fontWeight:
-                            subjectSelections[currentSubjectForYear || ""]
-                              ?.year === year
-                              ? "600"
-                              : "400",
-                        },
-                      ]}
-                    >
-                      {year}
-                    </ThemedText>
-                    {subjectSelections[currentSubjectForYear || ""]?.year ===
-                      year && (
-                        <MaterialIcons name="check" size={24} color={tintColor} />
-                      )}
-                  </TouchableOpacity>
-                ))
-              ) : (
-                <View style={styles.modalEmptyContainer}>
-                  <ThemedText style={styles.modalEmptyText}>
-                    No years available for this subject
-                  </ThemedText>
-                </View>
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+        title="Select Year"
+        options={yearsBySubject[currentSubjectForYear || ""] || []}
+        selected={subjectSelections[currentSubjectForYear || ""]?.year}
+        onSelect={(val: any) => {
+            setSubjectSelections(prev => ({ ...prev, [currentSubjectForYear!]: { ...prev[currentSubjectForYear!], year: val }}));
+            setShowYearModal(false);
+        }}
+        onClose={() => setShowYearModal(false)}
+        loading={loadingYears}
+      />
 
-      <View style={styles.footer}>
-        <Button
-          title={`Continue (${selectedSubjects.length} subject${selectedSubjects.length === 1 ? "" : "s"
-            })`}
-          onPress={handleStartExam}
-          disabled={selectedSubjects.length === 0 || startingExam}
-          loading={startingExam}
-        />
-      </View>
+    <SelectionModal 
+        visible={showQuestionCountModal}
+        title="Question Count"
+        options={questionCountOptions}
+        selected={subjectSelections[currentSubjectForQuestionCount || ""]?.questionCount}
+        onSelect={(val: any) => {
+            setSubjectSelections(prev => ({ ...prev, [currentSubjectForQuestionCount!]: { ...prev[currentSubjectForQuestionCount!], questionCount: val }}));
+            setShowQuestionCountModal(false);
+        }}
+        onClose={() => setShowQuestionCountModal(false)}
+      />
     </AppLayout>
   );
 }
 
+function SelectionModal({ visible, title, options, selected, onSelect, onClose, loading = false }: any) {
+  const cardBg = useThemeColor({}, "cardBackground");
+  const tintColor = useThemeColor({}, "tint");
+  const borderColor = useThemeColor({}, "border");
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+        <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: cardBg }]}>
+                <View style={styles.modalHeader}>
+                    <ThemedText style={styles.modalTitle}>{title}</ThemedText>
+                    <TouchableOpacity onPress={onClose}><MaterialIcons name="close" size={24} color="#666" /></TouchableOpacity>
+                </View>
+                <ScrollView contentContainerStyle={styles.modalList}>
+                    {loading ? <ActivityIndicator color={tintColor} style={{ padding: 40 }} /> : 
+                     options.map((opt: any) => (
+                        <TouchableOpacity 
+                            key={opt} 
+                            style={[styles.modalItem, { borderColor: borderColor }, selected === opt && { backgroundColor: tintColor + "10", borderColor: tintColor }]}
+                            onPress={() => onSelect(opt)}
+                        >
+                            <ThemedText style={[styles.modalItemText, selected === opt && { color: tintColor, fontWeight: '700' }]}>{opt}</ThemedText>
+                            {selected === opt && <MaterialIcons name="check" size={20} color={tintColor} />}
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+            </View>
+        </View>
+    </Modal>
+  );
+}
+
 const styles = StyleSheet.create({
-  scrollContent: {
-    flexGrow: 1,
-    padding: 24,
-    paddingBottom: 100,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadingText: {
-    marginTop: 16,
-    opacity: 0.7,
-  },
-  header: {
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    opacity: 0.7,
-    marginBottom: 8,
-  },
-  hint: {
-    fontSize: 14,
-    opacity: 0.6,
-    fontStyle: "italic",
-  },
-  subjectsContainer: {
-    gap: 12,
-  },
-  subjectCard: {
-    borderRadius: 5,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1,
-    
-  },
-  subjectHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 16,
-  },
-  subjectHeaderLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-    flex: 1,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    borderWidth: 2,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  subjectInfo: {
-    flex: 1,
-  },
-  subjectName: {
-    fontSize: 16,
-    fontWeight: "600",
-    textTransform: 'capitalize'
-  },
-  questionCountPreview: {
-    fontSize: 14,
-    opacity: 0.7,
-  },
-  expandButton: {
-    padding: 2,
-  },
-  accordionContent: {
-    padding: 16,
-    paddingTop: 3,
-    borderTopWidth: 1,
-    borderTopColor: "#E5E7EB",
-  },
-  inputSection: {
-    marginBottom: 16,
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 2,
-    borderRadius: 8,
-    padding: 16,
-    fontSize: 18,
-    marginBottom: 8,
-  },
-  yearSelector: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderWidth: 2,
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 8,
-  },
-  emptyContainer: {
-    padding: 32,
-    alignItems: "center",
-  },
-  emptyText: {
-    fontSize: 16,
-    opacity: 0.7,
-    textAlign: "center",
-  },
-  summaryCard: {
-    marginVertical: 24,
-    padding: 20,
-    borderRadius: 5,
-  },
-  summaryTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 16,
-  },
-  summaryRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-    borderStyle: "dashed",
-  },
-  summaryLabel: {
-    fontSize: 16,
-    opacity: 0.7,
-  },
-  summaryValue: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "flex-end",
-  },
-  modalContent: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingTop: 20,
-    maxHeight: "70%",
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-  },
-  closeButton: {
-    padding: 4,
-  },
-  modalScrollView: {
-    maxHeight: 400,
-  },
-  modalLoadingContainer: {
-    padding: 32,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modalLoadingText: {
-    marginTop: 16,
-    opacity: 0.7,
-  },
-  modalEmptyContainer: {
-    padding: 32,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modalEmptyText: {
-    fontSize: 16,
-    opacity: 0.7,
-    textAlign: "center",
-  },
-  yearOption: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
-  yearOptionText: {
-    fontSize: 18,
-  },
-  footer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 24,
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    borderTopWidth: 1,
-    borderTopColor: "#e9ecef",
-  },
+  container: { padding: 24, paddingBottom: 120 },
+  header: { marginBottom: 32 },
+  badge: { fontSize: 12, fontWeight: "900", color: "#8B5CF6", letterSpacing: 2, marginBottom: 8 },
+  title: { fontSize: 32, fontWeight: "800", marginBottom: 8 },
+  subtitle: { fontSize: 15, opacity: 0.6, lineHeight: 22 },
+  proBanner: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 10, marginTop: 16, gap: 8 },
+  proText: { fontSize: 13, fontWeight: '700' },
+  list: { gap: 12 },
+  card: { borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', padding: 16 },
+  check: { width: 28, height: 28, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  subjectInfo: { flex: 1, marginLeft: 16 },
+  subjectName: { fontSize: 17, fontWeight: '700' },
+  subjectSub: { fontSize: 13, opacity: 0.5, marginTop: 2 },
+  expandArea: { padding: 16, paddingTop: 0 },
+  divider: { height: 1, backgroundColor: 'rgba(0,0,0,0.05)', marginBottom: 16 },
+  settingsRow: { flexDirection: 'row', gap: 12 },
+  settingBtn: { flex: 1, padding: 12, borderRadius: 12, borderWidth: 1 },
+  settingLabel: { fontSize: 11, opacity: 0.5, textTransform: 'uppercase', marginBottom: 4, fontWeight: '700' },
+  settingVal: { fontSize: 15, fontWeight: '700' },
+  footer: { position: 'absolute', bottom: 0, width: width, padding: 20, paddingBottom: 34, flexDirection: 'row', alignItems: 'center', borderTopWidth: 1 },
+  footerInfo: { flex: 1 },
+  footerLabel: { fontSize: 16, fontWeight: '800' },
+  footerSub: { fontSize: 12, opacity: 0.5, marginTop: 2 },
+  startBtn: { minWidth: 120 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '80%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+  modalTitle: { fontSize: 20, fontWeight: '800' },
+  modalList: { gap: 8, paddingBottom: 20 },
+  modalItem: { padding: 18, borderRadius: 12, borderWidth: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  modalItemText: { fontSize: 16, fontWeight: '600' }
 });

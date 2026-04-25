@@ -4,19 +4,24 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Dimensions,
 } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { AppLayout } from "@/components/AppLayout";
 import { useExamSelection } from "@/contexts/ExamSelectionContext";
 import { useNavigation } from "@react-navigation/native";
-import { LinearGradient } from "expo-linear-gradient";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
+const { width } = Dimensions.get("window");
+
 export function StandardModeSelection() {
-  const { setQuestionMode, examType } = useExamSelection();
+  const { setQuestionMode, selection } = useExamSelection();
   const navigation = useNavigation();
   const tintColor = useThemeColor({}, "tint");
+  const cardBg = useThemeColor({}, "cardBackground");
+  const borderColor = useThemeColor({}, "border");
+  const textColor = useThemeColor({}, "text");
 
   const handleSelectMode = (mode: "past_question" | "practice") => {
     setQuestionMode(mode);
@@ -29,67 +34,65 @@ export function StandardModeSelection() {
     }
   };
 
+  const examTypeLabel = selection.examType || "Exam";
+
   return (
-    <AppLayout showBackButton={true} headerTitle={`${examType} Practice`}>
+    <AppLayout showBackButton={true} headerTitle="">
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
+          <ThemedText style={styles.badge}>{examTypeLabel.toUpperCase()}</ThemedText>
           <ThemedText type="title" style={styles.title}>
-            Select Question Mode
+            Choose Your Mode
           </ThemedText>
           <ThemedText style={styles.subtitle}>
-            Choose how you want to practice {examType} questions
+            Select how you'd like to prepare for your upcoming {examTypeLabel} examination.
           </ThemedText>
         </View>
 
         <View style={styles.optionsContainer}>
           <TouchableOpacity
-            style={styles.optionCard}
+            style={[styles.modeCard, { backgroundColor: cardBg, borderColor: borderColor }]}
             onPress={() => handleSelectMode("past_question")}
-            activeOpacity={0.8}
+            activeOpacity={0.7}
           >
-            <LinearGradient
-              colors={[tintColor, tintColor + "DD"]}
-              style={styles.gradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <View style={styles.iconContainer}>
-                <MaterialIcons name="description" size={40} color="#fff" />
-              </View>
-              <ThemedText type="subtitle" style={styles.optionTitle}>
-                Past Questions
+            <View style={[styles.iconBox, { backgroundColor: tintColor + "15" }]}>
+              <MaterialIcons name="history-edu" size={32} color={tintColor} />
+            </View>
+            <View style={styles.modeContent}>
+              <ThemedText style={styles.modeTitle}>Past Questions</ThemedText>
+              <ThemedText style={styles.modeDesc}>
+                Take a complete {examTypeLabel} paper from a specific year. Best for simulation.
               </ThemedText>
-              <ThemedText style={styles.optionDescription}>
-                Practice with previous {examType} exam questions
-              </ThemedText>
-            </LinearGradient>
+            </View>
+            <MaterialIcons name="chevron-right" size={24} color={borderColor} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.optionCard}
+            style={[styles.modeCard, { backgroundColor: cardBg, borderColor: borderColor }]}
             onPress={() => handleSelectMode("practice")}
-            activeOpacity={0.8}
+            activeOpacity={0.7}
           >
-            <LinearGradient
-              colors={[tintColor, tintColor + "DD"]}
-              style={styles.gradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <View style={styles.iconContainer}>
-                <MaterialIcons name="menu-book" size={40} color="#fff" />
-              </View>
-              <ThemedText type="subtitle" style={styles.optionTitle}>
-                Practice Questions
+            <View style={[styles.iconBox, { backgroundColor: "#8B5CF6" + "15" }]}>
+              <MaterialIcons name="auto-awesome" size={32} color="#8B5CF6" />
+            </View>
+            <View style={styles.modeContent}>
+              <ThemedText style={styles.modeTitle}>Study Mode</ThemedText>
+              <ThemedText style={styles.modeDesc}>
+                Practice with a random mix of questions. Limit of 4 sessions per subject.
               </ThemedText>
-              <ThemedText style={styles.optionDescription}>
-                Practice with random questions (max 4 sessions per subject)
-              </ThemedText>
-            </LinearGradient>
+            </View>
+            <MaterialIcons name="chevron-right" size={24} color={borderColor} />
           </TouchableOpacity>
+        </View>
+
+        <View style={[styles.infoSection, { backgroundColor: tintColor + "08" }]}>
+            <MaterialIcons name="info-outline" size={20} color={tintColor} />
+            <ThemedText style={styles.infoText}>
+                Study mode helps you master specific topics through randomized repetition.
+            </ThemedText>
         </View>
       </ScrollView>
     </AppLayout>
@@ -102,49 +105,70 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   header: {
-    marginBottom: 24,
+    marginTop: 10,
+    marginBottom: 40,
+  },
+  badge: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#8B5CF6",
+    letterSpacing: 1.2,
+    marginBottom: 12,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    marginBottom: 8,
+    fontSize: 32,
+    fontWeight: "800",
+    marginBottom: 12,
   },
   subtitle: {
     fontSize: 16,
-    opacity: 0.7,
+    lineHeight: 24,
+    opacity: 0.6,
   },
   optionsContainer: {
-    gap: 20,
+    gap: 16,
   },
-  optionCard: {
-    borderRadius: 16,
-    overflow: "hidden",
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-  },
-  gradient: {
-    padding: 32,
+  modeCard: {
+    flexDirection: "row",
     alignItems: "center",
-    minHeight: 180,
+    padding: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  iconBox: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
     justifyContent: "center",
+    alignItems: "center",
   },
-  iconContainer: {
-    marginBottom: 16,
+  modeContent: {
+    flex: 1,
+    marginLeft: 16,
+    marginRight: 8,
   },
-  optionTitle: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 8,
+  modeTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 4,
   },
-  optionDescription: {
+  modeDesc: {
     fontSize: 14,
-    color: "#fff",
-    opacity: 0.9,
-    textAlign: "center",
-    paddingHorizontal: 20,
+    opacity: 0.6,
+    lineHeight: 20,
   },
+  infoSection: {
+      marginTop: 40,
+      padding: 16,
+      borderRadius: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12
+  },
+  infoText: {
+      flex: 1,
+      fontSize: 13,
+      opacity: 0.7,
+      lineHeight: 18
+  }
 });

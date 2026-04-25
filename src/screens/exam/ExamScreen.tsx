@@ -454,21 +454,29 @@ export function ExamScreen() {
           ]}
         >
           <View style={styles.headerTop}>
-            {/* Subject Selector */}
-            <TouchableOpacity
-              style={styles.subjectSelector}
-              onPress={() => setShowSubjectModal(true)}
-            >
-              <ThemedText type="subtitle" style={styles.headerTitle}>
-                {currentSubject}
-              </ThemedText>
-              <MaterialIcons
-                name="arrow-drop-down"
-                size={20}
-                color={textColor}
-              />
-            </TouchableOpacity>
+            {/* Subject Selector - Left Column */}
+            <View style={styles.subjectContainer}>
+              <TouchableOpacity
+                style={styles.subjectSelector}
+                onPress={() => setShowSubjectModal(true)}
+              >
+                <ThemedText 
+                  type="subtitle" 
+                  style={styles.headerTitle}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {currentSubject}
+                </ThemedText>
+                <MaterialIcons
+                  name="arrow-drop-down"
+                  size={20}
+                  color={textColor}
+                />
+              </TouchableOpacity>
+            </View>
 
+            {/* Controls - Right Column */}
             <View style={styles.headerRight}>
               <TouchableOpacity
                 onPress={() => setShowCalculator(true)}
@@ -476,10 +484,11 @@ export function ExamScreen() {
               >
                 <MaterialIcons name="calculate" size={20} color={tintColor} />
               </TouchableOpacity>
+              
               <View style={styles.timerContainer}>
                 <MaterialIcons
                   name="access-time"
-                  size={20}
+                  size={18}
                   color={timeRemaining < 300 ? "#EF4444" : tintColor}
                 />
                 <ThemedText
@@ -624,7 +633,7 @@ export function ExamScreen() {
                         { color: isSelected ? tintColor : undefined },
                       ]}
                     >
-                      {answer.order}. {answer.answer_text}
+                      {answer.answer_text}
                     </ThemedText>
                   </TouchableOpacity>
                 );
@@ -828,41 +837,56 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   header: {
-    padding: 16,
+    width: "100%",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
   },
   headerTop: {
+    width: "100%",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
+  subjectContainer: {
+    flex: 1,
+    marginRight: 8,
+  },
   subjectSelector: {
-    // borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 4,
   },
   headerTitle: {
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 15,
+    fontWeight: "700",
+    marginRight: 2,
+    flexShrink: 1,
   },
   headerRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    justifyContent: "flex-end",
+    flexShrink: 0,
   },
   calculatorButton: {
-    padding: 6,
+    padding: 8,
+    marginRight: 4,
   },
   timerContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    backgroundColor: "rgba(0,0,0,0.05)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+    minWidth: 75,
+    justifyContent: "center",
   },
   timer: {
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 14,
+    fontWeight: "700",
+    fontVariant: ["tabular-nums"],
   },
   subjectProgress: {
     marginBottom: 8,
