@@ -112,6 +112,7 @@ export function ExamScreen() {
   const [loading, setLoading] = useState(false);
   const [showSubjectModal, setShowSubjectModal] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
+  const [isGridCollapsed, setIsGridCollapsed] = useState(true);
 
   useEffect(() => {
     selectedAnswersRef.current = selectedAnswers;
@@ -170,12 +171,12 @@ export function ExamScreen() {
 
       // Prompt the user
       Alert.alert(
-        "Submit Practice Exam?",
-        "Are you sure you want to leave? Your exam will be submitted.",
+        "Abandon Practice?",
+        "Are you sure you want to leave? Your progress will be automatically submitted as it is.",
         [
-          { text: "Cancel", style: "cancel", onPress: () => { } },
+          { text: "Continue Test", style: "cancel", onPress: () => { } },
           {
-            text: "Submit & Leave",
+            text: "Submit & Quit",
             style: "destructive",
             onPress: () => {
               // Submit exam and dispatch the original navigation action
@@ -189,7 +190,7 @@ export function ExamScreen() {
     });
 
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, submitExam]);
 
   useFocusEffect(
     useCallback(() => {
@@ -629,80 +630,55 @@ export function ExamScreen() {
                 );
               })}
 
-            {currentQuestion.question_type === "true_false" && (() => {
-              const trueAnswer = currentQuestion.answers?.find(
-                (a) => {
-                  const txt = a.answer_text.toLowerCase().trim();
-                  return txt === "true" || txt === "1" || txt === "yes";
-                }
-              ) || currentQuestion.answers?.[0];
-
-              const falseAnswer = currentQuestion.answers?.find(
-                (a) => {
-                  const txt = a.answer_text.toLowerCase().trim();
-                  return txt === "false" || txt === "0" || txt === "no";
-                }
-              ) || currentQuestion.answers?.[1];
-
-              const virtualTrueId = trueAnswer?.id ?? -1000 - currentQuestion.id;
-              const virtualFalseId = falseAnswer?.id ?? -2000 - currentQuestion.id;
-
-              return (
-                <View style={{ flexDirection: "row", gap: 12 }}>
-                  <TouchableOpacity
-                    style={[
-                      styles.answerCard,
-                      { flex: 1, justifyContent: "center" },
-                      selectedAnswerId === (trueAnswer?.id ?? virtualTrueId) && {
-                        backgroundColor: tintColor + "20",
-                        borderColor: tintColor,
-                      },
-                    ]}
-                    onPress={() => handleSelectAnswer(trueAnswer?.id ?? virtualTrueId)}
-                  >
-                    <ThemedText
+            {currentQuestion.question_type === "true_false" && (
+              <View style={styles.trueFalseContainer}>
+                {["True", "False"].map((option) => {
+                  const virtualId = option === "True" ? -1001 : -1002;
+                  const isSelected = selectedAnswerId === virtualId;
+                  
+                  return (
+                    <TouchableOpacity
+                      key={option}
                       style={[
-                        { textAlign: "center", fontWeight: "600", fontSize: 16 },
-                        selectedAnswerId === (trueAnswer?.id ?? virtualTrueId) && { color: tintColor },
+                        styles.answerCard,
+                        { flex: 1, justifyContent: 'center' },
+                        isSelected && {
+                          backgroundColor: tintColor + "20",
+                          borderColor: tintColor,
+                        },
                       ]}
+                      onPress={() => handleSelectAnswer(virtualId)}
                     >
-                      True
-                    </ThemedText>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.answerCard,
-                      { flex: 1, justifyContent: "center" },
-                      selectedAnswerId === (falseAnswer?.id ?? virtualFalseId) && {
-                        backgroundColor: tintColor + "20",
-                        borderColor: tintColor,
-                      },
-                    ]}
-                    onPress={() => handleSelectAnswer(falseAnswer?.id ?? virtualFalseId)}
-                  >
-                    <ThemedText
-                      style={[
-                        { textAlign: "center", fontWeight: "600", fontSize: 16 },
-                        selectedAnswerId === (falseAnswer?.id ?? virtualFalseId) && { color: tintColor },
-                      ]}
-                    >
-                      False
-                    </ThemedText>
-                  </TouchableOpacity>
-                </View>
-              );
-            })()}
+                      <ThemedText
+                        style={[
+                          { textAlign: "center", fontWeight: "600", fontSize: 16 },
+                          isSelected && { color: tintColor },
+                        ]}
+                      >
+                        {option}
+                      </ThemedText>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
 
             {(currentQuestion.question_type === "text_input" || currentQuestion.question_type === "numeric_input") && (
-              <View style={[styles.textInputContainer, { borderColor: tintColor }]}>
+              <View style={[styles.textInputBox, { borderColor: borderColor, backgroundColor: backgroundSecondary }]}>
                 <TextInput
                   style={[styles.textInput, { color: textColor }]}
                   value={textInputAnswers[currentQuestion.id] || ""}
                   onChangeText={handleTextInputChange}
-                  placeholder={currentQuestion.question_type === "numeric_input" ? "Enter a number..." : "Type your answer here..."}
+                  placeholder={currentQuestion.question_type === "numeric_input" ? "Enter numeric value..." : "Type your answer here..."}
                   placeholderTextColor={placeholderColor}
                   keyboardType={currentQuestion.question_type === "numeric_input" ? "numeric" : "default"}
+                  autoFocus={true}
                 />
+                <View style={[styles.inputBadge, { backgroundColor: tintColor }]}>
+                  <ThemedText style={styles.inputBadgeText}>
+                    {currentQuestion.question_type === "numeric_input" ? "NUMERIC" : "TEXT"}
+                  </ThemedText>
+                </View>
               </View>
             )}
           </View>
@@ -715,78 +691,93 @@ export function ExamScreen() {
             { backgroundColor: cardBackground, borderTopColor: borderColor },
           ]}
         >
-          <View style={styles.questionGrid}>
-            {currentQuestions.map((q, index) => {
-              let isAnswered = false;
-              if (q.question_type === 'text_input' || q.question_type === 'numeric_input') {
-                isAnswered = textInputAnswers[q.id] !== undefined && textInputAnswers[q.id].trim() !== '';
-              } else {
-                isAnswered = selectedAnswers[q.id] !== undefined;
-              }
+          {/* Collapse Toggle */}
+          <TouchableOpacity 
+            style={styles.gridToggle} 
+            onPress={() => setIsGridCollapsed(!isGridCollapsed)}
+          >
+            <View style={[styles.toggleBar, { backgroundColor: borderColor }]} />
+            <View style={styles.toggleHeader}>
+              <ThemedText style={styles.toggleText}>
+                {isGridCollapsed ? "Show Question Grid" : "Hide Question Grid"}
+              </ThemedText>
+              <MaterialIcons 
+                name={isGridCollapsed ? "keyboard-arrow-up" : "keyboard-arrow-down"} 
+                size={24} 
+                color={tintColor} 
+              />
+            </View>
+          </TouchableOpacity>
 
-              const isCurrent = index === currentQuestionIndex;
-              return (
-                <TouchableOpacity
-                  key={q.id}
-                  style={[
-                    styles.questionDot,
-                    {
-                      backgroundColor: isCurrent
-                        ? tintColor
-                        : isAnswered
-                          ? tintColor + "80"
-                          : "transparent",
-                      borderColor: tintColor,
-                    },
-                  ]}
-                  onPress={() => goToQuestion(index)}
-                >
-                  <ThemedText
+          {!isGridCollapsed && (
+            <ScrollView 
+              horizontal={false} 
+              style={styles.gridOuter}
+              contentContainerStyle={styles.questionGrid}
+            >
+              {currentQuestions.map((q, index) => {
+                let isAnswered = false;
+                if (q.question_type === 'text_input' || q.question_type === 'numeric_input') {
+                  isAnswered = textInputAnswers[q.id] !== undefined && textInputAnswers[q.id].trim() !== '';
+                } else {
+                  isAnswered = selectedAnswers[q.id] !== undefined;
+                }
+
+                const isCurrent = index === currentQuestionIndex;
+                return (
+                  <TouchableOpacity
+                    key={q.id}
                     style={[
-                      styles.questionDotText,
-                      { color: isCurrent || isAnswered ? "#fff" : tintColor },
+                      styles.questionDot,
+                      {
+                        backgroundColor: isCurrent
+                          ? tintColor
+                          : isAnswered
+                            ? tintColor + "20"
+                            : "transparent",
+                        borderColor: isCurrent ? tintColor : isAnswered ? tintColor : borderColor,
+                      },
                     ]}
+                    onPress={() => goToQuestion(index)}
                   >
-                    {index + 1}
-                  </ThemedText>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+                    <ThemedText
+                      style={[
+                        styles.questionDotText,
+                        { color: isCurrent ? "#fff" : isAnswered ? tintColor : textColor },
+                      ]}
+                    >
+                      {index + 1}
+                    </ThemedText>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
+
           <View style={styles.footerButtons}>
             <Button
-              title="Previous"
+              title="Prev"
               onPress={handlePrevious}
               variant="outline"
               disabled={currentQuestionIndex === 0}
-              style={styles.footerButton}
+              style={styles.navButtonSmall}
             />
             {isLastQuestionInSubject && allSubjectsCompleted ? (
               <Button
-                title={loading ? "Submitting..." : "Submit Exam"}
+                title={loading ? "Submitting..." : "Submit Test"}
                 onPress={() => handleCompleteExam(false)}
                 disabled={loading}
-                style={styles.footerButton}
+                style={styles.submitButtonFixed}
               />
             ) : isLastQuestionInSubject ? (
               <Button
                 title="Next Subject"
                 onPress={() => {
-                  // Find next incomplete subject
-                  const currentIndex =
-                    routeSubjects.indexOf(currentSubject);
-                  const nextSubjects = routeSubjects.slice(
-                    currentIndex + 1
-                  );
-                  const incompleteSubject = nextSubjects.find((subject) => {
-                    const progress = getSubjectProgress(subject);
-                    return progress.answered < progress.total;
-                  });
-
-                  if (incompleteSubject) {
-                    handleSwitchSubject(incompleteSubject);
+                  const currentIndex = routeSubjects.indexOf(currentSubject);
+                  const nextSubject = routeSubjects[currentIndex + 1];
+                  if (nextSubject) {
+                    handleSwitchSubject(nextSubject);
                   } else {
-                    // All subjects done, allow submit
                     handleCompleteExam(false);
                   }
                 }}
@@ -1023,6 +1014,66 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   footerButton: {
+    flex: 2,
+    height: 50,
+  },
+  navButtonSmall: {
     flex: 1,
+    height: 50,
+  },
+  submitButtonFixed: {
+    flex: 2,
+    height: 50,
+    backgroundColor: '#10B981',
+  },
+  gridToggle: {
+    alignItems: 'center',
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+  toggleBar: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    marginBottom: 8,
+  },
+  toggleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  toggleText: {
+    fontSize: 14,
+    fontWeight: '600',
+    opacity: 0.8,
+  },
+  gridOuter: {
+    maxHeight: 180,
+    marginBottom: 12,
+  },
+  trueFalseContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  textInputBox: {
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    position: 'relative',
+    marginTop: 8,
+  },
+  inputBadge: {
+    position: 'absolute',
+    top: -10,
+    right: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  inputBadgeText: {
+    fontSize: 10,
+    color: '#fff',
+    fontWeight: 'bold',
   },
 });
