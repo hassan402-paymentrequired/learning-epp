@@ -8,6 +8,8 @@ import {
   Alert,
   Modal,
   Dimensions,
+  TextInput,
+  RefreshControl,
 } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { AppLayout } from "@/components/AppLayout";
@@ -31,21 +33,28 @@ interface Question {
 
 export function StandardPracticeQuestionsSelection() {
   const { user } = useAuth();
-  const { selection } = useExamSelection();
+  const { selection, setQuestionCount: setGlobalCount, setTimeMinutes: setGlobalTime } = useExamSelection();
   const navigation = useNavigation();
-
-  const [subjects, setSubjectsList] = useState<string[]>([]);
+  
+  const [subjectsList, setSubjectsList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expandedSubject, setExpandedSubject] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
   const [questionCounts, setQuestionCounts] = useState<Record<string, number>>({});
-
+  
+  const [showConfigModal, setShowConfigModal] = useState(false);
   const [showCountModal, setShowCountModal] = useState(false);
   const [currentSubjectForCount, setCurrentSubjectForCount] = useState<string | null>(null);
   const [startingPractice, setStartingPractice] = useState(false);
 
   const examType = selection.examTypeSlug || "JAMB";
   const examTypeLabel = selection.examTypeName || "JAMB";
+
+  const tintColor = "#4800b2";
+  const borderColor = "#f1f5f9";
+  const backgroundSecondary = "#ebe2f5ff";
 
   const hasActiveSubscription =
     user?.subscription_status === "active" &&
@@ -54,11 +63,6 @@ export function StandardPracticeQuestionsSelection() {
 
   const maxQuestionsPerSubject = hasActiveSubscription ? 100 : 5;
   const countOptions = [5, 10, 15, 20, 25, 30, 40, 50, 60, 80, 100].filter(c => c <= maxQuestionsPerSubject);
-
-  const tintColor = useThemeColor({}, "tint");
-  const cardBg = useThemeColor({}, "cardBackground");
-  const borderColor = useThemeColor({}, "border");
-  const backgroundSecondary = useThemeColor({}, "backgroundSecondary");
 
   useEffect(() => {
     loadSubjects();
@@ -71,31 +75,36 @@ export function StandardPracticeQuestionsSelection() {
         params: { exam_type: examType, type: "practice" },
       });
       if (response.data.success) {
-        setSubjectsList(response.data.data || []);
+        // API returns names, we map to match the departmental structure for UI consistency
+        const rawSubjects = response.data.data || [];
+        setSubjectsList(rawSubjects.map((s: any, idx: number) => ({
+             id: idx,
+             name: s,
+             description: `Practice questions for ${s}`
+        })));
       }
     } catch (error) {
       console.error("Error loading subjects:", error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const handleToggleSubject = (subject: string) => {
-    if (selectedSubjects.includes(subject)) {
-      setSelectedSubjects(prev => prev.filter(s => s !== subject));
+  const handleToggleSubject = (subjectName: string) => {
+    if (selectedSubjects.includes(subjectName)) {
+      setSelectedSubjects(prev => prev.filter(s => s !== subjectName));
       setQuestionCounts(prev => {
         const next = { ...prev };
-        delete next[subject];
+        delete next[subjectName];
         return next;
       });
-      if (expandedSubject === subject) setExpandedSubject(null);
     } else {
       if (selectedSubjects.length < 4) {
-        setSelectedSubjects(prev => [...prev, subject]);
-        setQuestionCounts(prev => ({ ...prev, [subject]: 10 > maxQuestionsPerSubject ? maxQuestionsPerSubject : 10 }));
-        setExpandedSubject(subject);
+        setSelectedSubjects(prev => [...prev, subjectName]);
+        setQuestionCounts(prev => ({ ...prev, [subjectName]: 10 > maxQuestionsPerSubject ? maxQuestionsPerSubject : 10 }));
       } else {
-        Alert.alert("Maximum Subjects", "You can select up to 4 subjects.");
+        Alert.alert("Maximum Subjects", "You can select up to 4 subjects for a combined practice session.");
       }
     }
   };
@@ -103,154 +112,172 @@ export function StandardPracticeQuestionsSelection() {
   const handleStartPractice = async () => {
     try {
       setStartingPractice(true);
-      const subjectsQuestions: Record<string, Question[]> = {};
-
-      for (const subject of selectedSubjects) {
-        const count = questionCounts[subject];
-        const res = await api.get("/questions/practice", {
-          params: { exam_type: examType, subject, count }
-        });
-        if (res.data.success) {
-          subjectsQuestions[subject] = (res.data.data || []).map((q: any) => ({ ...q, subject }));
-        }
-      }
 
       const subjectsData = selectedSubjects.map(s => ({ subject: s, question_count: questionCounts[s] }));
       const duration = selectedSubjects.length * 30;
 
       const attemptRes = await api.post("/practice/start", {
-        exam_type: examType,
+        exam_type: selection.examTypeSlug || selection.examType, // Use slug if available for practice filtering
         subjects: subjectsData,
         duration_minutes: duration,
       });
 
-      if (attemptRes.data.success) {
-        const attempt = attemptRes.data.data.attempt;
+      if (attemptRes.data.success && attemptRes.data.data) {
+        const { attempt, questions: backendQuestions } = attemptRes.data.data;
+        
+        // backendQuestions is Record<string, Question[]>
+        const subjectsQuestions = backendQuestions;
+        
+        // Update context
+        selectedSubjects.forEach(s => {
+             const qCount = subjectsQuestions[s]?.length || 0;
+             setGlobalCount(s, qCount);
+        });
+        setGlobalTime(duration);
+
         navigation.navigate("ExamScreen" as never, {
           attemptId: attempt.id,
-          examId: attempt.exam_id,
+          examId: attempt.exam_id || 0,
           subjectsQuestions,
-          exam: { id: attempt.exam_id, title: `${examTypeLabel} Practice Questions`, duration, total_questions: Object.values(subjectsQuestions).flat().length },
+          exam: { 
+            id: attempt.exam_id || 0, 
+            title: `${examTypeLabel} Practice`, 
+            duration, 
+            total_questions: Object.values(subjectsQuestions).flat().length 
+          },
           timeMinutes: duration,
           subjects: selectedSubjects,
           isPractice: true,
         } as never);
       }
-    } catch (e) {
-      Alert.alert("Error", "Failed to start practice session.");
+    } catch (e: any) {
+      console.error("Start practice error:", e);
+      Alert.alert("Error", e.response?.data?.message || "Failed to start practice session.");
     } finally {
       setStartingPractice(false);
     }
   };
 
-  return (
-    <AppLayout showBackButton={true} headerTitle="Study Mode">
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <ThemedText type="title" style={styles.title}>Study Mode</ThemedText>
-          <ThemedText style={styles.subtitle}>Select subjects to study. Randomized questions to help you master topics.</ThemedText>
+  const filteredSubjects = subjectsList.filter(s => 
+    s.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
-          {!hasActiveSubscription && (
-            <TouchableOpacity style={[styles.proBanner, { backgroundColor: tintColor + "10" }]}>
-              <MaterialIcons name="stars" size={20} color={tintColor} />
-              <ThemedText style={[styles.proText, { color: tintColor }]}>Unlimited questions with Pro</ThemedText>
-            </TouchableOpacity>
-          )}
+  if (loading) {
+    return (
+      <AppLayout showBackButton={true} headerTitle="Study Mode">
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={tintColor} />
+        </View>
+      </AppLayout>
+    );
+  }
+
+  return (
+    <AppLayout showBackButton={true} headerTitle="Select Practice Subjects">
+
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={loadSubjects} />}
+      >
+        <View style={styles.headerArea}>
+           <ThemedText style={styles.title}>Study Mode</ThemedText>
+           <ThemedText style={styles.subtitle}>Select up to 4 subjects for a combined practice session.</ThemedText>
         </View>
 
-        <View style={styles.list}>
-          {loading ? (
-            <ActivityIndicator size="large" color={tintColor} style={{ marginTop: 40 }} />
-          ) : subjects.length > 0 ? (
-            subjects.map(subject => {
-              const isSelected = selectedSubjects.includes(subject);
-              const isExpanded = expandedSubject === subject;
-              const count = questionCounts[subject];
+      <View style={styles.searchContainer}>
+        <MaterialIcons name="search" size={20} color="#a1a1aa" style={styles.searchIcon} />
+        <TextInput
+          placeholder="Search for a subject..."
+          style={styles.searchInput}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholderTextColor="#a1a1aa"
+        />
+      </View>
+
+        <View style={styles.listContainer}>
+          {filteredSubjects.length > 0 ? (
+            filteredSubjects.map((subject) => {
+              const isSelected = selectedSubjects.includes(subject.name);
+              const count = questionCounts[subject.name];
 
               return (
-                <View key={subject} style={[styles.card, { backgroundColor: cardBg, borderColor: isSelected ? tintColor : borderColor }]}>
-                  <TouchableOpacity
-                    style={styles.cardHeader}
-                    onPress={() => handleToggleSubject(subject)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={[styles.check, { backgroundColor: isSelected ? tintColor : backgroundSecondary }]}>
-                      {isSelected && <MaterialIcons name="check" size={16} color="white" />}
-                    </View>
-                    <View style={styles.subjectInfo}>
-                      <ThemedText style={[styles.subjectName, isSelected && { color: tintColor }]}>{subject}</ThemedText>
-                      {isSelected && count && (
-                        <ThemedText style={styles.subjectSub}>{count} Random Questions</ThemedText>
-                      )}
-                    </View>
-                    {isSelected && (
-                      <TouchableOpacity onPress={(e) => { e.stopPropagation(); setExpandedSubject(isExpanded ? null : subject); }}>
-                        <MaterialIcons name={isExpanded ? "expand-less" : "expand-more"} size={24} color={tintColor} />
-                      </TouchableOpacity>
+                <TouchableOpacity 
+                  key={subject.id} 
+                  style={[styles.listItem, isSelected && { borderColor: tintColor, backgroundColor: tintColor + '05' }]}
+                  onPress={() => handleToggleSubject(subject.name)}
+                  activeOpacity={0.6}
+                >
+                  <View style={[styles.iconBox, isSelected && { backgroundColor: tintColor + '20' }]}>
+                    <MaterialIcons name="school" size={32} color={isSelected ? tintColor : '#a1a1aa'} style={{ opacity: isSelected ? 1 : 0.2 }} />
+                  </View>
+                  <View style={styles.infoBox}>
+                    <ThemedText style={[styles.subjectTitle, isSelected && { color: tintColor }]}>{subject.name}</ThemedText>
+                    {isSelected ? (
+                        <TouchableOpacity 
+                            style={styles.countBadge} 
+                            onPress={(e) => { e.stopPropagation(); setCurrentSubjectForCount(subject.name); setShowCountModal(true); }}
+                        >
+                            <ThemedText style={styles.countText}>{count} Questions</ThemedText>
+                            <MaterialIcons name="edit" size={12} color={tintColor} />
+                        </TouchableOpacity>
+                    ) : (
+                        <ThemedText style={styles.subjectSubtitle}>{subject.description}</ThemedText>
                     )}
-                  </TouchableOpacity>
-
-                  {isExpanded && (
-                    <View style={styles.expandArea}>
-                      <View style={styles.divider} />
-                      <TouchableOpacity
-                        style={[styles.countBtn, { borderColor: borderColor }]}
-                        onPress={() => { setCurrentSubjectForCount(subject); setShowCountModal(true); }}
-                      >
-                        <View>
-                          <ThemedText style={styles.countLabel}>Number of Questions</ThemedText>
-                          <ThemedText style={styles.countVal}>{count}</ThemedText>
-                        </View>
-                        <MaterialIcons name="chevron-right" size={20} color={borderColor} />
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </View>
+                  </View>
+                  <View style={[styles.checkCircle, isSelected && { backgroundColor: tintColor, borderColor: tintColor }]}>
+                     {isSelected && <MaterialIcons name="check" size={16} color="white" />}
+                  </View>
+                </TouchableOpacity>
               );
             })
           ) : (
             <View style={styles.emptyContainer}>
-              <MaterialIcons name="subject" size={48} color={borderColor} />
-              <ThemedText style={styles.emptyText}>No subjects available for {examTypeLabel} at the moment.</ThemedText>
+               <MaterialIcons name="search-off" size={48} color="#e2e8f0" />
+               <ThemedText style={styles.emptyText}>No subjects matches your search.</ThemedText>
             </View>
           )}
         </View>
       </ScrollView>
 
       {selectedSubjects.length > 0 && (
-        <View style={[styles.footer, { borderTopColor: borderColor, backgroundColor: cardBg }]}>
-          <View style={styles.footerInfo}>
-            <ThemedText style={styles.footerLabel}>{selectedSubjects.length} Modeled Subjects</ThemedText>
-            <ThemedText style={styles.footerSub}>{selectedSubjects.join(", ")}</ThemedText>
+        <View style={styles.footer}>
+          <View style={styles.footerTextContainer}>
+             <ThemedText style={styles.footerLabel}>{selectedSubjects.length} Selected</ThemedText>
+             <ThemedText style={styles.footerSub} numberOfLines={1}>{selectedSubjects.join(", ")}</ThemedText>
           </View>
-          <Button
-            title={startingPractice ? "Preparing..." : "Start Practice"}
-            onPress={handleStartPractice}
+          <Button 
+            title={startingPractice ? "Preparing..." : "Start Now"} 
+            onPress={handleStartPractice} 
             disabled={startingPractice}
             style={styles.startBtn}
           />
         </View>
       )}
 
-      <Modal visible={showCountModal} transparent animationType="slide" onRequestClose={() => setShowCountModal(false)}>
+      {/* Question Count Modal */}
+      <Modal visible={showCountModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: cardBg }]}>
+          <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <ThemedText style={styles.modalTitle}>Question Count</ThemedText>
-              <TouchableOpacity onPress={() => setShowCountModal(false)}><MaterialIcons name="close" size={24} color="#666" /></TouchableOpacity>
+              <ThemedText style={styles.modalTitle}>Questions for {currentSubjectForCount}</ThemedText>
+              <TouchableOpacity onPress={() => setShowCountModal(false)}>
+                <MaterialIcons name="close" size={24} color="#1a1c1d" />
+              </TouchableOpacity>
             </View>
-            <ScrollView contentContainerStyle={styles.modalList}>
-              {countOptions.map(opt => (
-                <TouchableOpacity
-                  key={opt}
-                  style={[styles.modalItem, { borderColor: borderColor }, questionCounts[currentSubjectForCount!] === opt && { backgroundColor: tintColor + "10", borderColor: tintColor }]}
-                  onPress={() => {
-                    setQuestionCounts(prev => ({ ...prev, [currentSubjectForCount!]: opt }));
-                    setShowCountModal(false);
+            <ScrollView style={{maxHeight: 400}}>
+              {countOptions.map((c) => (
+                <TouchableOpacity 
+                  key={c} 
+                  style={styles.optionItem}
+                  onPress={() => { 
+                    setQuestionCounts(prev => ({ ...prev, [currentSubjectForCount!]: c })); 
+                    setShowCountModal(false); 
                   }}
                 >
-                  <ThemedText style={[styles.modalItemText, questionCounts[currentSubjectForCount!] === opt && { color: tintColor, fontWeight: '700' }]}>{opt} Questions</ThemedText>
-                  {questionCounts[currentSubjectForCount!] === opt && <MaterialIcons name="check" size={20} color={tintColor} />}
+                  <ThemedText style={[styles.optionText, questionCounts[currentSubjectForCount!] === c && { color: tintColor, fontFamily: Fonts.primary.bold }]}>{c} Questions</ThemedText>
+                  {questionCounts[currentSubjectForCount!] === c && <MaterialIcons name="check-circle" size={20} color={tintColor} />}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -262,42 +289,71 @@ export function StandardPracticeQuestionsSelection() {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 24, paddingBottom: 120 },
-  header: { marginBottom: 32 },
-  badge: { fontSize: 12, fontWeight: "900", color: "#8B5CF6", letterSpacing: 2, marginBottom: 8 },
-  title: {
-    fontSize: 24,
-    fontFamily: Fonts.primary.bold,
-    color: '#4800b2',
-    marginBottom: 4,
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+  scrollContent: { paddingBottom: 120 },
+  headerArea: { paddingHorizontal: 16, marginBottom: 20, marginTop: 16, },
+  badge: { fontSize: 12, fontFamily: Fonts.primary.bold, color: "#8B5CF6", letterSpacing: 2, marginBottom: 4 },
+  title: { fontSize: 24, fontFamily: Fonts.primary.bold, color: '#4800b2', marginBottom: 4 },
+  subtitle: { fontSize: 14, fontFamily: Fonts.primary.regular, color: '#71717a', lineHeight: 20 },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f1f5f9',
+    marginHorizontal: 16,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 20,
+    height: 48,
   },
-  subtitle: { fontSize: 15, opacity: 0.6, lineHeight: 22, fontFamily: Fonts.primary.regular },
-  proBanner: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 10, marginTop: 16, gap: 8, width: '100%' },
-  proText: { fontSize: 13, fontWeight: '700', fontFamily: Fonts.primary.semiBold },
-  list: { gap: 12 },
-  card: { borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', padding: 16 },
-  check: { width: 28, height: 28, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-  subjectInfo: { flex: 1, marginLeft: 16 },
-  subjectName: { fontSize: 17, fontFamily: Fonts.primary.bold },
-  subjectSub: { fontSize: 13, opacity: 0.5, marginTop: 2, fontFamily: Fonts.primary.regular },
-  expandArea: { padding: 16, paddingTop: 0 },
-  divider: { height: 1, backgroundColor: 'rgba(0,0,0,0.05)', marginBottom: 16 },
-  countBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, borderRadius: 12, borderWidth: 1 },
-  countLabel: { fontSize: 11, opacity: 0.5, textTransform: 'uppercase', marginBottom: 2, fontWeight: '700', fontFamily: Fonts.primary.bold },
-  countVal: { fontSize: 16, fontWeight: '700', fontFamily: Fonts.primary.bold },
-  footer: { position: 'absolute', bottom: 0, width: width, padding: 20, paddingBottom: 34, flexDirection: 'row', alignItems: 'center', borderTopWidth: 1 },
-  footerInfo: { flex: 1 },
-  footerLabel: { fontSize: 16, fontFamily: Fonts.primary.bold },
-  footerSub: { fontSize: 12, opacity: 0.5, marginTop: 2, fontFamily: Fonts.primary.regular },
-  startBtn: { minWidth: 120 },
+  searchIcon: { marginRight: 8 },
+  searchInput: { flex: 1, height: '100%', fontFamily: Fonts.primary.regular, fontSize: 14, color: '#1a1c1d' },
+  listContainer: { marginHorizontal: 16, gap: 12 },
+  listItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+  },
+  iconBox: {
+    width: 60,
+    height: 60,
+    borderRadius: 12,
+    backgroundColor: '#f8fafc',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  infoBox: { flex: 1 },
+  subjectTitle: { fontSize: 16, fontFamily: Fonts.primary.bold, color: '#1a1c1d', marginBottom: 2 },
+  subjectSubtitle: { fontSize: 13, fontFamily: Fonts.primary.regular, color: '#71717a' },
+  countBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#f1f5f9', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, alignSelf: 'flex-start' },
+  countText: { fontSize: 12, fontFamily: Fonts.primary.semiBold, color: '#4800b2' },
+  checkCircle: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: '#e2e8f0', justifyContent: 'center', alignItems: 'center', marginLeft: 8 },
+  footer: { 
+    position: 'absolute', 
+    bottom: 0, 
+    width: width, 
+    padding: 20, 
+    paddingBottom: 34, 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderColor: '#f1f5f9'
+  },
+  footerTextContainer: { flex: 1 },
+  footerLabel: { fontSize: 16, fontFamily: Fonts.primary.bold, color: '#1a1c1d' },
+  footerSub: { fontSize: 12, fontFamily: Fonts.primary.regular, color: '#71717a', marginTop: 2 },
+  startBtn: { minWidth: 130 },
   emptyContainer: { padding: 40, alignItems: 'center', gap: 12 },
-  emptyText: { fontSize: 16, opacity: 0.5, textAlign: 'center', fontFamily: Fonts.primary.regular },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContent: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '80%' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
-  modalTitle: { fontSize: 20, fontWeight: '800' },
-  modalList: { gap: 8, paddingBottom: 20 },
-  modalItem: { padding: 18, borderRadius: 12, borderWidth: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  modalItemText: { fontSize: 16, fontWeight: '600' }
+  emptyText: { fontSize: 15, fontFamily: Fonts.primary.regular, color: '#94a3b8', textAlign: 'center' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 20 },
+  modalContent: { backgroundColor: '#fff', borderRadius: 20, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 5 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  modalTitle: { fontSize: 18, fontFamily: Fonts.primary.bold, color: '#1a1c1d', flex: 1 },
+  optionItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  optionText: { fontSize: 15, fontFamily: Fonts.primary.regular, color: '#4b5563' },
 });

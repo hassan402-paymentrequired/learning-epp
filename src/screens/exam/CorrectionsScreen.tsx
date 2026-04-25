@@ -373,7 +373,7 @@ export function CorrectionsScreen() {
                       {iconName && <MaterialIcons name={iconName} size={16} color={iconColor} />}
                     </View>
                     <ThemedText style={styles.answerText}>
-                      {answer.order ? `${answer.order}. ` : ''}{answer.answer_text}
+                      {answer.answer_text}
                     </ThemedText>
                   </View>
                 );
