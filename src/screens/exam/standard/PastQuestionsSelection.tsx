@@ -222,7 +222,19 @@ export function StandardPastQuestionsSelection() {
 
   return (
     <AppLayout showBackButton={true} headerTitle="Select Past Questions">
-      <View style={styles.searchContainer}>
+     
+
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={loadSubjects} />}
+      >
+        <View style={styles.headerArea}>
+           <ThemedText style={styles.title}>Past Questions Practice</ThemedText>
+           <ThemedText style={styles.subtitle}>Select subjects and specific years to practice previous exams.</ThemedText>
+        </View>
+
+         <View style={styles.searchContainer}>
         <MaterialIcons name="search" size={20} color="#a1a1aa" style={styles.searchIcon} />
         <TextInput
           placeholder="Search subjects..."
@@ -232,17 +244,6 @@ export function StandardPastQuestionsSelection() {
           placeholderTextColor="#a1a1aa"
         />
       </View>
-
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent} 
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={loadSubjects} />}
-      >
-        <View style={styles.headerArea}>
-           <ThemedText style={styles.badge}>{examTypeLabel.toUpperCase()}</ThemedText>
-           <ThemedText style={styles.title}>Yearly Practice</ThemedText>
-           <ThemedText style={styles.subtitle}>Select subjects and specific years to practice previous exams.</ThemedText>
-        </View>
 
         <View style={styles.listContainer}>
           {filteredSubjects.map((subject) => {
@@ -282,6 +283,21 @@ export function StandardPastQuestionsSelection() {
               </TouchableOpacity>
             );
           })}
+          {filteredSubjects.length === 0 && !loading && (
+            <View style={styles.emptyContainer}>
+              <MaterialIcons name="event-note" size={64} color="#e2e8f0" />
+              <ThemedText style={styles.emptyText}>No subjects found for {examTypeLabel}.</ThemedText>
+              <ThemedText style={styles.debugText}>
+                API Subjects: {subjectsList.length} | Mode: {selection.examTypeSlug || 'N/A'}
+              </ThemedText>
+              <Button 
+                title="Refresh Subjects" 
+                onPress={loadSubjects} 
+                variant="outline"
+                style={{marginTop: 20}}
+              />
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -404,7 +420,7 @@ export function StandardPastQuestionsSelection() {
 const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   scrollContent: { paddingBottom: 120 },
-  headerArea: { paddingHorizontal: 16, marginBottom: 20 },
+  headerArea: { paddingHorizontal: 16, marginBottom: 20, marginTop: 16 },
   badge: { fontSize: 12, fontFamily: Fonts.primary.bold, color: "#8B5CF6", letterSpacing: 2, marginBottom: 4 },
   title: { fontSize: 24, fontFamily: Fonts.primary.bold, color: '#4800b2', marginBottom: 4 },
   subtitle: { fontSize: 14, fontFamily: Fonts.primary.regular, color: '#71717a', lineHeight: 20 },
@@ -415,7 +431,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     paddingHorizontal: 12,
     borderRadius: 8,
-    marginTop: 16,
     marginBottom: 20,
     height: 48,
   },
@@ -469,6 +484,8 @@ const styles = StyleSheet.create({
   configBody: { gap: 16 },
   configInput: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 10, borderWidth: 1, borderColor: '#f1f5f9', backgroundColor: '#fafafa' },
   inputText: { fontSize: 15, fontFamily: Fonts.primary.regular, color: '#1a1c1d' },
+  emptyText: { fontSize: 15, fontFamily: Fonts.primary.regular, color: '#94a3b8', textAlign: 'center', marginTop: 12 },
+  debugText: { fontSize: 12, fontFamily: Fonts.primary.regular, color: '#cbd5e1', textAlign: 'center', marginTop: 8 },
   nestedModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', padding: 24 },
   nestedModalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 20, elevation: 5 },
   optionItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },

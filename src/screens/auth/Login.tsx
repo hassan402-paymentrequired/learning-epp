@@ -18,6 +18,7 @@ import { IconButton } from "@/components/ui/IconButton";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigation } from "@react-navigation/native";
 import { useThemeColor } from "@/hooks/useThemeColor";
+import { Fonts } from "@/constants/Fonts";
 
 export function Login() {
   const [email, setEmail] = useState("");
@@ -224,8 +225,8 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 32,
-    fontWeight: "bold",
     marginBottom: 12,
+    fontFamily: Fonts.primary.bold,
   },
   description: {
     fontSize: 14,

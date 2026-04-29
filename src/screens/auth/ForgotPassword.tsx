@@ -16,6 +16,7 @@ import { useThemeColor } from "@/hooks/useThemeColor";
 import api from "@/services/api";
 import { useNavigation } from "@react-navigation/native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { Fonts } from "@/constants/Fonts";
 
 export function ForgotPassword() {
   const navigation = useNavigation();
@@ -149,7 +150,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: "bold",
+    fontFamily: Fonts.primary.bold,
     marginBottom: 12,
     textAlign: "center",
   },

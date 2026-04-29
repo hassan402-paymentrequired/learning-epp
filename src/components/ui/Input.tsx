@@ -57,7 +57,7 @@ export function Input({
         {leftIcon && (
           <Ionicons
             name={leftIcon}
-            size={20}
+            size={15}
             color={iconColor}
             style={styles.leftIcon}
           />
