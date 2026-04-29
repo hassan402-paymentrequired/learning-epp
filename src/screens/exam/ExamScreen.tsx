@@ -160,38 +160,6 @@ export function ExamScreen() {
     });
   });
 
-  // Handle back button press - ask permission before leaving
-  useEffect(() => {
-    const unsubscribe = navigation.addListener("beforeRemove", (e) => {
-      // If already submitted, let them leave
-      if (hasSubmittedRef.current) return;
-
-      // Prevent default behavior of leaving the screen
-      e.preventDefault();
-
-      // Prompt the user
-      Alert.alert(
-        "Abandon Practice?",
-        "Are you sure you want to leave? Your progress will be automatically submitted as it is.",
-        [
-          { text: "Continue Test", style: "cancel", onPress: () => { } },
-          {
-            text: "Submit & Quit",
-            style: "destructive",
-            onPress: () => {
-              // Submit exam and dispatch the original navigation action
-              submitExam().then(() => {
-                navigation.dispatch(e.data.action);
-              });
-            },
-          },
-        ]
-      );
-    });
-
-    return unsubscribe;
-  }, [navigation, submitExam]);
-
   useFocusEffect(
     useCallback(() => {
       const onBackPress = () => {
@@ -293,6 +261,38 @@ export function ExamScreen() {
     incrementPracticeSession,
     navigation,
   ]);
+
+  // Handle back button press - ask permission before leaving
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("beforeRemove", (e) => {
+      // If already submitted, let them leave
+      if (hasSubmittedRef.current) return;
+
+      // Prevent default behavior of leaving the screen
+      e.preventDefault();
+
+      // Prompt the user
+      Alert.alert(
+        "Abandon Practice?",
+        "Are you sure you want to leave? Your progress will be automatically submitted as it is.",
+        [
+          { text: "Continue Test", style: "cancel", onPress: () => { } },
+          {
+            text: "Submit & Quit",
+            style: "destructive",
+            onPress: () => {
+              // Submit exam and dispatch the original navigation action
+              submitExam().then(() => {
+                navigation.dispatch(e.data.action);
+              });
+            },
+          },
+        ]
+      );
+    });
+
+    return unsubscribe;
+  }, [navigation, submitExam]);
 
   // Timer effect
   useEffect(() => {
@@ -812,6 +812,18 @@ export function ExamScreen() {
             />
           )}
         </View>
+
+        {loading && (
+          <View style={styles.submissionOverlay}>
+            <View style={[styles.submissionCard, { backgroundColor: cardBackground }]}>
+              <ActivityIndicator size="large" color={tintColor} />
+              <ThemedText style={styles.submissionTitle}>Submitting your answers...</ThemedText>
+              <ThemedText style={styles.submissionText}>
+                Please wait while we finalize your result.
+              </ThemedText>
+            </View>
+          </View>
+        )}
       </View>
     </AppLayout>
   );
@@ -1099,5 +1111,34 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#fff',
     fontWeight: 'bold',
+  },
+  submissionOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 20,
+    padding: 24,
+  },
+  submissionCard: {
+    width: '100%',
+    maxWidth: 320,
+    borderRadius: 14,
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  submissionTitle: {
+    marginTop: 14,
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  submissionText: {
+    marginTop: 6,
+    fontSize: 13,
+    opacity: 0.75,
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });
