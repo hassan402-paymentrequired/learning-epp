@@ -15,7 +15,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { useExamSelection } from "@/contexts/ExamSelectionContext";
 import api from "@/services/api";
@@ -48,6 +48,7 @@ export function StandardPracticeQuestionsSelection() {
   const [showCountModal, setShowCountModal] = useState(false);
   const [currentSubjectForCount, setCurrentSubjectForCount] = useState<string | null>(null);
   const [startingPractice, setStartingPractice] = useState(false);
+  const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
 
   const examType = selection.examTypeSlug || "JAMB";
   const examTypeLabel = selection.examTypeName || "JAMB";
@@ -56,17 +57,30 @@ export function StandardPracticeQuestionsSelection() {
   const borderColor = "#f1f5f9";
   const backgroundSecondary = "#ebe2f5ff";
 
-  const hasActiveSubscription =
-    user?.subscription_status === "active" &&
-    user?.subscription_expires_at &&
-    new Date(user.subscription_expires_at) > new Date();
-
   const maxQuestionsPerSubject = hasActiveSubscription ? 100 : 5;
   const countOptions = [5, 10, 15, 20, 25, 30, 40, 50, 60, 80, 100].filter(c => c <= maxQuestionsPerSubject);
 
   useEffect(() => {
     loadSubjects();
   }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchSubscriptionStatus();
+    }, [])
+  );
+
+  const fetchSubscriptionStatus = async () => {
+    try {
+      const response = await api.get("/subscriptions/status");
+      if (response.data.success) {
+        setHasActiveSubscription(!!response.data.data?.has_active_subscription);
+      }
+    } catch (error) {
+      // Keep default free-tier UI cap when status check fails
+      setHasActiveSubscription(false);
+    }
+  };
 
   const loadSubjects = async () => {
     try {
@@ -135,7 +149,7 @@ export function StandardPracticeQuestionsSelection() {
         });
         setGlobalTime(duration);
 
-        navigation.navigate("ExamScreen" as never, {
+        (navigation as any).navigate("ExamScreen", {
           attemptId: attempt.id,
           examId: attempt.exam_id || 0,
           subjectsQuestions,
@@ -148,7 +162,7 @@ export function StandardPracticeQuestionsSelection() {
           timeMinutes: duration,
           subjects: selectedSubjects,
           isPractice: true,
-        } as never);
+        });
       }
     } catch (e: any) {
       console.error("Start practice error:", e);
