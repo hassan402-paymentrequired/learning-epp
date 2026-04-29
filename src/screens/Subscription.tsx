@@ -56,6 +56,7 @@ export function Subscription() {
   const [callbackUrl, setCallbackUrl] = useState<string | null>(null);
   const [cancelUrl, setCancelUrl] = useState<string | null>(null);
   const [paymentReference, setPaymentReference] = useState<string | null>(null);
+  const [finalizingPayment, setFinalizingPayment] = useState(false);
   const [pin, setPin] = useState("");
   const [pinProcessing, setPinProcessing] = useState(false);
 
@@ -95,7 +96,19 @@ export function Subscription() {
     }
   };
 
+  const resetPaymentFlow = () => {
+    setShowWebView(false);
+    setPaymentUrl(null);
+    setCallbackUrl(null);
+    setCancelUrl(null);
+    setPaymentReference(null);
+  };
+
   const handleSubscribe = async () => {
+    if (processing || finalizingPayment) {
+      return;
+    }
+
     if (!plan) {
       Alert.alert("Error", "Subscription plan not available");
       return;
@@ -168,14 +181,12 @@ export function Subscription() {
   };
 
   const handlePaymentComplete = async (reference?: string) => {
-    setShowWebView(false);
-    setPaymentUrl(null);
-    setCallbackUrl(null);
-    setCancelUrl(null);
+    if (finalizingPayment) return;
+    setFinalizingPayment(true);
+    resetPaymentFlow();
 
     // Use reference from WebView URL param, or fall back to the one from initialize-payment
     const txReference = reference || paymentReference;
-    setPaymentReference(null);
 
     try {
       // Step 1: Verify the payment with our backend (matches web flow)
@@ -214,15 +225,14 @@ export function Subscription() {
         "Payment Processed",
         "Payment received. Your subscription status has been refreshed."
       );
+    } finally {
+      setFinalizingPayment(false);
     }
   };
 
   const handlePaymentCancel = () => {
-    setShowWebView(false);
-    setPaymentUrl(null);
-    setCallbackUrl(null);
-    setCancelUrl(null);
-    setPaymentReference(null);
+    if (finalizingPayment) return;
+    resetPaymentFlow();
   };
 
   if (loading) {
@@ -374,10 +384,10 @@ export function Subscription() {
                     leftIcon="gift-outline"
                   />
                   <Button
-                    title={`Subscribe for ₦${plan.price.toLocaleString()}/year`}
+                    title={`Subscribe for ₦${plan.price.toLocaleString()}`}
                     onPress={handleSubscribe}
-                    loading={processing}
-                    disabled={processing || pinProcessing}
+                    loading={processing || finalizingPayment}
+                    disabled={processing || pinProcessing || finalizingPayment}
                     style={styles.subscribeButton}
                   />
                   <ThemedText style={styles.secureText}>Secure payment powered by Paystack</ThemedText>
@@ -435,8 +445,7 @@ export function Subscription() {
           <ThemedText style={styles.infoText}>
             • Payments are processed securely through Paystack{"\n"}• Your
             subscription will be activated immediately after successful payment
-            {"\n"}• All subscriptions are valid for 1 year from the date of
-            purchase{"\n"}• Use a referral code to get 5% off your subscription
+            {"\n"}• Use a referral code to get 5% off your subscription
           </ThemedText>
         </View>
       </ScrollView>

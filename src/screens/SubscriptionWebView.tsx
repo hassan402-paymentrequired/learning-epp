@@ -22,6 +22,7 @@ export function SubscriptionWebView({
 }: SubscriptionWebViewProps) {
   const [loading, setLoading] = useState(true);
   const webViewRef = useRef<WebView>(null);
+  const hasHandledNavigation = useRef(false);
   const tintColor = useThemeColor({}, "tint");
   const backgroundColor = useThemeColor({}, "background");
   const textColor = useThemeColor({}, "text");
@@ -29,9 +30,7 @@ export function SubscriptionWebView({
   const handleNavigationStateChange = (state: WebViewNavigation) => {
     const { url } = state;
 
-    if (!url) return;
-
-    console.log("WebView navigation:", url);
+    if (!url || hasHandledNavigation.current) return;
 
     // Extract the base path from the callback URL for matching
     // Paystack redirects to: {callbackUrl}?reference=xxx&trxref=xxx
@@ -49,7 +48,7 @@ export function SubscriptionWebView({
     // Handle callback URL — payment successful
     // Use includes() so slight domain/protocol variations still match
     if (url.includes("/subscriptions/callback") || url.startsWith(callbackBase)) {
-      console.log("Callback URL reached - payment successful");
+      hasHandledNavigation.current = true;
       const reference = extractReference(url);
       onPaymentComplete(reference);
       return;
@@ -57,7 +56,7 @@ export function SubscriptionWebView({
 
     // Handle cancel URL — user cancelled payment
     if (url.includes("/subscriptions/cancel") || url.startsWith(cancelBase)) {
-      console.log("Cancel URL reached - payment cancelled");
+      hasHandledNavigation.current = true;
       onCancel();
     }
   };
@@ -84,6 +83,7 @@ export function SubscriptionWebView({
           onError={(syntheticEvent) => {
             const { nativeEvent } = syntheticEvent;
             console.error("WebView error:", nativeEvent);
+            hasHandledNavigation.current = true;
             Alert.alert(
               "Error",
               "Failed to load payment page. Please try again.",

@@ -99,6 +99,9 @@ function AppNavigator() {
 
 export function Navigation({ theme, linking, onReady }: any) {
   const { isAuthenticated, isLoading, hasSeenOnboarding, user } = useAuth();
+  const isDarkMode = Boolean(theme?.dark);
+  const statusBarStyle = isDarkMode ? "light-content" : "dark-content";
+  const statusBarBackgroundColor = theme?.colors?.background ?? "transparent";
 
   // Email verified check: null means not verified
   const emailVerified = !!user?.email_verified_at;
@@ -116,7 +119,9 @@ export function Navigation({ theme, linking, onReady }: any) {
   return (
     <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
       <StatusBar
-        barStyle={theme.mode === "dark" ? "light-content" : "dark-content"}
+        barStyle={statusBarStyle}
+        backgroundColor={statusBarBackgroundColor}
+        translucent={false}
       />
       <NavigationContainer theme={theme} linking={linking} onReady={onReady}>
         {isAuthenticated && emailVerified ? (

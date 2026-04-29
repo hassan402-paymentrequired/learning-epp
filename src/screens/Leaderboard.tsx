@@ -14,6 +14,7 @@ import { useThemeColor } from '@/hooks/useThemeColor';
 import  api  from '@/services/api';
 import { useAuth } from '@/contexts/AuthContext';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { Fonts } from '@/constants/Fonts';
 
 type LeaderboardEntry = {
   rank: number;
@@ -36,6 +37,20 @@ type LeaderboardEntry = {
 type LeaderboardType = 'all_time' | 'monthly' | 'weekly';
 type ExamType = 'JAMB' | 'DLI' | 'UNILAG' | 'GENERAL' | null;
 
+const leaderboardTypeOptions: { label: string; value: LeaderboardType }[] = [
+  { label: 'All Time', value: 'all_time' },
+  { label: 'This Month', value: 'monthly' },
+  { label: 'This Week', value: 'weekly' },
+];
+
+const examTypeOptions: { label: string; value: ExamType }[] = [
+  { label: 'All Exams', value: null },
+  { label: 'JAMB', value: 'JAMB' },
+  { label: 'DLI', value: 'DLI' },
+  { label: 'UNILAG', value: 'UNILAG' },
+  { label: 'GENERAL', value: 'GENERAL' },
+];
+
 export function Leaderboard() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -45,7 +60,6 @@ export function Leaderboard() {
   const [type, setType] = useState<LeaderboardType>('all_time');
   const [examType, setExamType] = useState<ExamType>(null);
 
-  const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
   const tintColor = useThemeColor({}, 'tint');
   const borderColor = useThemeColor({}, 'border');
@@ -100,116 +114,62 @@ export function Leaderboard() {
       <View style={styles.container}>
         {/* Filters */}
         <View style={[styles.filtersContainer, { borderBottomColor: borderColor }]}>
+          <ThemedText style={styles.filterSectionLabel}>Period</ThemedText>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filters}>
-            <TouchableOpacity
-              style={[
-                styles.filterButton,
-                type === 'all_time' && { backgroundColor: tintColor },
-                { borderColor },
-              ]}
-              onPress={() => setType('all_time')}
-            >
-              <ThemedText
-                style={[
-                  styles.filterText,
-                  type === 'all_time' && { color: '#FFFFFF' },
-                ]}
-              >
-                All Time
-              </ThemedText>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.filterButton,
-                type === 'monthly' && { backgroundColor: tintColor },
-                { borderColor },
-              ]}
-              onPress={() => setType('monthly')}
-            >
-              <ThemedText
-                style={[
-                  styles.filterText,
-                  type === 'monthly' && { color: '#FFFFFF' },
-                ]}
-              >
-                This Month
-              </ThemedText>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.filterButton,
-                type === 'weekly' && { backgroundColor: tintColor },
-                { borderColor },
-              ]}
-              onPress={() => setType('weekly')}
-            >
-              <ThemedText
-                style={[
-                  styles.filterText,
-                  type === 'weekly' && { color: '#FFFFFF' },
-                ]}
-              >
-                This Week
-              </ThemedText>
-            </TouchableOpacity>
+            {leaderboardTypeOptions.map((option) => {
+              const isSelected = type === option.value;
+              return (
+                <TouchableOpacity
+                  key={option.value}
+                  style={[
+                    styles.filterButton,
+                    isSelected && { backgroundColor: tintColor, borderColor: tintColor },
+                    !isSelected && { borderColor },
+                  ]}
+                  onPress={() => setType(option.value)}
+                >
+                  <ThemedText
+                    style={[
+                      styles.filterText,
+                      isSelected && styles.filterTextSelected,
+                    ]}
+                  >
+                    {option.label}
+                  </ThemedText>
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
 
+          <ThemedText style={styles.filterSectionLabel}>Exam</ThemedText>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             style={styles.filters}
           >
-            <TouchableOpacity
-              style={[
-                styles.filterButton,
-                examType === null && { backgroundColor: tintColor },
-                { borderColor },
-              ]}
-              onPress={() => setExamType(null)}
-            >
-              <ThemedText
-                style={[
-                  styles.filterText,
-                  examType === null && { color: '#FFFFFF' },
-                ]}
-              >
-                All Exams
-              </ThemedText>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.filterButton,
-                examType === 'JAMB' && { backgroundColor: tintColor },
-                { borderColor },
-              ]}
-              onPress={() => setExamType('JAMB')}
-            >
-              <ThemedText
-                style={[
-                  styles.filterText,
-                  examType === 'JAMB' && { color: '#FFFFFF' },
-                ]}
-              >
-                JAMB
-              </ThemedText>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.filterButton,
-                examType === 'DLI' && { backgroundColor: tintColor },
-                { borderColor },
-              ]}
-              onPress={() => setExamType('DLI')}
-            >
-              <ThemedText
-                style={[
-                  styles.filterText,
-                  examType === 'DLI' && { color: '#FFFFFF' },
-                ]}
-              >
-                DLI
-              </ThemedText>
-            </TouchableOpacity>
+            {examTypeOptions.map((option) => {
+              const isSelected = examType === option.value;
+              return (
+                <TouchableOpacity
+                  key={option.label}
+                  style={[
+                    styles.filterButton,
+                    isSelected && { backgroundColor: tintColor, borderColor: tintColor },
+                    !isSelected && { borderColor },
+                  ]}
+                  onPress={() => setExamType(option.value)}
+                >
+                  <ThemedText
+                    style={[
+                      styles.filterText,
+                      isSelected && styles.filterTextSelected,
+                    ]}
+                  >
+                    {option.label}
+                  </ThemedText>
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
         </View>
 
@@ -234,7 +194,7 @@ export function Leaderboard() {
                   <ThemedText type="subtitle" style={styles.userRankName}>
                     {userRank.user.name}
                   </ThemedText>
-                  <ThemedText style={styles.userRankStats}>
+                  <ThemedText style={styles.userRankStats} numberOfLines={1}>
                     Rank #{userRank.rank} • {userRank.statistics.total_score} points
                   </ThemedText>
                 </View>
@@ -290,10 +250,19 @@ export function Leaderboard() {
                   <View style={styles.leaderboardLeft}>
                     {renderRankBadge(entry.rank)}
                     <View style={styles.leaderboardInfo}>
-                      <ThemedText type="subtitle" style={styles.leaderboardName}>
+                      <ThemedText
+                        type="subtitle"
+                        style={styles.leaderboardName}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
                         {entry.user.name}
                       </ThemedText>
-                      <ThemedText style={styles.leaderboardEmail}>
+                      <ThemedText
+                        style={styles.leaderboardEmail}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
                         {entry.user.email}
                       </ThemedText>
                     </View>
@@ -337,8 +306,15 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
   },
+  filterSectionLabel: {
+    fontSize: 12,
+    marginTop: 4,
+    marginBottom: 6,
+    opacity: 0.7,
+    fontFamily: Fonts.primary.medium,
+  },
   filters: {
-    marginVertical: 4,
+    marginBottom: 10,
   },
   filterButton: {
     paddingHorizontal: 16,
@@ -349,7 +325,11 @@ const styles = StyleSheet.create({
   },
   filterText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: Fonts.primary.medium,
+  },
+  filterTextSelected: {
+    color: '#FFFFFF',
+    fontFamily: Fonts.primary.semiBold,
   },
   userRankCard: {
     margin: 16,
@@ -361,6 +341,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     fontSize: 14,
     opacity: 0.8,
+    fontFamily: Fonts.primary.medium,
   },
   userRankContent: {
     flexDirection: 'row',
@@ -375,14 +356,17 @@ const styles = StyleSheet.create({
   userRankInfo: {
     marginLeft: 12,
     flex: 1,
+    minWidth: 0,
   },
   userRankName: {
     fontSize: 18,
     marginBottom: 4,
+    fontFamily: Fonts.primary.semiBold,
   },
   userRankStats: {
     fontSize: 12,
     opacity: 0.7,
+    fontFamily: Fonts.primary.regular,
   },
   userRankStatsRight: {
     alignItems: 'flex-end',
@@ -403,14 +387,15 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 18,
-    fontWeight: '600',
     marginTop: 16,
     marginBottom: 8,
+    fontFamily: Fonts.primary.semiBold,
   },
   emptySubtext: {
     fontSize: 14,
     textAlign: 'center',
     paddingHorizontal: 32,
+    fontFamily: Fonts.primary.regular,
   },
   leaderboardCard: {
     flexDirection: 'row',
@@ -429,21 +414,24 @@ const styles = StyleSheet.create({
   },
   rankNumber: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontFamily: Fonts.primary.bold,
     width: 32,
     textAlign: 'center',
   },
   leaderboardInfo: {
     marginLeft: 12,
     flex: 1,
+    minWidth: 0,
   },
   leaderboardName: {
     fontSize: 16,
     marginBottom: 4,
+    fontFamily: Fonts.primary.semiBold,
   },
   leaderboardEmail: {
     fontSize: 12,
     opacity: 0.6,
+    fontFamily: Fonts.primary.regular,
   },
   leaderboardStats: {
     flexDirection: 'row',
@@ -454,11 +442,12 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: 16,
-    fontWeight: 'bold',
     marginBottom: 4,
+    fontFamily: Fonts.primary.bold,
   },
   statLabel: {
     fontSize: 10,
     opacity: 0.6,
+    fontFamily: Fonts.primary.medium,
   },
 });

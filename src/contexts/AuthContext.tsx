@@ -53,7 +53,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const [hasSeenOnboarding, setHasSeenOnboardingState] = useState(false);
 
   useEffect(() => {
-    loadStoredAuth();
+    let isMounted = true;
+    loadStoredAuth(isMounted);
 
     // Register logout callback for API interceptor
     const handleLogout = () => {
@@ -65,11 +66,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
     // Cleanup on unmount
     return () => {
+      isMounted = false;
       setLogoutCallback(() => { });
     };
   }, []);
 
-  const loadStoredAuth = async () => {
+  const loadStoredAuth = async (isMounted: boolean) => {
     try {
       const [storedToken, storedUser, onboardingStatus] =
         await AsyncStorage.multiGet([
@@ -78,11 +80,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
           "hasSeenOnboarding",
         ]);
 
-      setHasSeenOnboardingState(onboardingStatus[1] === "true");
+      if (isMounted) {
+        setHasSeenOnboardingState(onboardingStatus[1] === "true");
+      }
 
       if (storedToken[1] && storedUser[1]) {
-        setToken(storedToken[1]);
-        setUser(JSON.parse(storedUser[1]));
+        let parsedUser: User | null = null;
+        try {
+          parsedUser = JSON.parse(storedUser[1]) as User;
+        } catch {
+          await AsyncStorage.multiRemove(["auth_token", "user"]);
+        }
+
+        if (!parsedUser) {
+          return;
+        }
+
+        if (isMounted) {
+          setToken(storedToken[1]);
+          setUser(parsedUser);
+        }
 
         // Verify token is still valid
         try {
@@ -90,14 +107,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         } catch (error) {
           // Token invalid, clear storage
           await AsyncStorage.multiRemove(["auth_token", "user"]);
-          setToken(null);
-          setUser(null);
+          if (isMounted) {
+            setToken(null);
+            setUser(null);
+          }
         }
       }
     } catch (error) {
       console.error("Error loading stored auth:", error);
     } finally {
-      setIsLoading(false);
+      if (isMounted) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -110,6 +131,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     try {
       const response = await api.post("/login", { email, password });
       const { token: newToken, user: userData } = response.data.data;
+      if (!newToken || !userData) {
+        throw new Error("Invalid login response. Please try again.");
+      }
 
       await AsyncStorage.multiSet([
         ["auth_token", newToken],
@@ -146,6 +170,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         referral_code: referralCode,
       });
       const { token: newToken, user: userData } = response.data.data;
+      if (!newToken || !userData) {
+        throw new Error("Invalid registration response. Please try again.");
+      }
 
       await AsyncStorage.setItem("auth_token", newToken);
 
@@ -185,6 +212,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     try {
       const response = await api.get("/me");
       const userData = response.data.data.user;
+      if (!userData) {
+        throw new Error("Invalid user profile response");
+      }
       await AsyncStorage.setItem("user", JSON.stringify(userData));
       setUser(userData);
     } catch (error) {

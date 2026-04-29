@@ -8,7 +8,6 @@ import {
   Alert,
   TouchableOpacity,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { ThemedText } from "@/components/ThemedText";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/Button";
@@ -31,12 +30,7 @@ export function Login() {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigation = useNavigation();
-  const backgroundColor = useThemeColor({}, "background");
-  const gradientStart = useThemeColor({}, "gradientStart");
-  const gradientEnd = useThemeColor({}, "gradientEnd");
   const tintColor = useThemeColor({}, "tint");
-  const borderColor = useThemeColor({}, "border");
-  const textColor = useThemeColor({}, "text");
 
   const validate = () => {
     const newErrors: { email?: string; password?: string } = {};
@@ -56,13 +50,13 @@ export function Login() {
   };
 
   const handleLogin = async () => {
+    if (loading) return;
     if (!validate()) return;
 
     setLoading(true);
     try {
       await login(email.trim(), password);
     } catch (error: any) {
-      console.log(error)
       // Check if error is due to unverified email
       if (error.response?.status === 403 && error.response?.data?.data?.email_verified === false) {
         Alert.alert(
@@ -83,7 +77,11 @@ export function Login() {
           ]
         );
       } else {
-        Alert.alert("Login Failed", error.message || "Invalid email or password");
+        const message =
+          error?.code === "ECONNABORTED" || !error?.response
+            ? "Network error. Please check your connection and try again."
+            : error.message || "Invalid email or password";
+        Alert.alert("Login Failed", message);
       }
     } finally {
       setLoading(false);

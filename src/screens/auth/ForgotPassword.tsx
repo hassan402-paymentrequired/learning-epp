@@ -7,7 +7,6 @@ import {
   ScrollView,
   Alert,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { ThemedText } from "@/components/ThemedText";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/Button";
@@ -23,15 +22,12 @@ export function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; }>({});
-
-  const gradientStart = useThemeColor({}, "gradientStart");
-  const gradientEnd = useThemeColor({}, "gradientEnd");
   const tintColor = useThemeColor({}, "tint");
-  const textColor = useThemeColor({}, "text");
 
 
 
   const handleSendOtp = async () => {
+    if (loading) return;
     if (!email.trim()) {
       setErrors({ email: "Email is required" });
       return;
@@ -55,10 +51,13 @@ export function ForgotPassword() {
         navigation.navigate("VerifyResetOtp", { email: email.trim() });
       }
     } catch (error: any) {
-      console.log(error)
+      const message =
+        error?.code === "ECONNABORTED" || !error?.response
+          ? "Network error. Please check your connection and try again."
+          : error.response?.data?.message || "Failed to send reset code";
       Alert.alert(
         "Error",
-        error.response?.data?.message || "Failed to send reset code"
+        message
       );
     } finally {
       setLoading(false);
@@ -112,6 +111,7 @@ export function ForgotPassword() {
               title="Send Reset Code"
               onPress={handleSendOtp}
               loading={loading}
+              disabled={loading}
               style={styles.button}
             />
 
