@@ -1,7 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const DEFAULT_PRODUCTION_API_BASE_URL = 'https://admin.stepra.com/api';
+const DEFAULT_PRODUCTION_API_BASE_URL = 'https://admin.stepra.com.ng/api';
 const DEFAULT_DEV_API_BASE_URL = 'https://eb86-41-67-156-54.ngrok-free.app/api';
 
 const normalizeApiBaseUrl = (url: string) => {

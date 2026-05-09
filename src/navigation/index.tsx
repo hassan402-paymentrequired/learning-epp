@@ -36,6 +36,8 @@ import { Referral } from "@/screens/Referral";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
+import { Colors } from "@/constants/Colors";
 import { ThemedView } from "@/components/ThemedView";
 
 const AuthStack = createNativeStackNavigator();
@@ -99,9 +101,10 @@ function AppNavigator() {
 
 export function Navigation({ theme, linking, onReady }: any) {
   const { isAuthenticated, isLoading, hasSeenOnboarding, user } = useAuth();
-  const isDarkMode = Boolean(theme?.dark);
+  const { colorScheme } = useTheme();
+  const isDarkMode = colorScheme === "dark";
   const statusBarStyle = isDarkMode ? "light-content" : "dark-content";
-  const statusBarBackgroundColor = theme?.colors?.background ?? "transparent";
+  const surfaceColor = Colors[colorScheme].background;
 
   // Email verified check: null means not verified
   const emailVerified = !!user?.email_verified_at;
@@ -117,10 +120,13 @@ export function Navigation({ theme, linking, onReady }: any) {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: surfaceColor }}
+      edges={["top", "bottom"]}
+    >
       <StatusBar
         barStyle={statusBarStyle}
-        backgroundColor={statusBarBackgroundColor}
+        backgroundColor={surfaceColor}
         translucent={false}
       />
       <NavigationContainer theme={theme} linking={linking} onReady={onReady}>

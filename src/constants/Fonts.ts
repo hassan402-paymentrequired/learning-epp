@@ -1,28 +1,17 @@
 /**
- * Font configuration for the app
- * 
- * To use custom fonts:
- * 1. Add your font files (.ttf or .otf) to src/assets/fonts/
- * 2. Update the font names below to match your font files
- * 3. Load them in AppContent.tsx using useFonts
- * 
- * Example font names (replace with your actual font):
- * - 'Inter-Regular' for Inter-Regular.ttf
- * - 'Inter-Bold' for Inter-Bold.ttf
- * - 'Poppins-Regular' for Poppins-Regular.ttf
+ * Primary UI font: Inter from @expo-google-fonts/inter
+ * Internal names must match what useFonts registers in AppContent.tsx
  */
 
 export const Fonts = {
-  // Primary font family (used for most text)
   primary: {
-    regular: 'Inter-Regular',
-    medium: 'Inter-Medium',
-    semiBold: 'Inter-SemiBold',
-    bold: 'Inter-Bold',
+    regular: "Inter_400Regular",
+    medium: "Inter_500Medium",
+    semiBold: "Inter_600SemiBold",
+    bold: "Inter_700Bold",
   },
-  // Secondary font family (optional, for headings or special text)
   secondary: {
-    regular: 'SpaceMono',
+    regular: "SpaceMono",
   },
 } as const;
 

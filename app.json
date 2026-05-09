@@ -2,7 +2,7 @@
   "expo": {
     "name": "Stepra",
     "slug": "stepra",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "src/assets/images/logo.png",
     "userInterfaceStyle": "light",
@@ -13,6 +13,11 @@
       "resizeMode": "contain",
       "backgroundColor": "#1E1B4B"
     },
+    "androidStatusBar": {
+      "barStyle": "dark-content",
+      "backgroundColor": "#ffffff",
+      "translucent": false
+    },
     "ios": {
       "supportsTablet": true
     },
@@ -21,7 +26,8 @@
         "foregroundImage": "src/assets/images/logo.png",
         "backgroundColor": "#1E1B4B"
       },
-      "package": "com.oluwafemiomoope.stepra"
+      "package": "com.oluwafemiomoope.stepra",
+      "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
       "favicon": "src/assets/images/favicon.png"
