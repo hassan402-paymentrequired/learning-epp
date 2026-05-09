@@ -23,7 +23,7 @@ const THEME_STORAGE_KEY = "@app_theme_mode";
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const systemColorScheme = useRNColorScheme();
-  const [themeMode, setThemeModeState] = useState<ThemeMode>("auto");
+  const [themeMode, setThemeModeState] = useState<ThemeMode>("light");
   const [loaded, setLoaded] = useState(false);
 
   // Load saved theme preference

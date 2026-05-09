@@ -4,37 +4,46 @@
     "slug": "stepra",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "src/assets/images/splash-icon.png",
-    "userInterfaceStyle": "automatic",
+    "icon": "src/assets/images/logo.png",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "scheme": "stepra",
     "splash": {
-  "image": "src/assets/images/splash-icon.png",
-  "resizeMode": "cover",
-  "backgroundColor": "#1E1B4B"
-},
+      "image": "src/assets/images/logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1E1B4B"
+    },
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "src/assets/images/splash-icon.png",
+        "foregroundImage": "src/assets/images/logo.png",
         "backgroundColor": "#1E1B4B"
-      }
+      },
+      "package": "com.oluwafemiomoope.stepra"
     },
     "web": {
       "favicon": "src/assets/images/favicon.png"
     },
     "plugins": [
       "expo-asset",
+      "./plugins/withAndroidLegacySplashFullscreen.js",
       [
         "expo-splash-screen",
         {
           "backgroundColor": "#1E1B4B",
-          "image": "src/assets/images/splash-icon.png",
-          "resizeMode": "cover" 
+          "image": "src/assets/images/logo.png",
+          "resizeMode": "contain",
+          "imageWidth": 220,
+          "enableFullScreenImage_legacy": true
         }
-      ]
-    ]
+      ] 
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "2ddba5b9-45bf-4ee4-bc58-9488e7c8e496"
+      }
+    }
   }
 }
