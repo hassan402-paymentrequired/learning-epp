@@ -144,13 +144,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       setUser(userData);
     } catch (error: any) {
       if (error.response?.data) {
-        const customError: any = new Error(error.response.data.message || "Login failed. Please try again.");
+        const customError: any = new Error(
+          error.response.data.message || "Login failed. Please try again."
+        );
         customError.response = error.response;
         throw customError;
       }
-      const message =
-        error.response?.data?.message || "Login failed. Please try again.";
-      throw new Error(message);
+      // Keep Axios errors as-is so callers see ERR_NETWORK / ECONNABORTED and optional `response`
+      throw error;
     }
   };
 
@@ -178,10 +179,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
       return { token: newToken, user: userData };
     } catch (error: any) {
-      const message =
-        error.response?.data?.message ||
-        "Registration failed. Please try again.";
-      throw new Error(message);
+      if (error.response?.data?.message) {
+        const err: any = new Error(error.response.data.message);
+        err.response = error.response;
+        throw err;
+      }
+      throw error;
     }
   };
 

@@ -18,6 +18,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNavigation } from "@react-navigation/native";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { Fonts } from "@/constants/Fonts";
+import Constants from "expo-constants";
+import { API_BASE_URL } from "@/services/api";
 
 export function Login() {
   const [email, setEmail] = useState("");
@@ -77,10 +79,18 @@ export function Login() {
           ]
         );
       } else {
-        const message =
-          error?.code === "ECONNABORTED" || !error?.response
-            ? "Network error. Please check your connection and try again."
-            : error.message || "Invalid email or password";
+        const code = error?.code;
+        const noHttpResponse =
+          !error?.response &&
+          (code === "ECONNABORTED" ||
+            code === "ERR_NETWORK" ||
+            (typeof error?.message === "string" &&
+              error.message.toLowerCase().includes("network")));
+        const message = noHttpResponse
+          ? "Network error. Please check your connection and try again."
+          : error?.response?.data?.message ||
+            error?.message ||
+            "Invalid email or password. Please try again.";
         Alert.alert("Login Failed", message);
       }
     } finally {
@@ -182,6 +192,16 @@ export function Login() {
                 >
                   Sign up
                 </ThemedText>
+              </ThemedText>
+            </View>
+
+            <View style={styles.aboutFooter}>
+              <ThemedText style={styles.aboutLabel}>
+                App {Constants.nativeApplicationVersion ?? "—"} (build{" "}
+                {Constants.nativeBuildVersion ?? "—"})
+              </ThemedText>
+              <ThemedText style={styles.aboutLabel} selectable>
+                API {API_BASE_URL}
               </ThemedText>
             </View>
           </View>
@@ -299,6 +319,19 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 14,
+    textAlign: "center",
+  },
+  aboutFooter: {
+    marginTop: 24,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: "#e9ecef",
+    gap: 6,
+    width: "100%",
+  },
+  aboutLabel: {
+    fontSize: 12,
+    opacity: 0.55,
     textAlign: "center",
   },
 });
