@@ -10,6 +10,7 @@ import {
   Dimensions,
   TextInput,
   RefreshControl,
+  Pressable,
 } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { AppLayout } from "@/components/AppLayout";
@@ -29,6 +30,8 @@ interface SubjectSelection {
   questionCount: number;
 }
 
+type ConfigModalStep = "main" | "year" | "count";
+
 export function StandardPastQuestionsSelection() {
   const { user } = useAuth();
   const { selection, setQuestionCount: setGlobalCount, setTimeMinutes: setGlobalTime } = useExamSelection();
@@ -43,12 +46,11 @@ export function StandardPastQuestionsSelection() {
   const [subjectSelections, setSubjectSelections] = useState<Record<string, SubjectSelection>>({});
   
   const [showConfigModal, setShowConfigModal] = useState(false);
+  const [configModalStep, setConfigModalStep] = useState<ConfigModalStep>("main");
   const [currentConfigSubject, setCurrentConfigSubject] = useState<string | null>(null);
   
   const [availableYears, setAvailableYears] = useState<number[]>([]);
   const [loadingYears, setLoadingYears] = useState(false);
-  const [showYearModal, setShowYearModal] = useState(false);
-  const [showQuestionCountModal, setShowQuestionCountModal] = useState(false);
   
   const [startingExam, setStartingExam] = useState(false);
 
@@ -91,7 +93,7 @@ export function StandardPastQuestionsSelection() {
     }
   };
 
-  const handleSubjectPress = (subjectName: string) => {
+  const openConfigModal = (subjectName: string) => {
     setCurrentConfigSubject(subjectName);
     if (!subjectSelections[subjectName]) {
       setSubjectSelections(prev => ({
@@ -99,8 +101,18 @@ export function StandardPastQuestionsSelection() {
         [subjectName]: { year: null, questionCount: 40 }
       }));
     }
+    setConfigModalStep("main");
     setShowConfigModal(true);
     loadYearsForSubject(subjectName);
+  };
+
+  const closeConfigModal = () => {
+    setShowConfigModal(false);
+    setConfigModalStep("main");
+  };
+
+  const handleSubjectPress = (subjectName: string) => {
+    openConfigModal(subjectName);
   };
 
   const loadYearsForSubject = async (subjectName: string) => {
@@ -144,7 +156,7 @@ export function StandardPastQuestionsSelection() {
          setSelectedSubjects(prev => [...prev, subj]);
        }
     }
-    setShowConfigModal(false);
+    closeConfigModal();
   };
 
   const handleStartExam = async () => {
@@ -316,100 +328,140 @@ export function StandardPastQuestionsSelection() {
         </View>
       )}
 
-      {/* Config Modal */}
-      <Modal visible={showConfigModal} transparent animationType="slide">
+      <Modal
+        visible={showConfigModal}
+        transparent
+        animationType="slide"
+        onRequestClose={closeConfigModal}
+      >
         <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={closeConfigModal} />
           <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <ThemedText style={styles.modalTitle}>Config: {currentConfigSubject}</ThemedText>
-              <TouchableOpacity onPress={() => setShowConfigModal(false)}>
-                <MaterialIcons name="close" size={24} color="#1a1c1d" />
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.configBody}>
-               <TouchableOpacity style={styles.configInput} onPress={() => setShowYearModal(true)}>
-                  <ThemedText style={styles.inputText}>
-                    {subjectSelections[currentConfigSubject!]?.year || 'Select Year'}
-                  </ThemedText>
-                  <MaterialIcons name="calendar-today" size={20} color="#a1a1aa" />
-               </TouchableOpacity>
+            {configModalStep === "main" && (
+              <>
+                <View style={styles.modalHeader}>
+                  <ThemedText style={styles.modalTitle}>Config: {currentConfigSubject}</ThemedText>
+                  <TouchableOpacity onPress={closeConfigModal}>
+                    <MaterialIcons name="close" size={24} color="#1a1c1d" />
+                  </TouchableOpacity>
+                </View>
 
-               <TouchableOpacity style={styles.configInput} onPress={() => setShowQuestionCountModal(true)}>
-                  <ThemedText style={styles.inputText}>
-                    {subjectSelections[currentConfigSubject!]?.questionCount} Questions
-                  </ThemedText>
-                  <MaterialIcons name="numbers" size={20} color="#a1a1aa" />
-               </TouchableOpacity>
+                <View style={styles.configBody}>
+                  <TouchableOpacity style={styles.configInput} onPress={() => setConfigModalStep("year")}>
+                    <ThemedText style={styles.inputText}>
+                      {subjectSelections[currentConfigSubject!]?.year || "Select Year"}
+                    </ThemedText>
+                    <MaterialIcons name="calendar-today" size={20} color="#a1a1aa" />
+                  </TouchableOpacity>
 
-               <Button title="Save Settings" onPress={handleSaveConfig} disabled={!subjectSelections[currentConfigSubject!]?.year} style={{marginTop: 8}} />
-            </View>
-          </View>
-        </View>
-      </Modal>
+                  <TouchableOpacity style={styles.configInput} onPress={() => setConfigModalStep("count")}>
+                    <ThemedText style={styles.inputText}>
+                      {subjectSelections[currentConfigSubject!]?.questionCount} Questions
+                    </ThemedText>
+                    <MaterialIcons name="numbers" size={20} color="#a1a1aa" />
+                  </TouchableOpacity>
 
-      {/* Year Modal */}
-      <Modal visible={showYearModal} transparent animationType="fade">
-        <View style={styles.nestedModalOverlay}>
-          <View style={styles.nestedModalContent}>
-             <View style={styles.modalHeader}>
-               <ThemedText style={styles.modalTitle}>Select Year</ThemedText>
-               <TouchableOpacity onPress={() => setShowYearModal(false)}>
-                 <MaterialIcons name="close" size={24} color="#1a1c1d" />
-               </TouchableOpacity>
-             </View>
-             {loadingYears ? <ActivityIndicator size="small" color={tintColor} /> : (
-                <ScrollView style={{maxHeight: 400}}>
-                   {availableYears.map(y => (
-                      <TouchableOpacity 
-                        key={y} 
+                  <Button
+                    title="Save Settings"
+                    onPress={handleSaveConfig}
+                    disabled={!subjectSelections[currentConfigSubject!]?.year}
+                    style={{ marginTop: 8 }}
+                  />
+                </View>
+              </>
+            )}
+
+            {configModalStep === "year" && (
+              <>
+                <View style={styles.modalHeader}>
+                  <TouchableOpacity onPress={() => setConfigModalStep("main")} style={styles.modalBackButton}>
+                    <MaterialIcons name="arrow-back" size={24} color="#1a1c1d" />
+                  </TouchableOpacity>
+                  <ThemedText style={styles.modalTitle}>Select Year</ThemedText>
+                  <TouchableOpacity onPress={closeConfigModal}>
+                    <MaterialIcons name="close" size={24} color="#1a1c1d" />
+                  </TouchableOpacity>
+                </View>
+                {loadingYears ? (
+                  <ActivityIndicator size="small" color={tintColor} style={{ marginVertical: 24 }} />
+                ) : (
+                  <ScrollView style={styles.modalScroll}>
+                    {availableYears.map((y) => (
+                      <TouchableOpacity
+                        key={y}
                         style={styles.optionItem}
                         onPress={() => {
-                            setSubjectSelections(prev => ({
-                                ...prev,
-                                [currentConfigSubject!]: { ...prev[currentConfigSubject!], year: String(y) }
-                            }));
-                            setShowYearModal(false);
+                          setSubjectSelections((prev) => ({
+                            ...prev,
+                            [currentConfigSubject!]: { ...prev[currentConfigSubject!], year: String(y) },
+                          }));
+                          setConfigModalStep("main");
                         }}
                       >
-                         <ThemedText style={[styles.optionText, subjectSelections[currentConfigSubject!]?.year === String(y) && { color: tintColor, fontFamily: Fonts.primary.bold }]}>{y}</ThemedText>
-                         {subjectSelections[currentConfigSubject!]?.year === String(y) && <MaterialIcons name="check-circle" size={20} color={tintColor} />}
+                        <ThemedText
+                          style={[
+                            styles.optionText,
+                            subjectSelections[currentConfigSubject!]?.year === String(y) && {
+                              color: tintColor,
+                              fontFamily: Fonts.primary.bold,
+                            },
+                          ]}
+                        >
+                          {y}
+                        </ThemedText>
+                        {subjectSelections[currentConfigSubject!]?.year === String(y) && (
+                          <MaterialIcons name="check-circle" size={20} color={tintColor} />
+                        )}
                       </TouchableOpacity>
-                   ))}
-                </ScrollView>
-             )}
-          </View>
-        </View>
-      </Modal>
+                    ))}
+                  </ScrollView>
+                )}
+              </>
+            )}
 
-      {/* Questions Modal */}
-      <Modal visible={showQuestionCountModal} transparent animationType="fade">
-        <View style={styles.nestedModalOverlay}>
-          <View style={styles.nestedModalContent}>
-             <View style={styles.modalHeader}>
-               <ThemedText style={styles.modalTitle}>Questions</ThemedText>
-               <TouchableOpacity onPress={() => setShowQuestionCountModal(false)}>
-                 <MaterialIcons name="close" size={24} color="#1a1c1d" />
-               </TouchableOpacity>
-             </View>
-             <ScrollView style={{maxHeight: 400}}>
-                {countOptions.map(c => (
-                   <TouchableOpacity 
-                    key={c} 
-                    style={styles.optionItem}
-                    onPress={() => {
-                        setSubjectSelections(prev => ({
-                            ...prev,
-                            [currentConfigSubject!]: { ...prev[currentConfigSubject!], questionCount: c }
+            {configModalStep === "count" && (
+              <>
+                <View style={styles.modalHeader}>
+                  <TouchableOpacity onPress={() => setConfigModalStep("main")} style={styles.modalBackButton}>
+                    <MaterialIcons name="arrow-back" size={24} color="#1a1c1d" />
+                  </TouchableOpacity>
+                  <ThemedText style={styles.modalTitle}>Questions</ThemedText>
+                  <TouchableOpacity onPress={closeConfigModal}>
+                    <MaterialIcons name="close" size={24} color="#1a1c1d" />
+                  </TouchableOpacity>
+                </View>
+                <ScrollView style={styles.modalScroll}>
+                  {countOptions.map((c) => (
+                    <TouchableOpacity
+                      key={c}
+                      style={styles.optionItem}
+                      onPress={() => {
+                        setSubjectSelections((prev) => ({
+                          ...prev,
+                          [currentConfigSubject!]: { ...prev[currentConfigSubject!], questionCount: c },
                         }));
-                        setShowQuestionCountModal(false);
-                    }}
-                   >
-                     <ThemedText style={[styles.optionText, subjectSelections[currentConfigSubject!]?.questionCount === c && { color: tintColor, fontFamily: Fonts.primary.bold }]}>{c} Questions</ThemedText>
-                     {subjectSelections[currentConfigSubject!]?.questionCount === c && <MaterialIcons name="check-circle" size={20} color={tintColor} />}
-                   </TouchableOpacity>
-                ))}
-             </ScrollView>
+                        setConfigModalStep("main");
+                      }}
+                    >
+                      <ThemedText
+                        style={[
+                          styles.optionText,
+                          subjectSelections[currentConfigSubject!]?.questionCount === c && {
+                            color: tintColor,
+                            fontFamily: Fonts.primary.bold,
+                          },
+                        ]}
+                      >
+                        {c} Questions
+                      </ThemedText>
+                      {subjectSelections[currentConfigSubject!]?.questionCount === c && (
+                        <MaterialIcons name="check-circle" size={20} color={tintColor} />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </>
+            )}
           </View>
         </View>
       </Modal>
@@ -477,17 +529,18 @@ const styles = StyleSheet.create({
   footerLabel: { fontSize: 16, fontFamily: Fonts.primary.bold, color: '#1a1c1d' },
   footerSub: { fontSize: 12, fontFamily: Fonts.primary.regular, color: '#71717a', marginTop: 2 },
   startBtn: { minWidth: 130 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 20 },
+  modalOverlay: { flex: 1, justifyContent: 'center', padding: 20 },
+  modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)' },
   modalContent: { backgroundColor: '#fff', borderRadius: 20, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 5 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, gap: 8 },
+  modalBackButton: { marginRight: 4 },
   modalTitle: { fontSize: 18, fontFamily: Fonts.primary.bold, color: '#1a1c1d', flex: 1 },
+  modalScroll: { maxHeight: 400 },
   configBody: { gap: 16 },
   configInput: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 10, borderWidth: 1, borderColor: '#f1f5f9', backgroundColor: '#fafafa' },
   inputText: { fontSize: 15, fontFamily: Fonts.primary.regular, color: '#1a1c1d' },
   emptyText: { fontSize: 15, fontFamily: Fonts.primary.regular, color: '#94a3b8', textAlign: 'center', marginTop: 12 },
   debugText: { fontSize: 12, fontFamily: Fonts.primary.regular, color: '#cbd5e1', textAlign: 'center', marginTop: 8 },
-  nestedModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', padding: 24 },
-  nestedModalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 20, elevation: 5 },
   optionItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   optionText: { fontSize: 15, fontFamily: Fonts.primary.regular, color: '#4b5563' },
 });

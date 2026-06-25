@@ -13,11 +13,6 @@
       "resizeMode": "contain",
       "backgroundColor": "#1E1B4B"
     },
-    "androidStatusBar": {
-      "barStyle": "dark-content",
-      "backgroundColor": "#ffffff",
-      "translucent": false
-    },
     "ios": {
       "supportsTablet": true
     },
@@ -32,6 +27,11 @@
     "web": {
       "favicon": "src/assets/images/favicon.png"
     },
+    "androidStatusBar": {
+      "barStyle": "light-content",
+      "backgroundColor": "#1E1B4B",
+      "translucent": false
+    },
     "plugins": [
       "expo-asset",
       "./plugins/withAndroidLegacySplashFullscreen.js",
@@ -44,12 +44,23 @@
           "imageWidth": 220,
           "enableFullScreenImage_legacy": true
         }
-      ] 
+      ],
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "src/assets/fonts/SpaceMono-Regular.ttf"
+          ]
+        }
+      ]
     ],
     "extra": {
       "eas": {
         "projectId": "2ddba5b9-45bf-4ee4-bc58-9488e7c8e496"
       }
-    }
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ]
   }
 }

@@ -1,21 +1,23 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-const DEFAULT_PRODUCTION_API_BASE_URL = 'https://admin.stepra.com.ng/api';
-const DEFAULT_DEV_API_BASE_URL = 'https://eb86-41-67-156-54.ngrok-free.app/api';
+
+const DEFAULT_PRODUCTION_API_BASE_URL = 'https://d563-149-102-242-99.ngrok-free.app/api';
+const DEFAULT_DEV_API_BASE_URL = 'https://d563-149-102-242-99.ngrok-free.app/api';
 
 const normalizeApiBaseUrl = (url: string) => {
   const trimmed = url.trim().replace(/\/+$/, '');
   return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
 };
 
-const rawConfiguredApiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
+// ✅ Read from env var first, then fallback based on __DEV__
+const rawEnvUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
 const fallbackApiBaseUrl = __DEV__ ? DEFAULT_DEV_API_BASE_URL : DEFAULT_PRODUCTION_API_BASE_URL;
 
-export const API_BASE_URL = normalizeApiBaseUrl(rawConfiguredApiBaseUrl || fallbackApiBaseUrl);
+export const API_BASE_URL = normalizeApiBaseUrl(rawEnvUrl || fallbackApiBaseUrl);
 export const BACKEND_BASE_URL = API_BASE_URL.replace(/\/api$/, '');
 
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: API_BASE_URL, // ✅ Use the resolved URL, not hardcoded
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',

@@ -1,7 +1,9 @@
 import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { ActivityIndicator, StatusBar } from "react-native";
+import { ActivityIndicator } from "react-native";
+import { StatusBar } from 'expo-status-bar';
+
 
 import { Home } from "@/screens/Home";
 import { NotFound } from "./screens/NotFound";
@@ -103,7 +105,7 @@ export function Navigation({ theme, linking, onReady }: any) {
   const { isAuthenticated, isLoading, hasSeenOnboarding, user } = useAuth();
   const { colorScheme } = useTheme();
   const isDarkMode = colorScheme === "dark";
-  const statusBarStyle = isDarkMode ? "light-content" : "dark-content";
+  const statusBarStyle = isDarkMode ? "light" : "dark";
   const surfaceColor = Colors[colorScheme].background;
 
   // Email verified check: null means not verified
@@ -124,11 +126,8 @@ export function Navigation({ theme, linking, onReady }: any) {
       style={{ flex: 1, backgroundColor: surfaceColor }}
       edges={["top", "bottom"]}
     >
-      <StatusBar
-        barStyle={statusBarStyle}
-        backgroundColor={surfaceColor}
-        translucent={false}
-      />
+      <StatusBar style={statusBarStyle} backgroundColor={surfaceColor} translucent={false} />
+
       <NavigationContainer theme={theme} linking={linking} onReady={onReady}>
         {isAuthenticated && emailVerified ? (
           <AppNavigator />

@@ -129,6 +129,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
   const login = async (email: string, password: string) => {
     try {
+      console.log(api.defaults.baseURL, 'in auth context');
       const response = await api.post("/login", { email, password });
       const { token: newToken, user: userData } = response.data.data;
       if (!newToken || !userData) {

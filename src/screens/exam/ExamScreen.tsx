@@ -147,7 +147,7 @@ export function ExamScreen() {
         ? `${baseUrl}/storage/${currentQuestion.image}`
         : null;
 
-  console.log(imageUrl)
+  console.log(imageUrl, 'in exam screen')
 
   // Check if all subjects are completed
   const allSubjectsCompleted = routeSubjects.every((subject) => {

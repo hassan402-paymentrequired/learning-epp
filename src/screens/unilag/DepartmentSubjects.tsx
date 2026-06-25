@@ -9,7 +9,8 @@ import {
   TextInput,
   Platform,
   RefreshControl,
-  Alert
+  Alert,
+  Pressable,
 } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { AppLayout } from "@/components/AppLayout";
@@ -37,6 +38,8 @@ interface Subject {
   tests?: SubjectTest[];
 }
 
+type ConfigModalStep = "main" | "test" | "count" | "time";
+
 export function DepartmentSubjects() {
   const { selection, setQuestionMode, addSubject, removeSubject, setQuestionCount, setTimeMinutes } =
     useExamSelection();
@@ -55,9 +58,7 @@ export function DepartmentSubjects() {
   const [timeMinutes, setTimeMinutesLocal] = useState<number | null>(null);
   
   const [showConfigModal, setShowConfigModal] = useState(false);
-  const [showTestModal, setShowTestModal] = useState(false);
-  const [showQuestionCountModal, setShowQuestionCountModal] = useState(false);
-  const [showTimeModal, setShowTimeModal] = useState(false);
+  const [configModalStep, setConfigModalStep] = useState<ConfigModalStep>("main");
   
   const [startingExam, setStartingExam] = useState(false);
   const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
@@ -106,12 +107,18 @@ export function DepartmentSubjects() {
     }
   };
 
+  const closeConfigModal = () => {
+    setShowConfigModal(false);
+    setConfigModalStep("main");
+  };
+
   const handleSubjectPress = (subject: Subject) => {
     setSelectedSubjectObj(subject);
     addSubject(subject.name);
     setSelectedTestId(null);
     setQuestionCountLocal(null);
     setTimeMinutesLocal(null);
+    setConfigModalStep("main");
     setShowConfigModal(true);
   };
 
@@ -165,7 +172,7 @@ export function DepartmentSubjects() {
           subjects: [subj],
           isPractice: true,
         });
-        setShowConfigModal(false);
+        closeConfigModal();
       } else {
         Alert.alert("Error", "Failed to start practice session. Please try again.");
       }
@@ -200,7 +207,7 @@ export function DepartmentSubjects() {
   };
 
   return (
-    <AppLayout showBackButton={true} headerTitle="Exam Subject List">
+    <AppLayout showBackButton={true} headerTitle="Exam Subjects List">
       <View style={styles.searchContainer}>
         <MaterialIcons name="search" size={20} color="#a1a1aa" style={styles.searchIcon} />
         <TextInput
@@ -244,131 +251,148 @@ export function DepartmentSubjects() {
         </View>
       </ScrollView>
 
-      {/* Configuration Modal */}
-      <Modal visible={showConfigModal} transparent animationType="slide">
+      <Modal
+        visible={showConfigModal}
+        transparent
+        animationType="slide"
+        onRequestClose={closeConfigModal}
+      >
         <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={closeConfigModal} />
           <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <ThemedText style={styles.modalTitle}>Practice Settings</ThemedText>
-              <TouchableOpacity onPress={() => setShowConfigModal(false)}>
-                <MaterialIcons name="close" size={24} color={textColor} />
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.configBody}>
-              <ThemedText style={styles.configLabel}>Faculty Course: {selectedSubjectObj?.name}</ThemedText>
-              
-              {/* Test Selection */}
-              {selectedSubjectObj?.tests && selectedSubjectObj.tests.length > 0 && (
-                <TouchableOpacity style={styles.configInput} onPress={() => setShowTestModal(true)}>
-                  <ThemedText style={styles.inputText}>
-                    {selectedTestId ? selectedSubjectObj.tests.find(t => t.id === selectedTestId)?.name : 'Select Test'}
-                  </ThemedText>
-                  <MaterialIcons name="arrow-drop-down" size={24} color="#a1a1aa" />
-                </TouchableOpacity>
-              )}
+            {configModalStep === "main" && (
+              <>
+                <View style={styles.modalHeader}>
+                  <ThemedText style={styles.modalTitle}>Practice Settings</ThemedText>
+                  <TouchableOpacity onPress={closeConfigModal}>
+                    <MaterialIcons name="close" size={24} color={textColor} />
+                  </TouchableOpacity>
+                </View>
 
-              {/* Count Selection */}
-              <TouchableOpacity style={styles.configInput} onPress={() => setShowQuestionCountModal(true)}>
-                <ThemedText style={styles.inputText}>
-                  {questionCount ? `${questionCount} Questions` : 'Number of Questions'}
-                </ThemedText>
-                <MaterialIcons name="arrow-drop-down" size={24} color="#a1a1aa" />
-              </TouchableOpacity>
+                <View style={styles.configBody}>
+                  <ThemedText style={styles.configLabel}>Faculty Course: {selectedSubjectObj?.name}</ThemedText>
 
-              {/* Time Selection */}
-              <TouchableOpacity style={styles.configInput} onPress={() => setShowTimeModal(true)}>
-                <ThemedText style={styles.inputText}>
-                  {timeMinutes ? `${timeMinutes} Minutes` : 'Duration'}
-                </ThemedText>
-                <MaterialIcons name="arrow-drop-down" size={24} color="#a1a1aa" />
-              </TouchableOpacity>
+                  {selectedSubjectObj?.tests && selectedSubjectObj.tests.length > 0 && (
+                    <TouchableOpacity style={styles.configInput} onPress={() => setConfigModalStep("test")}>
+                      <ThemedText style={styles.inputText}>
+                        {selectedTestId
+                          ? selectedSubjectObj.tests.find((t) => t.id === selectedTestId)?.name
+                          : "Select Test"}
+                      </ThemedText>
+                      <MaterialIcons name="arrow-drop-down" size={24} color="#a1a1aa" />
+                    </TouchableOpacity>
+                  )}
 
-              <Button 
-                title={startingExam ? "Preparing..." : "Start Now"} 
-                onPress={startPractice}
-                disabled={!questionCount || !timeMinutes || startingExam}
-                style={styles.startBtn}
-              />
-            </View>
-          </View>
-        </View>
-      </Modal>
+                  <TouchableOpacity style={styles.configInput} onPress={() => setConfigModalStep("count")}>
+                    <ThemedText style={styles.inputText}>
+                      {questionCount ? `${questionCount} Questions` : "Number of Questions"}
+                    </ThemedText>
+                    <MaterialIcons name="arrow-drop-down" size={24} color="#a1a1aa" />
+                  </TouchableOpacity>
 
-      {/* Test Modal */}
-      <Modal visible={showTestModal} transparent animationType="fade">
-        <View style={styles.nestedModalOverlay}>
-          <View style={styles.nestedModalContent}>
-            <View style={styles.modalHeader}>
-              <ThemedText style={styles.modalTitle}>Select Test</ThemedText>
-              <TouchableOpacity onPress={() => setShowTestModal(false)}>
-                <MaterialIcons name="close" size={24} color={textColor} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={{maxHeight: 400}}>
-              {selectedSubjectObj?.tests?.map((t) => (
-                <TouchableOpacity 
-                  key={t.id} 
-                  style={styles.optionItem}
-                  onPress={() => { setSelectedTestId(t.id); setShowTestModal(false); }}
-                >
-                  <ThemedText style={styles.optionText}>{t.name}</ThemedText>
-                  {selectedTestId === t.id && <MaterialIcons name="check-circle" size={20} color={tintColor} />}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+                  <TouchableOpacity style={styles.configInput} onPress={() => setConfigModalStep("time")}>
+                    <ThemedText style={styles.inputText}>
+                      {timeMinutes ? `${timeMinutes} Minutes` : "Duration"}
+                    </ThemedText>
+                    <MaterialIcons name="arrow-drop-down" size={24} color="#a1a1aa" />
+                  </TouchableOpacity>
 
-      {/* Question Count Modal */}
-      <Modal visible={showQuestionCountModal} transparent animationType="fade">
-        <View style={styles.nestedModalOverlay}>
-          <View style={styles.nestedModalContent}>
-            <View style={styles.modalHeader}>
-              <ThemedText style={styles.modalTitle}>Questions Count</ThemedText>
-              <TouchableOpacity onPress={() => setShowQuestionCountModal(false)}>
-                <MaterialIcons name="close" size={24} color={textColor} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={{maxHeight: 400}}>
-              {Array.from({ length: maxQuestions }, (_, i) => i + 1).map((c) => (
-                <TouchableOpacity 
-                  key={c} 
-                  style={styles.optionItem}
-                  onPress={() => { setQuestionCountLocal(c); setShowQuestionCountModal(false); }}
-                >
-                  <ThemedText style={styles.optionText}>{c} Questions</ThemedText>
-                  {questionCount === c && <MaterialIcons name="check-circle" size={20} color={tintColor} />}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+                  <Button
+                    title={startingExam ? "Preparing..." : "Start Now"}
+                    onPress={startPractice}
+                    disabled={!questionCount || !timeMinutes || startingExam}
+                    style={styles.startBtn}
+                  />
+                </View>
+              </>
+            )}
 
-      {/* Time Modal */}
-      <Modal visible={showTimeModal} transparent animationType="fade">
-        <View style={styles.nestedModalOverlay}>
-          <View style={styles.nestedModalContent}>
-            <View style={styles.modalHeader}>
-              <ThemedText style={styles.modalTitle}>Select Duration</ThemedText>
-              <TouchableOpacity onPress={() => setShowTimeModal(false)}>
-                <MaterialIcons name="close" size={24} color={textColor} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={{maxHeight: 400}}>
-              {[5, 10, 15, 20, 30, 45, 60, 90, 120].map((m) => (
-                <TouchableOpacity 
-                  key={m} 
-                  style={styles.optionItem}
-                  onPress={() => { setTimeMinutesLocal(m); setShowTimeModal(false); }}
-                >
-                  <ThemedText style={styles.optionText}>{m} Minutes</ThemedText>
-                  {timeMinutes === m && <MaterialIcons name="check-circle" size={20} color={tintColor} />}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+            {configModalStep === "test" && (
+              <>
+                <View style={styles.modalHeader}>
+                  <TouchableOpacity onPress={() => setConfigModalStep("main")} style={styles.modalBackButton}>
+                    <MaterialIcons name="arrow-back" size={24} color={textColor} />
+                  </TouchableOpacity>
+                  <ThemedText style={styles.modalTitle}>Select Test</ThemedText>
+                  <TouchableOpacity onPress={closeConfigModal}>
+                    <MaterialIcons name="close" size={24} color={textColor} />
+                  </TouchableOpacity>
+                </View>
+                <ScrollView style={styles.modalScroll}>
+                  {selectedSubjectObj?.tests?.map((t) => (
+                    <TouchableOpacity
+                      key={t.id}
+                      style={styles.optionItem}
+                      onPress={() => {
+                        setSelectedTestId(t.id);
+                        setConfigModalStep("main");
+                      }}
+                    >
+                      <ThemedText style={styles.optionText}>{t.name}</ThemedText>
+                      {selectedTestId === t.id && <MaterialIcons name="check-circle" size={20} color={tintColor} />}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </>
+            )}
+
+            {configModalStep === "count" && (
+              <>
+                <View style={styles.modalHeader}>
+                  <TouchableOpacity onPress={() => setConfigModalStep("main")} style={styles.modalBackButton}>
+                    <MaterialIcons name="arrow-back" size={24} color={textColor} />
+                  </TouchableOpacity>
+                  <ThemedText style={styles.modalTitle}>Questions Count</ThemedText>
+                  <TouchableOpacity onPress={closeConfigModal}>
+                    <MaterialIcons name="close" size={24} color={textColor} />
+                  </TouchableOpacity>
+                </View>
+                <ScrollView style={styles.modalScroll}>
+                  {Array.from({ length: maxQuestions }, (_, i) => i + 1).map((c) => (
+                    <TouchableOpacity
+                      key={c}
+                      style={styles.optionItem}
+                      onPress={() => {
+                        setQuestionCountLocal(c);
+                        setConfigModalStep("main");
+                      }}
+                    >
+                      <ThemedText style={styles.optionText}>{c} Questions</ThemedText>
+                      {questionCount === c && <MaterialIcons name="check-circle" size={20} color={tintColor} />}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </>
+            )}
+
+            {configModalStep === "time" && (
+              <>
+                <View style={styles.modalHeader}>
+                  <TouchableOpacity onPress={() => setConfigModalStep("main")} style={styles.modalBackButton}>
+                    <MaterialIcons name="arrow-back" size={24} color={textColor} />
+                  </TouchableOpacity>
+                  <ThemedText style={styles.modalTitle}>Select Duration</ThemedText>
+                  <TouchableOpacity onPress={closeConfigModal}>
+                    <MaterialIcons name="close" size={24} color={textColor} />
+                  </TouchableOpacity>
+                </View>
+                <ScrollView style={styles.modalScroll}>
+                  {[5, 10, 15, 20, 30, 45, 60, 90, 120].map((m) => (
+                    <TouchableOpacity
+                      key={m}
+                      style={styles.optionItem}
+                      onPress={() => {
+                        setTimeMinutesLocal(m);
+                        setConfigModalStep("main");
+                      }}
+                    >
+                      <ThemedText style={styles.optionText}>{m} Minutes</ThemedText>
+                      {timeMinutes === m && <MaterialIcons name="check-circle" size={20} color={tintColor} />}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </>
+            )}
           </View>
         </View>
       </Modal>
@@ -415,12 +439,13 @@ const styles = StyleSheet.create({
   subjectTitle: { fontSize: 16, fontFamily: Fonts.primary.semiBold, color: '#1a1c1d', marginBottom: 2 },
   subjectSubtitle: { fontSize: 14, fontFamily: Fonts.primary.medium, color: '#71717a', marginBottom: 6 },
   subjectAvailable: { fontSize: 13, fontFamily: Fonts.primary.regular, color: '#71717a' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end' },
+  modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)' },
   modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24 },
-  nestedModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', padding: 20 },
-  nestedModalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 5 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: 18, fontFamily: Fonts.primary.bold, color: '#1a1c1d' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, gap: 8 },
+  modalBackButton: { marginRight: 4 },
+  modalTitle: { fontSize: 18, fontFamily: Fonts.primary.bold, color: '#1a1c1d', flex: 1 },
+  modalScroll: { maxHeight: 400 },
   configBody: { gap: 16 },
   configLabel: { fontSize: 14, fontFamily: Fonts.primary.medium, color: '#615b6e' },
   configInput: { 

@@ -11,13 +11,13 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://admin.stepra.com.ng"
+        "EXPO_PUBLIC_API_BASE_URL": "https://af49-149-102-242-99.ngrok-free.app"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://admin.stepra.com.ng"
+        "EXPO_PUBLIC_API_BASE_URL": "https://af49-149-102-242-99.ngrok-free.app"
       }
     }
   },

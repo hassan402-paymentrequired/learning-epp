@@ -59,6 +59,7 @@ export function Login() {
     try {
       await login(email.trim(), password);
     } catch (error: any) {
+      console.log(error, 'in login');
       // Check if error is due to unverified email
       if (error.response?.status === 403 && error.response?.data?.data?.email_verified === false) {
         Alert.alert(
@@ -195,15 +196,15 @@ export function Login() {
               </ThemedText>
             </View>
 
-            <View style={styles.aboutFooter}>
-              <ThemedText style={styles.aboutLabel}>
-                App {Constants.nativeApplicationVersion ?? "—"} (build{" "}
-                {Constants.nativeBuildVersion ?? "—"})
-              </ThemedText>
-              <ThemedText style={styles.aboutLabel} selectable>
-                API {API_BASE_URL}
-              </ThemedText>
-            </View>
+            {/*<View style={styles.aboutFooter}>*/}
+            {/*  <ThemedText style={styles.aboutLabel}>*/}
+            {/*    App {Constants.nativeApplicationVersion ?? "—"} (build{" "}*/}
+            {/*    {Constants.nativeBuildVersion ?? "—"})*/}
+            {/*  </ThemedText>*/}
+            {/*  <ThemedText style={styles.aboutLabel} selectable>*/}
+            {/*    API {API_BASE_URL}*/}
+            {/*  </ThemedText>*/}
+            {/*</View>*/}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
