@@ -18,7 +18,7 @@ SplashScreen.preventAutoHideAsync();
 
 export function AppContent() {
   const { colorScheme } = useTheme();
-  const [loaded] = useFonts({
+  const [loaded, fontError] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,
@@ -26,7 +26,7 @@ export function AppContent() {
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
 
-  if (!loaded) {
+  if (!loaded && !fontError) {
     return null;
   }
 

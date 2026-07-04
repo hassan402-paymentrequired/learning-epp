@@ -17,6 +17,10 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+# Native project folders (managed by Expo CNG/Prebuild — do not commit)
+/android
+/ios
+
 # Metro
 .metro-health-check*
 

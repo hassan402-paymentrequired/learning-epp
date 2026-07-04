@@ -75,7 +75,6 @@ export interface ExamCategory {
   name: string;
   slug: string;
   description: string;
-  icon_name: string;
   flow_type: 'standard' | 'departmental';
   is_active: boolean;
 }

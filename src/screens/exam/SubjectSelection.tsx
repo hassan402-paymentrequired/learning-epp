@@ -16,6 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import api from '@/services/api';
+import { isJambExamSlug } from '@/utils/exam';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Button } from '@/components/ui/Button';
 
@@ -250,7 +251,7 @@ export function SubjectSelection() {
     // Navigate based on question mode and exam type
     // Only JAMB past questions need year selection
     // DLI past questions and practice questions skip year selection
-    if (selection.questionMode === 'past_question' && selection.examTypeSlug === 'JAMB') {
+    if (selection.questionMode === 'past_question' && isJambExamSlug(selection.examTypeSlug)) {
       // @ts-ignore
       navigation.navigate('YearSelection');
     } else {
@@ -271,7 +272,7 @@ export function SubjectSelection() {
   }
 
   const maxSubjects = getMaxSubjects();
-  const isJAMB = selection.examTypeSlug === 'JAMB';
+  const isJAMB = isJambExamSlug(selection.examTypeSlug);
   const isDLI = selection.examTypeSlug === 'DLI' || selection.flowType === 'departmental';
   const isPracticeMode = selection.questionMode === 'practice';
   

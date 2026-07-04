@@ -1,5 +1,9 @@
 import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
 
+function isJambExamSlug(slug: string | null | undefined): boolean {
+  return slug?.toLowerCase() === 'jamb';
+}
+
 export type ExamType = string | number | null;
 export type QuestionMode = 'past_question' | 'practice' | null;
 
@@ -72,7 +76,7 @@ export function ExamSelectionProvider({ children }: { children: ReactNode }) {
 
   const setSubjects = useCallback((subjects: string[]) => {
     setSelection((prev) => {
-      const maxSubjects = subjects.length > 0 && prev.examTypeSlug === 'JAMB' ? 4 : 1;
+      const maxSubjects = subjects.length > 0 && isJambExamSlug(prev.examTypeSlug) ? 4 : 1;
       const limitedSubjects = subjects.slice(0, maxSubjects);
 
       // Remove question counts for subjects that are no longer selected
@@ -93,7 +97,7 @@ export function ExamSelectionProvider({ children }: { children: ReactNode }) {
 
   const addSubject = useCallback((subject: string) => {
     setSelection((prev) => {
-      const maxSubjects = prev.examTypeSlug === 'JAMB' ? 4 : 1;
+      const maxSubjects = isJambExamSlug(prev.examTypeSlug) ? 4 : 1;
 
       if (prev.subjects.includes(subject)) {
         return prev; // Already selected
@@ -151,7 +155,7 @@ export function ExamSelectionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const getMaxSubjects = useCallback((): number => {
-    return selection.examTypeSlug === 'JAMB' ? 4 : 1;
+    return isJambExamSlug(selection.examTypeSlug) ? 4 : 1;
   }, [selection.examTypeSlug]);
 
   const canAddMoreSubjects = useCallback((): boolean => {

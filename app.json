@@ -49,7 +49,11 @@
         "expo-font",
         {
           "fonts": [
-            "src/assets/fonts/SpaceMono-Regular.ttf"
+            "src/assets/fonts/SpaceMono-Regular.ttf",
+            "node_modules/@expo-google-fonts/inter/Inter_400Regular.ttf",
+            "node_modules/@expo-google-fonts/inter/Inter_500Medium.ttf",
+            "node_modules/@expo-google-fonts/inter/Inter_600SemiBold.ttf",
+            "node_modules/@expo-google-fonts/inter/Inter_700Bold.ttf"
           ]
         }
       ]

@@ -3,6 +3,7 @@ import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { getExamCategoryMaterialIcon } from '@/utils/exam';
 import { Fonts } from '@/constants/Fonts';
 import { ExamCategory } from '@/screens/Home';
 
@@ -54,7 +55,7 @@ export function QuickActionCards({ categories, onCategoryPress }: QuickActionCar
               ]}
             >
               <View style={[styles.iconBox, { backgroundColor: theme.bg }]}>
-                <MaterialIcons name={(category.icon_name as any) || 'menu-book'} size={24} color={theme.color} />
+                <MaterialIcons name={getExamCategoryMaterialIcon(category)} size={24} color={theme.color} />
               </View>
               
               <View style={styles.textContainer}>
