@@ -232,6 +232,21 @@ export function StandardPastQuestionsSelection() {
     );
   }
 
+  if (!hasActiveSubscription) {
+    return (
+      <AppLayout showBackButton={true} headerTitle="Past Questions">
+        <View style={styles.subscriptionGate}>
+          <MaterialIcons name="lock" size={48} color={tintColor} />
+          <ThemedText type="title" style={styles.subscriptionTitle}>Subscription Required</ThemedText>
+          <ThemedText style={styles.subscriptionText}>
+            You need an active subscription to access past questions. Subscribe to unlock unlimited practice.
+          </ThemedText>
+          <Button title="Subscribe Now" onPress={() => navigation.navigate("Subscription" as never)} />
+        </View>
+      </AppLayout>
+    );
+  }
+
   return (
     <AppLayout showBackButton={true} headerTitle="Select Past Questions">
      
@@ -471,6 +486,9 @@ export function StandardPastQuestionsSelection() {
 
 const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+  subscriptionGate: { flex: 1, justifyContent: "center", alignItems: "center", padding: 32, gap: 16 },
+  subscriptionTitle: { textAlign: "center" },
+  subscriptionText: { textAlign: "center", opacity: 0.7, marginBottom: 8 },
   scrollContent: { paddingBottom: 120 },
   headerArea: { paddingHorizontal: 16, marginBottom: 20, marginTop: 16 },
   badge: { fontSize: 12, fontFamily: Fonts.primary.bold, color: "#8B5CF6", letterSpacing: 2, marginBottom: 4 },

@@ -7,19 +7,34 @@ import {
   ActivityIndicator,
   Alert,
   Share,
+  Modal,
+  TextInput,
+  Pressable,
 } from "react-native";
-import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import api from "@/services/api";
-import { useAuth } from "@/contexts/AuthContext";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+
+type ReferralWithdrawal = {
+  uuid: string;
+  amount: number;
+  phone_number: string;
+  network: string;
+  status: string;
+  created_at: string;
+};
 
 type ReferralData = {
   referral_code: string;
   referral_url: string;
+  credit_balance: number;
+  total_earnings: number;
+  min_withdrawal_amount: number;
+  reward_amount: number;
   statistics: {
     total_referrals: number;
     active_referrals: number;
@@ -27,7 +42,7 @@ type ReferralData = {
     total_rewards: number;
   };
   recent_referrals: Array<{
-    id: number;
+    uuid: string;
     referred_user: {
       name: string;
       email: string;
@@ -38,15 +53,25 @@ type ReferralData = {
     rewarded_at: string | null;
     created_at: string;
   }>;
+  recent_withdrawals: ReferralWithdrawal[];
 };
 
-export function Referral() {
-  const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [referralData, setReferralData] = useState<ReferralData | null>(null);
+const NETWORKS = [
+  { value: "mtn", label: "MTN" },
+  { value: "airtel", label: "Airtel" },
+  { value: "glo", label: "Glo" },
+  { value: "9mobile", label: "9mobile" },
+];
 
-  const backgroundColor = useThemeColor({}, "background");
+export function Referral() {
+  const [loading, setLoading] = useState(true);
+  const [referralData, setReferralData] = useState<ReferralData | null>(null);
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [network, setNetwork] = useState("mtn");
+  const [amount, setAmount] = useState("");
+
   const textColor = useThemeColor({}, "text");
   const tintColor = useThemeColor({}, "tint");
   const borderColor = useThemeColor({}, "border");
@@ -68,7 +93,6 @@ export function Referral() {
       Alert.alert("Error", "Failed to load referral information");
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   };
 
@@ -76,26 +100,59 @@ export function Referral() {
     if (!referralData) return;
 
     try {
-      const result = await Share.share({
-        message: `Join Exam Prep and get 5% off your subscription! Use my referral code: ${referralData.referral_code}\n\n${referralData.referral_url}`,
+      await Share.share({
+        message: `Join Stepra and practice for your exams! Use my referral code: ${referralData.referral_code}\n\n${referralData.referral_url}`,
         title: "Referral Code",
       });
-
-      if (result.action === Share.sharedAction) {
-        // User shared successfully
-      }
-    } catch (error: any) {
+    } catch {
       Alert.alert("Error", "Failed to share referral code");
     }
   };
 
-  const copyToClipboard = async (text: string) => {
-    // For React Native, you might need to use @react-native-clipboard/clipboard
-    // For now, we'll use Share as a fallback
-    Alert.alert(
-      "Referral Code",
-      `Your referral code: ${text}\n\nShare it with friends to earn rewards!`
-    );
+  const handleWithdraw = async () => {
+    if (!referralData) return;
+
+    const parsedAmount = parseFloat(amount);
+    const minAmount = referralData.min_withdrawal_amount || 1000;
+
+    if (!phoneNumber || phoneNumber.length < 10) {
+      Alert.alert("Invalid phone", "Please enter a valid phone number.");
+      return;
+    }
+
+    if (!parsedAmount || parsedAmount < minAmount) {
+      Alert.alert("Invalid amount", `Minimum withdrawal is ₦${minAmount.toLocaleString()}.`);
+      return;
+    }
+
+    if (parsedAmount > referralData.credit_balance) {
+      Alert.alert("Insufficient balance", "You do not have enough credit for this withdrawal.");
+      return;
+    }
+
+    try {
+      setWithdrawing(true);
+      const response = await api.post("/referrals/withdraw", {
+        phone_number: phoneNumber,
+        network,
+        amount: parsedAmount,
+      });
+
+      if (response.data.success) {
+        Alert.alert("Success", "Withdrawal request submitted. You will be notified when it is processed.");
+        setShowWithdrawModal(false);
+        setPhoneNumber("");
+        setAmount("");
+        setNetwork("mtn");
+        await fetchReferralData();
+      } else {
+        Alert.alert("Error", response.data.message || "Failed to submit withdrawal.");
+      }
+    } catch (error: any) {
+      Alert.alert("Error", error.response?.data?.message || "Failed to submit withdrawal.");
+    } finally {
+      setWithdrawing(false);
+    }
   };
 
   if (loading) {
@@ -118,25 +175,33 @@ export function Referral() {
     );
   }
 
+  const minWithdrawal = referralData.min_withdrawal_amount || 1000;
+  const canWithdraw = referralData.credit_balance >= minWithdrawal;
+
   return (
     <AppLayout showBackButton={true} headerTitle="Referrals">
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.content}
-      >
-        {/* Referral Code Card */}
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <View style={[styles.balanceCard, { backgroundColor: cardBackground, borderColor }]}>
+          <ThemedText style={styles.balanceLabel}>Available Balance</ThemedText>
+          <ThemedText style={[styles.balanceValue, { color: tintColor }]}>
+            ₦{referralData.credit_balance.toLocaleString()}
+          </ThemedText>
+          <ThemedText style={styles.balanceHint}>
+            Total earned: ₦{referralData.total_earnings.toLocaleString()}
+          </ThemedText>
+          {canWithdraw ? (
+            <Button title="Withdraw" onPress={() => setShowWithdrawModal(true)} style={styles.withdrawButton} />
+          ) : (
+            <ThemedText style={styles.balanceHint}>
+              Minimum withdrawal is ₦{minWithdrawal.toLocaleString()}
+            </ThemedText>
+          )}
+        </View>
+
         <View style={[styles.codeCard, { backgroundColor: tintColor }]}>
           <ThemedText style={styles.codeLabel}>Your Referral Code</ThemedText>
           <View style={styles.codeContainer}>
-            <ThemedText style={styles.codeText}>
-              {referralData.referral_code}
-            </ThemedText>
-            <TouchableOpacity
-              onPress={() => copyToClipboard(referralData.referral_code)}
-              style={styles.copyButton}
-            >
-              <MaterialIcons name="content-copy" size={20} color="#FFFFFF" />
-            </TouchableOpacity>
+            <ThemedText style={styles.codeText}>{referralData.referral_code}</ThemedText>
           </View>
           <Button
             title="Share Referral Code"
@@ -146,158 +211,75 @@ export function Referral() {
           />
         </View>
 
-        {/* Statistics */}
-        <View
-          style={[
-            styles.statsCard,
-            { backgroundColor: cardBackground, borderColor },
-          ]}
-        >
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Your Referral Statistics
-          </ThemedText>
+        <View style={[styles.statsCard, { backgroundColor: cardBackground, borderColor }]}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>Your Referral Statistics</ThemedText>
           <View style={styles.statsGrid}>
             <View style={styles.statItem}>
-              <ThemedText style={[styles.statValue, { color: tintColor }]}>
-                {referralData.statistics.total_referrals}
-              </ThemedText>
+              <ThemedText style={[styles.statValue, { color: tintColor }]}>{referralData.statistics.total_referrals}</ThemedText>
               <ThemedText style={styles.statLabel}>Total Referrals</ThemedText>
             </View>
             <View style={styles.statItem}>
-              <ThemedText style={[styles.statValue, { color: tintColor }]}>
-                {referralData.statistics.active_referrals}
-              </ThemedText>
+              <ThemedText style={[styles.statValue, { color: tintColor }]}>{referralData.statistics.active_referrals}</ThemedText>
               <ThemedText style={styles.statLabel}>Active</ThemedText>
             </View>
             <View style={styles.statItem}>
-              <ThemedText style={[styles.statValue, { color: tintColor }]}>
-                {referralData.statistics.pending_referrals}
-              </ThemedText>
+              <ThemedText style={[styles.statValue, { color: tintColor }]}>{referralData.statistics.pending_referrals}</ThemedText>
               <ThemedText style={styles.statLabel}>Pending</ThemedText>
             </View>
             <View style={styles.statItem}>
-              <ThemedText style={[styles.statValue, { color: tintColor }]}>
-                ₦{referralData.statistics.total_rewards.toLocaleString()}
-              </ThemedText>
+              <ThemedText style={[styles.statValue, { color: tintColor }]}>₦{referralData.statistics.total_rewards.toLocaleString()}</ThemedText>
               <ThemedText style={styles.statLabel}>Total Rewards</ThemedText>
             </View>
           </View>
         </View>
 
-        {/* How It Works */}
-        <View
-          style={[
-            styles.infoCard,
-            { backgroundColor: cardBackground, borderColor },
-          ]}
-        >
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            How It Works
-          </ThemedText>
+        <View style={[styles.infoCard, { backgroundColor: cardBackground, borderColor }]}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>How It Works</ThemedText>
           <View style={styles.infoList}>
-            <View style={styles.infoItem}>
-              <View style={[styles.infoNumber, { backgroundColor: tintColor }]}>
-                <ThemedText style={styles.infoNumberText}>1</ThemedText>
-              </View>
-              <ThemedText style={styles.infoText}>
-                Share your referral code with friends
-              </ThemedText>
-            </View>
-            <View style={styles.infoItem}>
-              <View style={[styles.infoNumber, { backgroundColor: tintColor }]}>
-                <ThemedText style={styles.infoNumberText}>2</ThemedText>
-              </View>
-              <ThemedText style={styles.infoText}>
-                They sign up using your code and get 5% off
-              </ThemedText>
-            </View>
-            <View style={styles.infoItem}>
-              <View style={[styles.infoNumber, { backgroundColor: tintColor }]}>
-                <ThemedText style={styles.infoNumberText}>3</ThemedText>
-              </View>
-              <ThemedText style={styles.infoText}>
-                When they subscribe, you earn 10% of their subscription
-              </ThemedText>
-            </View>
+            <ThemedText style={styles.infoText}>1. Share your referral code with friends</ThemedText>
+            <ThemedText style={styles.infoText}>2. They sign up using your code</ThemedText>
+            <ThemedText style={styles.infoText}>3. When they subscribe, you earn ₦{referralData.reward_amount.toLocaleString()}</ThemedText>
+            <ThemedText style={styles.infoText}>4. Withdraw to your phone once you reach ₦{minWithdrawal.toLocaleString()}</ThemedText>
           </View>
         </View>
 
-        {/* Recent Referrals */}
+        {referralData.recent_withdrawals?.length > 0 && (
+          <View style={[styles.referralsCard, { backgroundColor: cardBackground, borderColor, marginBottom: 16 }]}>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>Recent Withdrawals</ThemedText>
+            {referralData.recent_withdrawals.map((withdrawal) => (
+              <View key={withdrawal.uuid} style={[styles.referralItem, { borderBottomColor: borderColor }]}>
+                <View>
+                  <ThemedText style={styles.referralName}>₦{withdrawal.amount.toLocaleString()}</ThemedText>
+                  <ThemedText style={styles.referralEmail}>{withdrawal.phone_number} · {withdrawal.network.toUpperCase()}</ThemedText>
+                </View>
+                <ThemedText style={styles.statusText}>{withdrawal.status}</ThemedText>
+              </View>
+            ))}
+          </View>
+        )}
+
         {referralData.recent_referrals.length > 0 && (
-          <View
-            style={[
-              styles.referralsCard,
-              { backgroundColor: cardBackground, borderColor },
-            ]}
-          >
-            <ThemedText type="subtitle" style={styles.sectionTitle}>
-              Recent Referrals
-            </ThemedText>
+          <View style={[styles.referralsCard, { backgroundColor: cardBackground, borderColor }]}>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>Recent Referrals</ThemedText>
             {referralData.recent_referrals.map((referral) => (
-              <View
-                key={referral.id}
-                style={[
-                  styles.referralItem,
-                  { borderBottomColor: borderColor },
-                ]}
-              >
+              <View key={referral.uuid} style={[styles.referralItem, { borderBottomColor: borderColor }]}>
                 <View style={styles.referralItemLeft}>
-                  <View
-                    style={[
-                      styles.referralAvatar,
-                      { backgroundColor: tintColor },
-                    ]}
-                  >
+                  <View style={[styles.referralAvatar, { backgroundColor: tintColor }]}>
                     <ThemedText style={styles.referralAvatarText}>
                       {referral.referred_user.name.charAt(0).toUpperCase()}
                     </ThemedText>
                   </View>
                   <View style={styles.referralInfo}>
-                    <ThemedText type="subtitle" style={styles.referralName}>
-                      {referral.referred_user.name}
-                    </ThemedText>
-                    <ThemedText style={styles.referralEmail}>
-                      {referral.referred_user.email}
-                    </ThemedText>
-                    <ThemedText style={styles.referralDate}>
-                      Signed up:{" "}
-                      {new Date(
-                        referral.referred_user.signed_up_at
-                      ).toLocaleDateString()}
-                    </ThemedText>
+                    <ThemedText type="subtitle" style={styles.referralName}>{referral.referred_user.name}</ThemedText>
+                    <ThemedText style={styles.referralEmail}>{referral.referred_user.email}</ThemedText>
                   </View>
                 </View>
                 <View style={styles.referralItemRight}>
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      {
-                        backgroundColor:
-                          referral.status === "rewarded"
-                            ? tintColor + "20"
-                            : borderColor + "40",
-                      },
-                    ]}
-                  >
-                    <ThemedText
-                      style={[
-                        styles.statusText,
-                        {
-                          color:
-                            referral.status === "rewarded"
-                              ? tintColor
-                              : textColor,
-                          opacity: referral.status === "rewarded" ? 1 : 0.6,
-                        },
-                      ]}
-                    >
-                      {referral.status === "rewarded" ? "Rewarded" : "Pending"}
-                    </ThemedText>
-                  </View>
+                  <ThemedText style={styles.statusText}>
+                    {referral.status === "rewarded" ? "Rewarded" : "Pending"}
+                  </ThemedText>
                   {referral.reward_amount > 0 && (
-                    <ThemedText
-                      style={[styles.rewardAmount, { color: tintColor }]}
-                    >
+                    <ThemedText style={[styles.rewardAmount, { color: tintColor }]}>
                       ₦{referral.reward_amount.toLocaleString()}
                     </ThemedText>
                   )}
@@ -307,189 +289,91 @@ export function Referral() {
           </View>
         )}
       </ScrollView>
+
+      <Modal visible={showWithdrawModal} transparent animationType="slide" onRequestClose={() => setShowWithdrawModal(false)}>
+        <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setShowWithdrawModal(false)} />
+          <View style={[styles.modalContent, { backgroundColor: cardBackground }]}>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>Withdraw Credits</ThemedText>
+            <ThemedText style={styles.balanceHint}>Available: ₦{referralData.credit_balance.toLocaleString()}</ThemedText>
+
+            <Input
+              label="Phone Number"
+              placeholder="08012345678"
+              value={phoneNumber}
+              onChangeText={setPhoneNumber}
+              keyboardType="phone-pad"
+            />
+
+            <ThemedText style={styles.inputLabel}>Network</ThemedText>
+            <View style={styles.networkRow}>
+              {NETWORKS.map((item) => (
+                <TouchableOpacity
+                  key={item.value}
+                  style={[styles.networkChip, network === item.value && { backgroundColor: tintColor }]}
+                  onPress={() => setNetwork(item.value)}
+                >
+                  <ThemedText style={{ color: network === item.value ? "#fff" : textColor }}>{item.label}</ThemedText>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Input
+              label="Amount (₦)"
+              placeholder={String(minWithdrawal)}
+              value={amount}
+              onChangeText={setAmount}
+              keyboardType="numeric"
+            />
+
+            <Button title={withdrawing ? "Submitting..." : "Submit Withdrawal"} onPress={handleWithdraw} disabled={withdrawing} />
+          </View>
+        </View>
+      </Modal>
     </AppLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    padding: 16,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 32,
-  },
-  codeCard: {
-    padding: 24,
-    borderRadius: 12,
-    marginBottom: 16,
-    alignItems: "center",
-  },
-  codeLabel: {
-    fontSize: 14,
-    color: "#FFFFFF",
-    opacity: 0.9,
-    marginBottom: 12,
-  },
-  codeContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 16,
-    width: "100%",
-    justifyContent: "space-between",
-  },
-  codeText: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#FFFFFF",
-    letterSpacing: 2,
-  },
-  copyButton: {
-    padding: 8,
-  },
-  shareButton: {
-    backgroundColor: "#FFFFFF",
-    width: "100%",
-  },
-  shareButtonText: {
-    color: "#000000",
-  },
-  statsCard: {
-    padding: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    marginBottom: 16,
-  },
-  statsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-  },
-  statItem: {
-    width: "48%",
-    alignItems: "center",
-    padding: 12,
-    marginBottom: 12,
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    opacity: 0.7,
-    textAlign: "center",
-  },
-  infoCard: {
-    padding: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 16,
-  },
-  infoList: {
-    gap: 16,
-  },
-  infoItem: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  infoNumber: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-  infoNumberText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  infoText: {
-    fontSize: 14,
-    flex: 1,
-    lineHeight: 20,
-  },
-  referralsCard: {
-    padding: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  referralItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-  },
-  referralItemLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  referralAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-  referralAvatarText: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  referralInfo: {
-    flex: 1,
-  },
-  referralName: {
-    fontSize: 16,
-    marginBottom: 4,
-  },
-  referralEmail: {
-    fontSize: 12,
-    opacity: 0.6,
-    marginBottom: 4,
-  },
-  referralDate: {
-    fontSize: 11,
-    opacity: 0.5,
-  },
-  referralItemRight: {
-    alignItems: "flex-end",
-  },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    marginBottom: 4,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  rewardAmount: {
-    fontSize: 14,
-    fontWeight: "bold",
-  },
+  container: { flex: 1 },
+  content: { padding: 16, paddingBottom: 32 },
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+  emptyContainer: { flex: 1, justifyContent: "center", alignItems: "center", padding: 32 },
+  balanceCard: { padding: 20, borderRadius: 12, borderWidth: 1, marginBottom: 16 },
+  balanceLabel: { fontSize: 14, opacity: 0.7 },
+  balanceValue: { fontSize: 32, fontWeight: "bold", marginVertical: 8 },
+  balanceHint: { fontSize: 13, opacity: 0.7, marginBottom: 12 },
+  withdrawButton: { marginTop: 4 },
+  codeCard: { padding: 24, borderRadius: 12, marginBottom: 16, alignItems: "center" },
+  codeLabel: { fontSize: 14, color: "#FFFFFF", opacity: 0.9, marginBottom: 12 },
+  codeContainer: { backgroundColor: "rgba(255, 255, 255, 0.2)", padding: 16, borderRadius: 8, marginBottom: 16, width: "100%", alignItems: "center" },
+  codeText: { fontSize: 24, fontWeight: "bold", color: "#FFFFFF", letterSpacing: 2 },
+  shareButton: { backgroundColor: "#FFFFFF", width: "100%" },
+  shareButtonText: { color: "#000000" },
+  statsCard: { padding: 20, borderRadius: 12, borderWidth: 1, marginBottom: 16 },
+  sectionTitle: { fontSize: 18, marginBottom: 16 },
+  statsGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
+  statItem: { width: "48%", alignItems: "center", padding: 12, marginBottom: 12 },
+  statValue: { fontSize: 24, fontWeight: "bold", marginBottom: 4 },
+  statLabel: { fontSize: 12, opacity: 0.7, textAlign: "center" },
+  infoCard: { padding: 20, borderRadius: 12, borderWidth: 1, marginBottom: 16 },
+  infoList: { gap: 10 },
+  infoText: { fontSize: 14, lineHeight: 20 },
+  referralsCard: { padding: 20, borderRadius: 12, borderWidth: 1 },
+  referralItem: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 16, borderBottomWidth: 1 },
+  referralItemLeft: { flexDirection: "row", alignItems: "center", flex: 1 },
+  referralAvatar: { width: 48, height: 48, borderRadius: 24, justifyContent: "center", alignItems: "center", marginRight: 12 },
+  referralAvatarText: { color: "#FFFFFF", fontSize: 18, fontWeight: "bold" },
+  referralInfo: { flex: 1 },
+  referralName: { fontSize: 16, marginBottom: 4 },
+  referralEmail: { fontSize: 12, opacity: 0.6 },
+  referralItemRight: { alignItems: "flex-end" },
+  statusText: { fontSize: 12, fontWeight: "600", textTransform: "capitalize" },
+  rewardAmount: { fontSize: 14, fontWeight: "bold", marginTop: 4 },
+  modalOverlay: { flex: 1, justifyContent: "flex-end" },
+  modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.5)" },
+  modalContent: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, gap: 12 },
+  inputLabel: { fontSize: 14, fontWeight: "600", marginBottom: 8 },
+  networkRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 8 },
+  networkChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, backgroundColor: "#eee" },
 });

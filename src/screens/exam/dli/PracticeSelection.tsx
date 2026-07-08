@@ -50,8 +50,7 @@ export function DLIPracticeSelection() {
     user?.subscription_expires_at &&
     new Date(user.subscription_expires_at) > new Date();
 
-  const maxQuestionsPerSubject = hasActiveSubscription ? 50 : 5;
-  // Generate question count options based on subscription (1-50 for DLI, but limited for free users)
+  const maxQuestionsPerSubject = 50;
   const questionCountOptions = Array.from(
     { length: maxQuestionsPerSubject },
     (_, i) => i + 1
@@ -295,6 +294,21 @@ export function DLIPracticeSelection() {
     );
   }
 
+  if (!hasActiveSubscription) {
+    return (
+      <AppLayout showBackButton={true} headerTitle="DLI Practice">
+        <View style={styles.subscriptionGate}>
+          <MaterialIcons name="lock" size={48} color={tintColor} />
+          <ThemedText type="title" style={styles.subscriptionTitle}>Subscription Required</ThemedText>
+          <ThemedText style={styles.subscriptionText}>
+            You need an active subscription to access practice questions. Subscribe to unlock up to 50 questions per session.
+          </ThemedText>
+          <Button title="Subscribe Now" onPress={() => navigation.navigate("Subscription" as never)} />
+        </View>
+      </AppLayout>
+    );
+  }
+
   return (
     <AppLayout showBackButton={true} headerTitle="DLI Practice">
       <ScrollView
@@ -309,14 +323,6 @@ export function DLIPracticeSelection() {
             Select your course, number of questions, and time. Practice with
             random questions.
           </ThemedText>
-          {!hasActiveSubscription && (
-            <ThemedText
-              style={[styles.hint, { color: tintColor, fontWeight: "600" }]}
-            >
-              ⚠️ Non-subscribed users are limited to 5 questions per practice
-              session. Subscribe to unlock up to 50 questions per session.
-            </ThemedText>
-          )}
         </View>
 
         {/* Course Selection */}
@@ -389,16 +395,8 @@ export function DLIPracticeSelection() {
               />
             </TouchableOpacity>
             <ThemedText style={styles.hint}>
-              Minimum: 1, Maximum: {maxQuestionsPerSubject}{" "}
-              {!hasActiveSubscription ? "(Free users)" : "(DLI courses)"}
+              Minimum: 1, Maximum: {maxQuestionsPerSubject} (DLI courses)
             </ThemedText>
-            {!hasActiveSubscription && (
-              <ThemedText
-                style={[styles.hint, { color: tintColor, marginTop: 4 }]}
-              >
-                💡 Subscribe to practice up to 50 questions per session
-              </ThemedText>
-            )}
           </View>
         )}
 
@@ -685,6 +683,21 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     opacity: 0.7,
+  },
+  subscriptionGate: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 32,
+    gap: 16,
+  },
+  subscriptionTitle: {
+    textAlign: "center",
+  },
+  subscriptionText: {
+    textAlign: "center",
+    opacity: 0.7,
+    marginBottom: 8,
   },
   header: {
     marginBottom: 24,

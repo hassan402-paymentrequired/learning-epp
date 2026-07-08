@@ -208,31 +208,14 @@ export function SubjectSelection() {
       return;
     }
 
-    // Validate question counts based on mode and subscription status
+    // Validate question counts based on mode
     for (const subject of selection.subjects) {
       const count = parseInt(questionCounts[subject]);
       let maxAllowed: number;
-      let errorMessage: string;
       
       if (isPracticeMode) {
-        // Practice mode: 5 for non-subscribed, 100 for subscribed
-        maxAllowed = hasActiveSubscription ? 100 : 5;
-        if (!hasActiveSubscription && count > 5) {
-          Alert.alert(
-            'Subscription Required',
-            'Non-subscribed users are limited to 5 questions per practice session. Subscribe to unlock unlimited practice questions.',
-            [
-              { text: 'Cancel', style: 'cancel' },
-              { 
-                text: 'Subscribe', 
-                onPress: () => navigation.navigate('Subscription' as never)
-              }
-            ]
-          );
-          return;
-        }
+        maxAllowed = 100;
       } else {
-        // Past questions mode
         maxAllowed = isDLI ? 50 : 100;
       }
       
@@ -271,16 +254,27 @@ export function SubjectSelection() {
     );
   }
 
+  if (!hasActiveSubscription) {
+    return (
+      <AppLayout showBackButton={true} headerTitle="Select Subjects">
+        <View style={styles.subscriptionGate}>
+          <MaterialIcons name="lock" size={48} color={tintColor} />
+          <ThemedText type="title" style={styles.subscriptionTitle}>Subscription Required</ThemedText>
+          <ThemedText style={styles.subscriptionText}>
+            You need an active subscription to access questions. Subscribe to unlock unlimited practice.
+          </ThemedText>
+          <Button title="Subscribe Now" onPress={() => navigation.navigate('Subscription' as never)} />
+        </View>
+      </AppLayout>
+    );
+  }
+
   const maxSubjects = getMaxSubjects();
   const isJAMB = isJambExamSlug(selection.examTypeSlug);
   const isDLI = selection.examTypeSlug === 'DLI' || selection.flowType === 'departmental';
   const isPracticeMode = selection.questionMode === 'practice';
   
-  // For practice mode: non-subscribed users limited to 5 questions, subscribed users up to 100
-  // For past questions (DLI or JAMB): DLI max 50, JAMB max 100
-  const maxQuestionsPerSubject = isPracticeMode 
-    ? (hasActiveSubscription ? 100 : 5)
-    : (isDLI ? 50 : 100);
+  const maxQuestionsPerSubject = isPracticeMode ? 100 : (isDLI ? 50 : 100);
     
   const totalQuestions = selection.subjects.reduce((sum, subject) => {
     const count = parseInt(questionCounts[subject] || '0');
@@ -313,11 +307,6 @@ export function SubjectSelection() {
           {isJAMB && (
             <ThemedText style={styles.hint}>
               Each subject takes 30 minutes. Total time will be calculated automatically.
-            </ThemedText>
-          )}
-          {isPracticeMode && !hasActiveSubscription && (
-            <ThemedText style={[styles.hint, { color: tintColor, fontWeight: '600' }]}>
-              ⚠️ Non-subscribed users are limited to 5 questions per practice session. Subscribe to unlock unlimited practice questions.
             </ThemedText>
           )}
         </View>
@@ -411,24 +400,10 @@ export function SubjectSelection() {
                               if (numValue <= maxQuestionsPerSubject) {
                                 setQuestionCount(subject, numValue);
                               } else {
-                                if (isPracticeMode && !hasActiveSubscription && numValue > 5) {
-                                  Alert.alert(
-                                    'Subscription Required',
-                                    'Non-subscribed users are limited to 5 questions per practice session. Subscribe to unlock unlimited practice questions.',
-                                    [
-                                      { text: 'OK' },
-                                      { 
-                                        text: 'Subscribe', 
-                                        onPress: () => navigation.navigate('Subscription' as never)
-                                      }
-                                    ]
-                                  );
-                                } else {
-                                  Alert.alert(
-                                    'Maximum Limit',
-                                    `Maximum allowed is ${maxQuestionsPerSubject} questions per ${isDLI ? 'course' : 'subject'}.`
-                                  );
-                                }
+                                Alert.alert(
+                                  'Maximum Limit',
+                                  `Maximum allowed is ${maxQuestionsPerSubject} questions per ${isDLI ? 'course' : 'subject'}.`
+                                );
                                 handleCountChange(subject, maxQuestionsPerSubject.toString());
                                 setQuestionCount(subject, maxQuestionsPerSubject);
                               }
@@ -440,13 +415,8 @@ export function SubjectSelection() {
                           maxLength={3}
                         />
                         <ThemedText style={styles.hint}>
-                          Minimum: 1, Maximum: {maxQuestionsPerSubject} {isDLI ? '(DLI courses)' : isPracticeMode && !hasActiveSubscription ? '(Free users)' : ''}
+                          Minimum: 1, Maximum: {maxQuestionsPerSubject} {isDLI ? '(DLI courses)' : ''}
                         </ThemedText>
-                        {isPracticeMode && !hasActiveSubscription && (
-                          <ThemedText style={[styles.hint, { color: tintColor, marginTop: 4 }]}>
-                            💡 Subscribe to practice up to 100 questions per session
-                          </ThemedText>
-                        )}
                       </View>
 
                       <View style={styles.quickOptionsContainer}>
@@ -454,9 +424,7 @@ export function SubjectSelection() {
                         <View style={styles.quickOptionsGrid}>
                           {quickOptions
                             .filter(value => value <= maxQuestionsPerSubject)
-                            .map((value) => {
-                              const isDisabled = isPracticeMode && !hasActiveSubscription && value > 5;
-                              return (
+                            .map((value) => (
                                 <TouchableOpacity
                                   key={value}
                                   style={[
@@ -465,27 +433,9 @@ export function SubjectSelection() {
                                       backgroundColor:
                                         count === value.toString() ? tintColor : cardBackground,
                                       borderColor: tintColor,
-                                      opacity: isDisabled ? 0.5 : 1,
                                     },
                                   ]}
-                                  onPress={() => {
-                                    if (isDisabled) {
-                                      Alert.alert(
-                                        'Subscription Required',
-                                        'Non-subscribed users are limited to 5 questions per practice session. Subscribe to unlock unlimited practice questions.',
-                                        [
-                                          { text: 'OK' },
-                                          { 
-                                            text: 'Subscribe', 
-                                            onPress: () => navigation.navigate('Subscription' as never)
-                                          }
-                                        ]
-                                      );
-                                    } else {
-                                      handleQuickSelect(subject, value);
-                                    }
-                                  }}
-                                  disabled={isDisabled}
+                                  onPress={() => handleQuickSelect(subject, value)}
                                 >
                                   <ThemedText
                                     style={[
@@ -498,14 +448,8 @@ export function SubjectSelection() {
                                     {value}
                                   </ThemedText>
                                 </TouchableOpacity>
-                              );
-                            })}
+                            ))}
                         </View>
-                        {isPracticeMode && !hasActiveSubscription && (
-                          <ThemedText style={[styles.hint, { marginTop: 8, color: tintColor }]}>
-                            Options above 5 require subscription
-                          </ThemedText>
-                        )}
                       </View>
                     </View>
                   )}
@@ -567,6 +511,21 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     opacity: 0.7,
+  },
+  subscriptionGate: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+    gap: 16,
+  },
+  subscriptionTitle: {
+    textAlign: 'center',
+  },
+  subscriptionText: {
+    textAlign: 'center',
+    opacity: 0.7,
+    marginBottom: 8,
   },
   header: {
     marginBottom: 24,

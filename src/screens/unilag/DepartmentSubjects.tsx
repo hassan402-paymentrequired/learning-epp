@@ -62,6 +62,7 @@ export function DepartmentSubjects() {
   
   const [startingExam, setStartingExam] = useState(false);
   const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const tintColor = "#4800b2";
@@ -72,11 +73,16 @@ export function DepartmentSubjects() {
     setQuestionMode("practice");
     const checkSubscription = async () => {
       try {
+        setSubscriptionLoading(true);
         const response = await api.get("/subscriptions/status");
         if (response.data.success && response.data.data) {
           setHasActiveSubscription(response.data.data.has_active_subscription || false);
         }
-      } catch (e) {}
+      } catch (e) {
+        setHasActiveSubscription(false);
+      } finally {
+        setSubscriptionLoading(false);
+      }
     };
     if (user) checkSubscription();
   }, [user]);
@@ -189,7 +195,7 @@ export function DepartmentSubjects() {
     s.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  if (loading) {
+  if (loading || subscriptionLoading) {
     return (
       <AppLayout showBackButton={true} headerTitle="Select Course">
         <View style={styles.loadingContainer}>
@@ -199,7 +205,22 @@ export function DepartmentSubjects() {
     );
   }
 
-  const maxQuestions = hasActiveSubscription ? 50 : 5;
+  if (!hasActiveSubscription) {
+    return (
+      <AppLayout showBackButton={true} headerTitle="Select Course">
+        <View style={styles.subscriptionGate}>
+          <MaterialIcons name="lock" size={48} color={tintColor} />
+          <ThemedText type="title" style={styles.subscriptionTitle}>Subscription Required</ThemedText>
+          <ThemedText style={styles.subscriptionText}>
+            You need an active subscription to access practice questions. Subscribe to unlock up to 50 questions per session.
+          </ThemedText>
+          <Button title="Subscribe Now" onPress={() => (navigation as any).navigate("Subscription")} />
+        </View>
+      </AppLayout>
+    );
+  }
+
+  const maxQuestions = 50;
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -402,6 +423,9 @@ export function DepartmentSubjects() {
 
 const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+  subscriptionGate: { flex: 1, justifyContent: "center", alignItems: "center", padding: 32, gap: 16 },
+  subscriptionTitle: { textAlign: "center" },
+  subscriptionText: { textAlign: "center", opacity: 0.7, marginBottom: 8 },
   scrollContent: { paddingBottom: 40 },
   searchContainer: {
     flexDirection: 'row',

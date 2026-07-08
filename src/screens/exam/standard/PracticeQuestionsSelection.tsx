@@ -49,6 +49,7 @@ export function StandardPracticeQuestionsSelection() {
   const [currentSubjectForCount, setCurrentSubjectForCount] = useState<string | null>(null);
   const [startingPractice, setStartingPractice] = useState(false);
   const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
 
   const examType = selection.examTypeSlug || "JAMB";
   const examTypeLabel = selection.examTypeName || "JAMB";
@@ -57,8 +58,8 @@ export function StandardPracticeQuestionsSelection() {
   const borderColor = "#f1f5f9";
   const backgroundSecondary = "#ebe2f5ff";
 
-  const maxQuestionsPerSubject = hasActiveSubscription ? 100 : 5;
-  const countOptions = [5, 10, 15, 20, 25, 30, 40, 50, 60, 80, 100].filter(c => c <= maxQuestionsPerSubject);
+  const maxQuestionsPerSubject = 100;
+  const countOptions = [5, 10, 15, 20, 25, 30, 40, 50, 60, 80, 100];
 
   useEffect(() => {
     loadSubjects();
@@ -72,13 +73,15 @@ export function StandardPracticeQuestionsSelection() {
 
   const fetchSubscriptionStatus = async () => {
     try {
+      setSubscriptionLoading(true);
       const response = await api.get("/subscriptions/status");
       if (response.data.success) {
         setHasActiveSubscription(!!response.data.data?.has_active_subscription);
       }
     } catch (error) {
-      // Keep default free-tier UI cap when status check fails
       setHasActiveSubscription(false);
+    } finally {
+      setSubscriptionLoading(false);
     }
   };
 
@@ -176,11 +179,26 @@ export function StandardPracticeQuestionsSelection() {
     s.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  if (loading) {
+  if (loading || subscriptionLoading) {
     return (
       <AppLayout showBackButton={true} headerTitle="Study Mode">
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={tintColor} />
+        </View>
+      </AppLayout>
+    );
+  }
+
+  if (!hasActiveSubscription) {
+    return (
+      <AppLayout showBackButton={true} headerTitle="Study Mode">
+        <View style={styles.subscriptionGate}>
+          <MaterialIcons name="lock" size={48} color={tintColor} />
+          <ThemedText type="title" style={styles.subscriptionTitle}>Subscription Required</ThemedText>
+          <ThemedText style={styles.subscriptionText}>
+            You need an active subscription to access practice questions. Subscribe to unlock unlimited practice.
+          </ThemedText>
+          <Button title="Subscribe Now" onPress={() => (navigation as any).navigate("Subscription")} />
         </View>
       </AppLayout>
     );
@@ -304,6 +322,9 @@ export function StandardPracticeQuestionsSelection() {
 
 const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+  subscriptionGate: { flex: 1, justifyContent: "center", alignItems: "center", padding: 32, gap: 16 },
+  subscriptionTitle: { textAlign: "center" },
+  subscriptionText: { textAlign: "center", opacity: 0.7, marginBottom: 8 },
   scrollContent: { paddingBottom: 120 },
   headerArea: { paddingHorizontal: 16, marginBottom: 20, marginTop: 16, },
   badge: { fontSize: 12, fontFamily: Fonts.primary.bold, color: "#8B5CF6", letterSpacing: 2, marginBottom: 4 },
