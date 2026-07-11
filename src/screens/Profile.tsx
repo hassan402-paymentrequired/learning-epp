@@ -14,6 +14,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useNavigation } from "@react-navigation/native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useThemeColor } from "@/hooks/useThemeColor";
+import { ProfileNotifications } from "@/components/profile/ProfileNotifications";
 
 export function Profile() {
   const { user, logout } = useAuth();
@@ -162,6 +163,8 @@ export function Profile() {
             </View>
           </TouchableOpacity>
         </View>
+
+        <ProfileNotifications />
 
         <Button
           title="Logout"

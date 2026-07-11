@@ -15,8 +15,7 @@ import {
 import { ThemedText } from "@/components/ThemedText";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/Button";
-import { useAuth } from "@/contexts/AuthContext";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { useExamSelection } from "@/contexts/ExamSelectionContext";
 import api from "@/services/api";
@@ -34,7 +33,6 @@ interface SubjectSelection {
 type ConfigModalStep = "main" | "year" | "count";
 
 export function StandardPastQuestionsSelection() {
-  const { user } = useAuth();
   const { selection, setQuestionCount: setGlobalCount, setTimeMinutes: setGlobalTime } = useExamSelection();
   const navigation = useNavigation();
   
@@ -54,6 +52,8 @@ export function StandardPastQuestionsSelection() {
   const [loadingYears, setLoadingYears] = useState(false);
   
   const [startingExam, setStartingExam] = useState(false);
+  const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
 
   const examType = resolveExamCategoryParam(selection) || "JAMB";
   const examTypeLabel = selection.examTypeName || "JAMB";
@@ -61,16 +61,31 @@ export function StandardPastQuestionsSelection() {
   const tintColor = "#4800b2";
   const borderColor = "#f1f5f9";
 
-  const hasActiveSubscription =
-    user?.subscription_status === "active" &&
-    user?.subscription_expires_at &&
-    new Date(user.subscription_expires_at) > new Date();
-
   const countOptions = [10, 15, 20, 25, 30, 40, 50, 60, 100];
 
   useEffect(() => {
     loadSubjects();
   }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchSubscriptionStatus();
+    }, [])
+  );
+
+  const fetchSubscriptionStatus = async () => {
+    try {
+      setSubscriptionLoading(true);
+      const response = await api.get("/subscriptions/status");
+      if (response.data.success) {
+        setHasActiveSubscription(!!response.data.data?.has_active_subscription);
+      }
+    } catch {
+      setHasActiveSubscription(false);
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  };
 
   const loadSubjects = async () => {
     try {
@@ -223,7 +238,7 @@ export function StandardPastQuestionsSelection() {
     s.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  if (loading) {
+  if (loading || subscriptionLoading) {
     return (
       <AppLayout showBackButton={true} headerTitle="Past Questions">
         <View style={styles.loadingContainer}>
