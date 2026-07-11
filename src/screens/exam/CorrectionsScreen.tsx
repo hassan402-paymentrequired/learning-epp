@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -72,6 +72,7 @@ export function CorrectionsScreen() {
   const [currentSubject, setCurrentSubject] = useState<string>('');
   const [subjectCurrentIndex, setSubjectCurrentIndex] = useState<Record<string, number>>({});
   const [showSubjectModal, setShowSubjectModal] = useState(false);
+  const [isGridCollapsed, setIsGridCollapsed] = useState(true);
 
   const backgroundColor = useThemeColor({}, 'background');
   const tintColor = useThemeColor({}, 'tint');
@@ -243,7 +244,16 @@ export function CorrectionsScreen() {
             </TouchableOpacity>
 
             <View style={styles.headerRight}>
-              <ThemedText style={styles.correctionsTitle}>Corrections</ThemedText>
+              <TouchableOpacity
+                onPress={() => navigation.goBack()}
+                style={styles.headerBackButton}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <MaterialIcons name="arrow-back" size={18} color={tintColor} />
+                <ThemedText style={[styles.headerBackText, { color: tintColor }]}>
+                  Results
+                </ThemedText>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -415,72 +425,92 @@ export function CorrectionsScreen() {
           </View>
         </ScrollView>
 
-        {/* Navigation Footer to match ExamScreen */}
+        {/* Navigation Footer */}
         <View
           style={[
             styles.footer,
             { backgroundColor: cardBackground, borderTopColor: borderColor },
           ]}
         >
-          <View style={styles.questionGrid}>
-            {currentQuestions.map((q, index) => {
-              const isCurrent = index === currentQuestionIndex;
-              const isCorrect = q.is_correct;
-              const isAnswered = q.user_answer !== null && q.user_answer !== undefined;
+          <TouchableOpacity
+            style={styles.gridToggle}
+            onPress={() => setIsGridCollapsed(!isGridCollapsed)}
+          >
+            <View style={[styles.toggleBar, { backgroundColor: borderColor }]} />
+            <View style={styles.toggleHeader}>
+              <ThemedText style={styles.toggleText}>
+                {isGridCollapsed ? "Show Question Grid" : "Hide Question Grid"}
+              </ThemedText>
+              <MaterialIcons
+                name={isGridCollapsed ? "keyboard-arrow-up" : "keyboard-arrow-down"}
+                size={24}
+                color={tintColor}
+              />
+            </View>
+          </TouchableOpacity>
 
-              return (
-                <TouchableOpacity
-                  key={q.question.uuid}
-                  style={[
-                    styles.questionDot,
-                    {
-                      backgroundColor: isCurrent
-                        ? tintColor
-                        : isAnswered
-                          ? isCorrect ? successColor + '80' : errorColor + '80'
-                          : 'transparent',
-                      borderColor: isCurrent
-                        ? tintColor
-                        : isAnswered
-                          ? isCorrect ? successColor : errorColor
-                          : borderColor,
-                    },
-                  ]}
-                  onPress={() => goToQuestion(index)}
-                >
-                  <ThemedText
+          {!isGridCollapsed && (
+            <ScrollView
+              horizontal={false}
+              style={styles.gridOuter}
+              contentContainerStyle={styles.questionGrid}
+            >
+              {currentQuestions.map((q, index) => {
+                const isCurrent = index === currentQuestionIndex;
+                const isCorrect = q.is_correct;
+                const isAnswered = q.user_answer !== null && q.user_answer !== undefined;
+
+                return (
+                  <TouchableOpacity
+                    key={q.question.uuid}
                     style={[
-                      styles.questionDotText,
-                      { color: isCurrent || isAnswered ? '#fff' : textColor },
+                      styles.questionDot,
+                      {
+                        backgroundColor: isCurrent
+                          ? tintColor
+                          : isAnswered
+                            ? isCorrect ? successColor + '80' : errorColor + '80'
+                            : 'transparent',
+                        borderColor: isCurrent
+                          ? tintColor
+                          : isAnswered
+                            ? isCorrect ? successColor : errorColor
+                            : borderColor,
+                      },
                     ]}
+                    onPress={() => goToQuestion(index)}
                   >
-                    {index + 1}
-                  </ThemedText>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+                    <ThemedText
+                      style={[
+                        styles.questionDotText,
+                        { color: isCurrent || isAnswered ? '#fff' : textColor },
+                      ]}
+                    >
+                      {index + 1}
+                    </ThemedText>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
+
           <View style={styles.footerButtons}>
             <Button
-              title="Previous"
+              title="Prev"
               onPress={handlePrevious}
               variant="outline"
               disabled={currentQuestionIndex === 0}
-              style={styles.footerButton}
+              style={styles.navButtonSmall}
+              textStyle={styles.navButtonText}
             />
             <Button
               title="Next"
               onPress={handleNext}
               disabled={currentQuestionIndex === currentQuestions.length - 1}
               style={styles.footerButton}
+              textStyle={styles.navButtonText}
             />
           </View>
-          <Button
-            title="Back to Results"
-            onPress={() => navigation.goBack()}
-            variant="outline"
-            style={StyleSheet.flatten([styles.footerButton, { marginTop: 12 }])}
-          />
         </View>
       </View>
     </AppLayout>
@@ -528,10 +558,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  correctionsTitle: {
-    fontSize: 16,
+  headerBackButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  headerBackText: {
+    fontSize: 14,
     fontWeight: '600',
-    opacity: 0.6,
   },
   content: {
     flex: 1,
@@ -618,35 +652,72 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   footer: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
     borderTopWidth: 1,
-    marginBottom: 12
   },
   questionGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 16,
+    justifyContent: 'flex-start',
   },
   questionDot: {
-    width: 36,
-    height: 36,
-    borderRadius: 2,
+    width: 32,
+    height: 32,
+    borderRadius: 50,
     borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
   },
   questionDotText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
   },
   footerButtons: {
     flexDirection: 'row',
-    gap: 12,
-    
+    gap: 10,
   },
   footerButton: {
+    flex: 2,
+    height: 40,
+    minHeight: 40,
+    paddingVertical: 0,
+  },
+  navButtonSmall: {
     flex: 1,
+    height: 40,
+    minHeight: 40,
+    paddingVertical: 0,
+  },
+  navButtonText: {
+    fontSize: 14,
+  },
+  gridToggle: {
+    alignItems: 'center',
+    paddingVertical: 4,
+    marginBottom: 4,
+  },
+  toggleBar: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    marginBottom: 6,
+  },
+  toggleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  toggleText: {
+    fontSize: 13,
+    fontWeight: '600',
+    opacity: 0.8,
+  },
+  gridOuter: {
+    height: 120,
+    marginBottom: 10,
   },
   modalOverlay: {
     flex: 1,

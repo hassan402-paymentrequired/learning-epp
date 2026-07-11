@@ -1003,7 +1003,7 @@ const styles = StyleSheet.create({
   },
   footerButton: {
     flex: 2,
-    height: 50,
+    height: 40,
   },
   navButtonSmall: {
     flex: 1,
