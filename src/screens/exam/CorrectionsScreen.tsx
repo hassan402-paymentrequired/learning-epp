@@ -233,7 +233,12 @@ export function CorrectionsScreen() {
               style={styles.subjectSelector}
               onPress={() => setShowSubjectModal(true)}
             >
-              <ThemedText type="subtitle" style={styles.headerTitle}>
+              <ThemedText
+                type="subtitle"
+                style={styles.headerTitle}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
                 {currentSubject}
               </ThemedText>
               <MaterialIcons
@@ -546,17 +551,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   subjectSelector: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    marginRight: 12,
+    minWidth: 0,
   },
   headerTitle: {
+    flexShrink: 1,
     fontSize: 16,
     fontWeight: '600',
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 0,
   },
   headerBackButton: {
     flexDirection: 'row',
