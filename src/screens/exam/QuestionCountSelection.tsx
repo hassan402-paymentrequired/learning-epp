@@ -16,21 +16,8 @@ import { useNavigation } from '@react-navigation/native';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import api from '@/services/api';
-
-interface Question {
-  id: number;
-  question_text: string;
-  question_type: string;
-  points: number;
-  order: number;
-  answers: Answer[];
-}
-
-interface Answer {
-  id: number;
-  answer_text: string;
-  order: string;
-}
+import type { Question } from '@/types/exam';
+import { resolveExamCategoryParam } from '@/utils/exam';
 
 export function QuestionCountSelection() {
   const { selection, setQuestionCount } = useExamSelection();
@@ -42,6 +29,7 @@ export function QuestionCountSelection() {
   const cardBackground = useThemeColor({}, 'backgroundSecondary');
   const borderColor = useThemeColor({}, 'border');
 
+  const examType = resolveExamCategoryParam(selection);
   const quickOptions = [10, 20, 30, 40, 50];
 
   useEffect(() => {
@@ -114,13 +102,13 @@ export function QuestionCountSelection() {
       // For now, let's use the first subject's exam
       // Fetch questions for all subjects
       const subjectsQuestions: Record<string, Question[]> = {};
-      let firstExamId: number | null = null;
+      let firstExamUuid: string | null = null;
 
       for (const subject of selection.subjects) {
         try {
           const examResponse = await api.get('/exams', {
             params: {
-              exam_type: selection.examType,
+              exam_type: examType,
               type: selection.questionMode,
               subject: subject,
             },
@@ -135,12 +123,11 @@ export function QuestionCountSelection() {
           }
 
           const exam = examResponse.data.data[0];
-          if (!firstExamId) {
-            firstExamId = exam.id;
+          if (!firstExamUuid) {
+            firstExamUuid = exam.uuid;
           }
 
-          // Get questions for this subject's exam
-          const questionsResponse = await api.get(`/exams/${exam.id}/questions`);
+          const questionsResponse = await api.get(`/exams/${exam.uuid}/questions`);
 
           if (!questionsResponse.data.success) {
             Alert.alert('Error', `Failed to load questions for ${subject}. Please try again.`);
@@ -168,7 +155,7 @@ export function QuestionCountSelection() {
         }
       }
 
-      if (!firstExamId) {
+      if (!firstExamUuid) {
         Alert.alert('Error', 'Failed to start exam. Please try again.');
         return;
       }
@@ -180,7 +167,7 @@ export function QuestionCountSelection() {
       }));
 
       // Start exam attempt with subjects and duration
-      const attemptResponse = await api.post(`/exams/${firstExamId}/start`, {
+      const attemptResponse = await api.post(`/exams/${firstExamUuid}/start`, {
         subjects: subjectsData,
         duration_minutes: selection.timeMinutes,
       });
@@ -201,11 +188,11 @@ export function QuestionCountSelection() {
       // Navigate to exam screen with all subjects' questions
       // @ts-ignore
       navigation.navigate('ExamScreen', {
-        attemptId: attempt.id,
-        examId: firstExamId,
-        subjectsQuestions: subjectsQuestions, // Pass all subjects' questions
+        attemptUuid: attempt.uuid,
+        examUuid: firstExamUuid,
+        subjectsQuestions: subjectsQuestions,
         exam: {
-          id: firstExamId,
+          uuid: firstExamUuid,
           title: `${selection.examTypeSlug} ${selection.subjects.join(', ')} Practice`,
           duration: selection.timeMinutes || 30,
           total_questions: totalQuestions,

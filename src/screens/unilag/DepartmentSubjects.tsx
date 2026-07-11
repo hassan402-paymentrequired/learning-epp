@@ -18,48 +18,34 @@ import { Button } from "@/components/ui/Button";
 import { useExamSelection } from "@/contexts/ExamSelectionContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import { useThemeColor } from "@/hooks/useThemeColor";
 import api from "@/services/api";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Fonts } from "@/constants/Fonts";
-
-interface SubjectTest {
-  id: number;
-  subject_id: number;
-  name: string;
-}
-
-interface Subject {
-  id: number;
-  name: string;
-  slug: string;
-  description: string;
-  questions_count: number;
-  tests?: SubjectTest[];
-}
+import type { DepartmentSubject } from "@/types/exam";
+import { resolveExamCategoryParam } from "@/utils/exam";
 
 type ConfigModalStep = "main" | "test" | "count" | "time";
 
 export function DepartmentSubjects() {
-  const { selection, setQuestionMode, addSubject, removeSubject, setQuestionCount, setTimeMinutes } =
+  const { selection, setQuestionMode, addSubject, setQuestionCount, setTimeMinutes } =
     useExamSelection();
   const { user } = useAuth();
   const navigation = useNavigation();
   const route = useRoute();
-  const departmentId = (route.params as { departmentId?: number })?.departmentId;
+  const departmentUuid = (route.params as { departmentUuid?: string })?.departmentUuid;
 
-  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [subjects, setSubjects] = useState<DepartmentSubject[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  
-  const [selectedSubjectObj, setSelectedSubjectObj] = useState<Subject | null>(null);
-  const [selectedTestId, setSelectedTestId] = useState<number | null>(null);
+
+  const [selectedSubjectObj, setSelectedSubjectObj] = useState<DepartmentSubject | null>(null);
+  const [selectedTestUuid, setSelectedTestUuid] = useState<string | null>(null);
   const [questionCount, setQuestionCountLocal] = useState<number | null>(null);
   const [timeMinutes, setTimeMinutesLocal] = useState<number | null>(null);
-  
+
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [configModalStep, setConfigModalStep] = useState<ConfigModalStep>("main");
-  
+
   const [startingExam, setStartingExam] = useState(false);
   const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
@@ -68,6 +54,7 @@ export function DepartmentSubjects() {
   const tintColor = "#4800b2";
   const borderColor = "#f1f5f9";
   const textColor = "#1a1c1d";
+  const examType = resolveExamCategoryParam(selection);
 
   useEffect(() => {
     setQuestionMode("practice");
@@ -78,7 +65,7 @@ export function DepartmentSubjects() {
         if (response.data.success && response.data.data) {
           setHasActiveSubscription(response.data.data.has_active_subscription || false);
         }
-      } catch (e) {
+      } catch {
         setHasActiveSubscription(false);
       } finally {
         setSubscriptionLoading(false);
@@ -88,28 +75,30 @@ export function DepartmentSubjects() {
   }, [user]);
 
   useEffect(() => {
-    if (!departmentId) {
+    if (!departmentUuid) {
       // @ts-ignore
       navigation.navigate("DepartmentsList");
       return;
     }
+    if (!examType) return;
     loadSubjects();
-  }, [departmentId]);
+  }, [departmentUuid, examType]);
 
   const loadSubjects = async () => {
-    if (!departmentId) return;
+    if (!departmentUuid || !examType) return;
     try {
       setLoading(true);
-      const response = await api.get(`/departments/${departmentId}/subjects`, {
-        params: { exam_type: selection.examType },
+      const response = await api.get(`/departments/${departmentUuid}/subjects`, {
+        params: { exam_type: examType },
       });
       if (response.data.success && response.data.data) {
         setSubjects(response.data.data);
       }
     } catch (err: any) {
+      console.error("Failed to load department subjects:", err);
     } finally {
       setLoading(false);
-      setRefreshing(false)
+      setRefreshing(false);
     }
   };
 
@@ -118,10 +107,10 @@ export function DepartmentSubjects() {
     setConfigModalStep("main");
   };
 
-  const handleSubjectPress = (subject: Subject) => {
+  const handleSubjectPress = (subject: DepartmentSubject) => {
     setSelectedSubjectObj(subject);
     addSubject(subject.name);
-    setSelectedTestId(null);
+    setSelectedTestUuid(null);
     setQuestionCountLocal(null);
     setTimeMinutesLocal(null);
     setConfigModalStep("main");
@@ -129,20 +118,20 @@ export function DepartmentSubjects() {
   };
 
   const startPractice = async () => {
-    if (!selectedSubjectObj || !questionCount || !timeMinutes) return;
-    
+    if (!selectedSubjectObj || !questionCount || !timeMinutes || !examType) return;
+
     try {
       setStartingExam(true);
       const subj = selectedSubjectObj.name;
-      
-      const payload: any = {
-        exam_type: selection.examType,
+
+      const payload = {
+        exam_type: examType,
         subjects: [
-          { 
-            subject: subj, 
+          {
+            subject: subj,
             question_count: questionCount,
-            subject_test_id: selectedTestId || undefined
-          }
+            subject_test_uuid: selectedTestUuid || undefined,
+          },
         ],
         duration_minutes: timeMinutes,
       };
@@ -158,23 +147,21 @@ export function DepartmentSubjects() {
           return;
         }
 
-        // Update local context state
         setQuestionCount(subj, allQuestions.length);
         setTimeMinutes(timeMinutes);
 
-        // Navigate to ExamScreen
         // @ts-ignore
         navigation.navigate("ExamScreen", {
-          attemptId: attempt.id,
-          examId: attempt.exam_id || 0,
+          attemptUuid: attempt.uuid,
+          examUuid: attempt.exam_uuid || undefined,
           subjectsQuestions: { [subj]: allQuestions },
           exam: {
-            id: attempt.exam_id || 0,
+            uuid: attempt.exam_uuid || undefined,
             title: `${subj} Practice`,
             duration: timeMinutes,
             total_questions: allQuestions.length,
           },
-          timeMinutes: timeMinutes,
+          timeMinutes,
           subjects: [subj],
           isPractice: true,
         });
@@ -191,8 +178,8 @@ export function DepartmentSubjects() {
     }
   };
 
-  const filteredSubjects = subjects.filter(s => 
-    s.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredSubjects = subjects.filter((subject) =>
+    subject.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   if (loading || subscriptionLoading) {
@@ -240,15 +227,17 @@ export function DepartmentSubjects() {
         />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
         refreshControl={
-                  <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-                }
-        >
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         <View style={styles.listContainer}>
           {filteredSubjects.map((subject) => (
-            <TouchableOpacity 
-              key={subject.id} 
+            <TouchableOpacity
+              key={subject.uuid}
               style={styles.listItem}
               onPress={() => handleSubjectPress(subject)}
               activeOpacity={0.6}
@@ -258,9 +247,9 @@ export function DepartmentSubjects() {
               </View>
               <View style={styles.infoBox}>
                 <ThemedText style={styles.subjectTitle}>{subject.name}</ThemedText>
-                <ThemedText 
-                  style={styles.subjectSubtitle} 
-                  numberOfLines={2} 
+                <ThemedText
+                  style={styles.subjectSubtitle}
+                  numberOfLines={2}
                   ellipsizeMode="tail"
                 >
                   {subject.description}
@@ -296,8 +285,8 @@ export function DepartmentSubjects() {
                   {selectedSubjectObj?.tests && selectedSubjectObj.tests.length > 0 && (
                     <TouchableOpacity style={styles.configInput} onPress={() => setConfigModalStep("test")}>
                       <ThemedText style={styles.inputText}>
-                        {selectedTestId
-                          ? selectedSubjectObj.tests.find((t) => t.id === selectedTestId)?.name
+                        {selectedTestUuid
+                          ? selectedSubjectObj.tests.find((test) => test.uuid === selectedTestUuid)?.name
                           : "Select Test"}
                       </ThemedText>
                       <MaterialIcons name="arrow-drop-down" size={24} color="#a1a1aa" />
@@ -340,17 +329,17 @@ export function DepartmentSubjects() {
                   </TouchableOpacity>
                 </View>
                 <ScrollView style={styles.modalScroll}>
-                  {selectedSubjectObj?.tests?.map((t) => (
+                  {selectedSubjectObj?.tests?.map((test) => (
                     <TouchableOpacity
-                      key={t.id}
+                      key={test.uuid}
                       style={styles.optionItem}
                       onPress={() => {
-                        setSelectedTestId(t.id);
+                        setSelectedTestUuid(test.uuid);
                         setConfigModalStep("main");
                       }}
                     >
-                      <ThemedText style={styles.optionText}>{t.name}</ThemedText>
-                      {selectedTestId === t.id && <MaterialIcons name="check-circle" size={20} color={tintColor} />}
+                      <ThemedText style={styles.optionText}>{test.name}</ThemedText>
+                      {selectedTestUuid === test.uuid && <MaterialIcons name="check-circle" size={20} color={tintColor} />}
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -369,17 +358,17 @@ export function DepartmentSubjects() {
                   </TouchableOpacity>
                 </View>
                 <ScrollView style={styles.modalScroll}>
-                  {Array.from({ length: maxQuestions }, (_, i) => i + 1).map((c) => (
+                  {Array.from({ length: maxQuestions }, (_, i) => i + 1).map((count) => (
                     <TouchableOpacity
-                      key={c}
+                      key={count}
                       style={styles.optionItem}
                       onPress={() => {
-                        setQuestionCountLocal(c);
+                        setQuestionCountLocal(count);
                         setConfigModalStep("main");
                       }}
                     >
-                      <ThemedText style={styles.optionText}>{c} Questions</ThemedText>
-                      {questionCount === c && <MaterialIcons name="check-circle" size={20} color={tintColor} />}
+                      <ThemedText style={styles.optionText}>{count} Questions</ThemedText>
+                      {questionCount === count && <MaterialIcons name="check-circle" size={20} color={tintColor} />}
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -398,17 +387,17 @@ export function DepartmentSubjects() {
                   </TouchableOpacity>
                 </View>
                 <ScrollView style={styles.modalScroll}>
-                  {[5, 10, 15, 20, 30, 45, 60, 90, 120].map((m) => (
+                  {[5, 10, 15, 20, 30, 45, 60, 90, 120].map((minutes) => (
                     <TouchableOpacity
-                      key={m}
+                      key={minutes}
                       style={styles.optionItem}
                       onPress={() => {
-                        setTimeMinutesLocal(m);
+                        setTimeMinutesLocal(minutes);
                         setConfigModalStep("main");
                       }}
                     >
-                      <ThemedText style={styles.optionText}>{m} Minutes</ThemedText>
-                      {timeMinutes === m && <MaterialIcons name="check-circle" size={20} color={tintColor} />}
+                      <ThemedText style={styles.optionText}>{minutes} Minutes</ThemedText>
+                      {timeMinutes === minutes && <MaterialIcons name="check-circle" size={20} color={tintColor} />}
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -472,13 +461,13 @@ const styles = StyleSheet.create({
   modalScroll: { maxHeight: 400 },
   configBody: { gap: 16 },
   configLabel: { fontSize: 14, fontFamily: Fonts.primary.medium, color: '#615b6e' },
-  configInput: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    padding: 16, 
-    borderRadius: 8, 
-    borderWidth: 1, 
+  configInput: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 1,
     borderColor: '#f1f5f9',
     backgroundColor: '#fafafa'
   },

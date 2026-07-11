@@ -19,7 +19,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 interface QuestionResult {
   question: {
-    id: number;
+    uuid: string;
     question_text: string;
     question_type: string;
     explanation: string | null;
@@ -27,15 +27,15 @@ interface QuestionResult {
     subject?: string;
     image?: string | null;
     expected_answer?: string | null;
-    answers?: any[];
+    answers?: Array<{ uuid: string; answer_text: string; order?: string | null; is_correct?: boolean }>;
   };
   user_answer: {
-    id: number | null;
+    uuid: string | null;
     answer_text: string;
     order: string | null;
   } | null;
   correct_answer: {
-    id: number | null;
+    uuid: string | null;
     answer_text: string;
     order: string | null;
   } | null;
@@ -55,7 +55,7 @@ interface AttemptData {
 }
 
 interface RouteParams {
-  attemptId: number;
+  attemptUuid: string;
   subjects?: (string | { subject: string; question_count: number })[];
 }
 
@@ -85,7 +85,7 @@ export function CorrectionsScreen() {
   const loadResults = async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/exam-attempts/${params.attemptId}/results`);
+      const response = await api.get(`/exam-attempts/${params.attemptUuid}/results`);
 
       if (response.data.success) {
         const allResults = response.data.data.results;
@@ -149,7 +149,7 @@ export function CorrectionsScreen() {
 
   useEffect(() => {
     loadResults();
-  }, [params.attemptId]);
+  }, [params.attemptUuid]);
 
   const handleNext = () => {
     const currentQuestions = resultsBySubject[currentSubject] || [];
@@ -343,8 +343,8 @@ export function CorrectionsScreen() {
             {/* Multiple Choice / True False */}
             {(currentResult.question.question_type === 'multiple_choice' || currentResult.question.question_type === 'true_false') &&
               currentResult.question.answers?.map((answer) => {
-                const isUserSelected = currentResult.user_answer?.id === answer.id;
-                const isCorrect = currentResult.correct_answer?.id === answer.id || answer.is_correct;
+                const isUserSelected = currentResult.user_answer?.uuid === answer.uuid;
+                const isCorrect = currentResult.correct_answer?.uuid === answer.uuid || answer.is_correct;
 
                 let cardStyle = {};
                 let indicatorStyle = {};
@@ -366,7 +366,7 @@ export function CorrectionsScreen() {
 
                 return (
                   <View
-                    key={answer.id}
+                    key={answer.uuid}
                     style={[styles.answerCard, cardStyle]}
                   >
                     <View style={[styles.answerIndicator, indicatorStyle]}>
@@ -430,7 +430,7 @@ export function CorrectionsScreen() {
 
               return (
                 <TouchableOpacity
-                  key={q.question.id}
+                  key={q.question.uuid}
                   style={[
                     styles.questionDot,
                     {

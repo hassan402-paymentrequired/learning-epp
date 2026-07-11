@@ -5,7 +5,7 @@ import { useThemeColor } from '@/hooks/useThemeColor';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { getExamCategoryMaterialIcon } from '@/utils/exam';
 import { Fonts } from '@/constants/Fonts';
-import { ExamCategory } from '@/screens/Home';
+import type { ExamCategory } from '@/types/exam';
 
 interface QuickActionCardsProps {
   categories: ExamCategory[];
@@ -46,7 +46,7 @@ export function QuickActionCards({ categories, onCategoryPress }: QuickActionCar
 
           return (
             <TouchableOpacity
-              key={category.id}
+              key={category.uuid}
               activeOpacity={0.6}
               onPress={() => onCategoryPress(category)}
               style={[

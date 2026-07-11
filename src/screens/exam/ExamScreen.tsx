@@ -22,39 +22,17 @@ import {
   useFocusEffect,
 } from "@react-navigation/native";
 import { useThemeColor } from "@/hooks/useThemeColor";
-import api, { BACKEND_BASE_URL } from "@/services/api";
+import api from "@/services/api";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { CalculatorModal } from "@/components/CalculatorModal";
-
-// Types
-interface Question {
-  id: number;
-  question_text: string;
-  image?: string | null;
-  question_type: string;
-  points: number;
-  order: number;
-  answers: Answer[];
-  subject?: string; // Subject name for organization
-}
-
-interface Answer {
-  id: number;
-  answer_text: string;
-  order: string;
-}
-
-interface ExamData {
-  id: number;
-  title: string;
-  duration: number;
-  total_questions: number;
-}
+import type { ExamData, PublicUuid, Question } from "@/types/exam";
+import { buildAnswersPayload, getTrueFalseOptionIds } from "@/utils/exam-answer-utils";
+import { getQuestionImageUrl } from "@/utils/question-image";
 
 interface RouteParams {
-  attemptId: number;
-  examId: number;
-  subjectsQuestions: Record<string, Question[]>; // Subject -> Questions mapping
+  attemptUuid: PublicUuid;
+  examUuid?: PublicUuid;
+  subjectsQuestions: Record<string, Question[]>;
   exam: ExamData;
   timeMinutes: number;
   subjects?: string[];
@@ -81,8 +59,8 @@ export function ExamScreen() {
     useState<string | null>(null);
 
   const hasSubmittedRef = useRef(false);
-  const selectedAnswersRef = useRef<Record<number, number>>({});
-  const textInputAnswersRef = useRef<Record<number, string>>({});
+  const selectedAnswersRef = useRef<Record<string, string>>({});
+  const textInputAnswersRef = useRef<Record<string, string>>({});
 
   const [currentSubject, setCurrentSubject] = useState<string>(
     routeSubjects[0] || ""
@@ -100,12 +78,8 @@ export function ExamScreen() {
     });
     return indices;
   });
-  const [selectedAnswers, setSelectedAnswers] = useState<
-    Record<number, number>
-  >({});
-  const [textInputAnswers, setTextInputAnswers] = useState<
-    Record<number, string>
-  >({});
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({});
+  const [textInputAnswers, setTextInputAnswers] = useState<Record<string, string>>({});
   const [timeRemaining, setTimeRemaining] = useState(
     routeTimeMinutes * 60
   ); // in seconds
@@ -134,29 +108,16 @@ export function ExamScreen() {
   const currentQuestion = currentQuestions[currentQuestionIndex];
   const totalQuestionsForSubject = currentQuestions.length;
 
-  const baseUrl = BACKEND_BASE_URL;
-  const imageUrl = currentQuestion.image
-    ? currentQuestion.image.startsWith("http")
-      ? currentQuestion.image
-      : `${baseUrl}/storage/${currentQuestion.image}`
-    : currentQuestion.image
-      ? currentQuestion.image.startsWith("http")
-        ? currentQuestion.image
-        : `${baseUrl}${currentQuestion.image}`
-      : currentQuestion.image
-        ? `${baseUrl}/storage/${currentQuestion.image}`
-        : null;
-
-  console.log(imageUrl, 'in exam screen')
+  const imageUrl = getQuestionImageUrl(currentQuestion);
 
   // Check if all subjects are completed
   const allSubjectsCompleted = routeSubjects.every((subject) => {
     const questions = subjectsQuestions[subject] || [];
     return questions.every((q) => {
       if (q.question_type === 'text_input' || q.question_type === 'numeric_input') {
-        return textInputAnswers[q.id] !== undefined && textInputAnswers[q.id].trim() !== '';
+        return textInputAnswers[q.uuid] !== undefined && textInputAnswers[q.uuid].trim() !== '';
       }
-      return selectedAnswers[q.id] !== undefined;
+      return selectedAnswers[q.uuid] !== undefined;
     });
   });
 
@@ -186,34 +147,19 @@ export function ExamScreen() {
 
   // Define submitExam function
   const submitExam = useCallback(async () => {
-    if (!params?.attemptId || hasSubmittedRef.current) return;
+    if (!params?.attemptUuid || hasSubmittedRef.current) return;
     hasSubmittedRef.current = true;
 
     try {
       setLoading(true);
 
-      // Prepare bulk answers payload
-      const answersPayload: any[] = [];
-
-      // Add text/numeric answers
-      for (const [questionId, textValue] of Object.entries(textInputAnswersRef.current)) {
-        if (!textValue || textValue.trim() === '') continue;
-        answersPayload.push({
-          question_id: parseInt(questionId),
-          answer_text: textValue.trim(),
-        });
-      }
-
-      // Add multiple choice/true false answers
-      for (const [questionId, answerId] of Object.entries(selectedAnswersRef.current)) {
-        answersPayload.push({
-          question_id: parseInt(questionId),
-          answer_id: answerId as number,
-        });
-      }
+      const answersPayload = buildAnswersPayload(
+        selectedAnswersRef.current,
+        textInputAnswersRef.current
+      );
 
       if (answersPayload.length > 0) {
-        await api.post(`/exam-attempts/${params.attemptId}/submit-answers-bulk`, {
+        await api.post(`/exam-attempts/${params.attemptUuid}/submit-answers-bulk`, {
           answers: answersPayload,
         });
       }
@@ -225,7 +171,7 @@ export function ExamScreen() {
       }));
 
       // Complete the exam with subjects and duration
-      await api.post(`/exam-attempts/${params.attemptId}/complete`, {
+      await api.post(`/exam-attempts/${params.attemptUuid}/complete`, {
         subjects: subjectsData,
         duration_minutes: routeTimeMinutes,
       });
@@ -243,7 +189,7 @@ export function ExamScreen() {
       // Navigate to results screen
       // @ts-ignore
       navigation.navigate("ExamResults", {
-        attemptId: params.attemptId,
+        attemptUuid: params.attemptUuid,
       });
     } catch (error: any) {
       console.error("Error submitting exam:", error);
@@ -339,19 +285,19 @@ export function ExamScreen() {
       .padStart(2, "0")}`;
   };
 
-  const handleSelectAnswer = async (answerId: number) => {
-    if (!currentQuestion || !params?.attemptId) return;
+  const handleSelectAnswer = (answerUuid: string) => {
+    if (!currentQuestion || !params?.attemptUuid) return;
 
     setSelectedAnswers({
       ...selectedAnswers,
-      [currentQuestion.id]: answerId,
+      [currentQuestion.uuid]: answerUuid,
     });
   };
 
   const handleTextInputChange = (value: string) => {
     setTextInputAnswers({
       ...textInputAnswers,
-      [currentQuestion.id]: value,
+      [currentQuestion.uuid]: value,
     });
   };
 
@@ -382,7 +328,7 @@ export function ExamScreen() {
   const getSubjectProgress = (subject: string) => {
     const questions = subjectsQuestions[subject] || [];
     const answered = questions.filter(
-      (q) => selectedAnswers[q.id] !== undefined
+      (q) => selectedAnswers[q.uuid] !== undefined
     ).length;
     return { answered, total: questions.length };
   };
@@ -392,9 +338,9 @@ export function ExamScreen() {
       const questions = subjectsQuestions[subject] || [];
       return questions.some((q) => {
         if (q.question_type === 'text_input' || q.question_type === 'numeric_input') {
-          return textInputAnswers[q.id] === undefined || textInputAnswers[q.id].trim() === '';
+          return textInputAnswers[q.uuid] === undefined || textInputAnswers[q.uuid].trim() === '';
         }
-        return selectedAnswers[q.id] === undefined;
+        return selectedAnswers[q.uuid] === undefined;
       });
     });
 
@@ -438,7 +384,11 @@ export function ExamScreen() {
     );
   }
 
-  const selectedAnswerId = selectedAnswers[currentQuestion.id];
+  const selectedAnswerId = selectedAnswers[currentQuestion.uuid];
+  const trueFalseOptions =
+    currentQuestion.question_type === "true_false"
+      ? getTrueFalseOptionIds(currentQuestion.uuid, currentQuestion.answers)
+      : null;
   const isLastQuestionInSubject =
     currentQuestionIndex === totalQuestionsForSubject - 1;
   const currentSubjectProgress = getSubjectProgress(currentSubject);
@@ -598,10 +548,10 @@ export function ExamScreen() {
           <View style={styles.answersContainer}>
             {currentQuestion.question_type === "multiple_choice" &&
               currentQuestion.answers?.map((answer) => {
-                const isSelected = selectedAnswerId === answer.id;
+                const isSelected = selectedAnswerId === answer.uuid;
                 return (
                   <TouchableOpacity
-                    key={answer.id}
+                    key={answer.uuid}
                     style={[
                       styles.answerCard,
                       {
@@ -611,7 +561,7 @@ export function ExamScreen() {
                         borderColor: isSelected ? tintColor : borderColor,
                       },
                     ]}
-                    onPress={() => handleSelectAnswer(answer.id)}
+                    onPress={() => handleSelectAnswer(answer.uuid)}
                     activeOpacity={0.7}
                   >
                     <View
@@ -639,15 +589,17 @@ export function ExamScreen() {
                 );
               })}
 
-            {currentQuestion.question_type === "true_false" && (
+            {currentQuestion.question_type === "true_false" && trueFalseOptions && (
               <View style={styles.trueFalseContainer}>
-                {["True", "False"].map((option) => {
-                  const virtualId = option === "True" ? -1001 : -1002;
-                  const isSelected = selectedAnswerId === virtualId;
-                  
+                {[
+                  { label: "True", id: trueFalseOptions.trueId },
+                  { label: "False", id: trueFalseOptions.falseId },
+                ].map((option) => {
+                  const isSelected = selectedAnswerId === option.id;
+
                   return (
                     <TouchableOpacity
-                      key={option}
+                      key={option.id}
                       style={[
                         styles.answerCard,
                         { flex: 1, justifyContent: 'center' },
@@ -656,7 +608,7 @@ export function ExamScreen() {
                           borderColor: tintColor,
                         },
                       ]}
-                      onPress={() => handleSelectAnswer(virtualId)}
+                      onPress={() => handleSelectAnswer(option.id)}
                     >
                       <ThemedText
                         style={[
@@ -664,7 +616,7 @@ export function ExamScreen() {
                           isSelected && { color: tintColor },
                         ]}
                       >
-                        {option}
+                        {option.label}
                       </ThemedText>
                     </TouchableOpacity>
                   );
@@ -676,7 +628,7 @@ export function ExamScreen() {
               <View style={[styles.textInputBox, { borderColor: borderColor, backgroundColor: backgroundSecondary }]}>
                 <TextInput
                   style={[styles.textInput, { color: textColor }]}
-                  value={textInputAnswers[currentQuestion.id] || ""}
+                  value={textInputAnswers[currentQuestion.uuid] || ""}
                   onChangeText={handleTextInputChange}
                   placeholder={currentQuestion.question_type === "numeric_input" ? "Enter numeric value..." : "Type your answer here..."}
                   placeholderTextColor={placeholderColor}
@@ -727,15 +679,15 @@ export function ExamScreen() {
               {currentQuestions.map((q, index) => {
                 let isAnswered = false;
                 if (q.question_type === 'text_input' || q.question_type === 'numeric_input') {
-                  isAnswered = textInputAnswers[q.id] !== undefined && textInputAnswers[q.id].trim() !== '';
+                  isAnswered = textInputAnswers[q.uuid] !== undefined && textInputAnswers[q.uuid].trim() !== '';
                 } else {
-                  isAnswered = selectedAnswers[q.id] !== undefined;
+                  isAnswered = selectedAnswers[q.uuid] !== undefined;
                 }
 
                 const isCurrent = index === currentQuestionIndex;
                 return (
                   <TouchableOpacity
-                    key={q.id}
+                    key={q.uuid}
                     style={[
                       styles.questionDot,
                       {
@@ -1036,7 +988,7 @@ const styles = StyleSheet.create({
   questionDot: {
     width: 36,
     height: 36,
-    borderRadius: 2,
+    borderRadius: 50,
     borderWidth: 2,
     justifyContent: "center",
     alignItems: "center",

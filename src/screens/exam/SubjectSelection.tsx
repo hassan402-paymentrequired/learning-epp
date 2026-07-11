@@ -16,7 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import api from '@/services/api';
-import { isJambExamSlug } from '@/utils/exam';
+import { isJambExamSlug, resolveExamCategoryParam } from '@/utils/exam';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Button } from '@/components/ui/Button';
 
@@ -50,12 +50,13 @@ export function SubjectSelection() {
 
   const quickOptions = [10, 20, 30, 40, 50];
 
+  const examType = resolveExamCategoryParam(selection);
+
   useEffect(() => {
-    // Only load subjects if examType is set
-    if (selection.examType) {
+    if (examType) {
       loadSubjects();
     }
-  }, [selection.examType, selection.questionMode]);
+  }, [examType, selection.questionMode]);
 
   const loadSubjects = async () => {
     try {
@@ -68,7 +69,7 @@ export function SubjectSelection() {
       
       const response = await api.get('/exams/subjects', {
         params: {
-          exam_type: selection.examType,
+          exam_type: examType,
           type: questionMode === 'practice' ? 'practice' : 'past_question',
         },
       });
@@ -137,7 +138,7 @@ export function SubjectSelection() {
       } else {
         Alert.alert(
           `Maximum ${isDLI ? 'Course' : 'Subject'}${getMaxSubjects() === 1 ? '' : 's'} Reached`,
-          `You can select a maximum of ${getMaxSubjects()} ${isDLI ? 'course' : getMaxSubjects() === 1 ? 'subject' : 'subjects'} for ${selection.examType}.`,
+          `You can select a maximum of ${getMaxSubjects()} ${isDLI ? 'course' : getMaxSubjects() === 1 ? 'subject' : 'subjects'} for ${selection.examTypeName}.`,
           [{ text: 'OK' }]
         );
       }
@@ -459,7 +460,7 @@ export function SubjectSelection() {
           ) : (
             <View style={styles.emptyContainer}>
               <ThemedText style={styles.emptyText}>
-                No {isDLI ? 'courses' : 'subjects'} available for {selection.examType} {isDLI ? 'past questions' : selection.questionMode === 'practice' ? 'practice' : 'past questions'}
+                No {isDLI ? 'courses' : 'subjects'} available for {selection.examTypeName} {isDLI ? 'past questions' : selection.questionMode === 'practice' ? 'practice' : 'past questions'}
               </ThemedText>
             </View>
           )}

@@ -13,8 +13,8 @@ export function ExamTypeSelection() {
   const navigation = useNavigation();
   const tintColor = useThemeColor({}, "tint");
 
-  const handleSelectExamType = (type: "JAMB" | "DLI") => {
-    setExamType(type);
+  const handleSelectExamType = (slug: "JAMB" | "DLI", flowType: "standard" | "departmental") => {
+    setExamType(slug, slug, slug, flowType);
     // @ts-ignore - navigation type will be set up properly
     navigation.navigate("QuestionModeSelection");
   };
@@ -37,7 +37,7 @@ export function ExamTypeSelection() {
         <View style={styles.optionsContainer}>
           <TouchableOpacity
             style={styles.optionCard}
-            onPress={() => handleSelectExamType("JAMB")}
+            onPress={() => handleSelectExamType("JAMB", "standard")}
             activeOpacity={0.8}
           >
             <LinearGradient
@@ -60,7 +60,7 @@ export function ExamTypeSelection() {
 
           <TouchableOpacity
             style={styles.optionCard}
-            onPress={() => handleSelectExamType("DLI")}
+            onPress={() => handleSelectExamType("DLI", "departmental")}
             activeOpacity={0.8}
           >
             <LinearGradient

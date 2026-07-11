@@ -2,6 +2,14 @@ export function isJambExamSlug(slug: string | null | undefined): boolean {
   return slug?.toLowerCase() === 'jamb';
 }
 
+/** Resolves the exam_type param accepted by the API (UUID preferred, slug fallback). */
+export function resolveExamCategoryParam(selection: {
+  examCategoryUuid?: string | null;
+  examTypeSlug?: string | null;
+}): string {
+  return selection.examCategoryUuid || selection.examTypeSlug || '';
+}
+
 type MaterialIconName = 'school' | 'menu-book' | 'account-balance';
 
 const SLUG_MATERIAL_ICONS: Record<string, MaterialIconName> = {

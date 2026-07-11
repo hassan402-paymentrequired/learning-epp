@@ -1,10 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+import type { PublicUuid } from '@/types/exam';
+import { isJambExamSlug } from '@/utils/exam';
 
-function isJambExamSlug(slug: string | null | undefined): boolean {
-  return slug?.toLowerCase() === 'jamb';
-}
-
-export type ExamType = string | number | null;
 export type QuestionMode = 'past_question' | 'practice' | null;
 
 export interface SubjectQuestionCount {
@@ -13,7 +10,8 @@ export interface SubjectQuestionCount {
 }
 
 export interface ExamSelectionState {
-  examType: ExamType; // This will now be the ID
+  /** Public exam category UUID sent to the API as exam_type */
+  examCategoryUuid: PublicUuid | null;
   examTypeSlug: string | null;
   examTypeName: string | null;
   flowType: 'standard' | 'departmental' | null;
@@ -26,7 +24,7 @@ export interface ExamSelectionState {
 
 interface ExamSelectionContextType {
   selection: ExamSelectionState;
-  setExamType: (id: ExamType, slug: string, name: string, flowType: 'standard' | 'departmental') => void;
+  setExamType: (uuid: PublicUuid, slug: string, name: string, flowType: 'standard' | 'departmental') => void;
   setSubjects: (subjects: string[]) => void;
   addSubject: (subject: string) => void;
   removeSubject: (subject: string) => void;
@@ -44,7 +42,7 @@ interface ExamSelectionContextType {
 }
 
 const initialState: ExamSelectionState = {
-  examType: null,
+  examCategoryUuid: null,
   examTypeSlug: null,
   examTypeName: null,
   flowType: null,
@@ -61,10 +59,10 @@ export function ExamSelectionProvider({ children }: { children: ReactNode }) {
   const [selection, setSelection] = useState<ExamSelectionState>(initialState);
   const [practiceSessions, setPracticeSessions] = useState<Record<string, number>>({});
 
-  const setExamType = useCallback((id: ExamType, slug: string, name: string, flowType: 'standard' | 'departmental') => {
+  const setExamType = useCallback((uuid: PublicUuid, slug: string, name: string, flowType: 'standard' | 'departmental') => {
     setSelection((prev) => ({
       ...prev,
-      examType: id,
+      examCategoryUuid: uuid,
       examTypeSlug: slug,
       examTypeName: name,
       flowType: flowType,

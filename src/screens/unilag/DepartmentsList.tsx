@@ -5,24 +5,15 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Platform,
   TextInput,
 } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { AppLayout } from "@/components/AppLayout";
 import { useNavigation } from "@react-navigation/native";
-import { useThemeColor } from "@/hooks/useThemeColor";
 import api from "@/services/api";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Fonts } from "@/constants/Fonts";
-
-interface Department {
-  id: number;
-  name: string;
-  slug: string;
-  description?: string;
-  subjects_count: number;
-}
+import type { Department } from "@/types/exam";
 
 export function DepartmentsList() {
   const navigation = useNavigation();
@@ -60,13 +51,13 @@ export function DepartmentsList() {
     loadDepartments();
   }, []);
 
-  const filteredDepartments = departments.filter(d => 
-    d.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredDepartments = departments.filter((department) =>
+    department.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleSelectDepartment = (departmentId: number) => {
+  const handleSelectDepartment = (departmentUuid: string) => {
     // @ts-ignore
-    navigation.navigate("DepartmentSubjects", { departmentId });
+    navigation.navigate("DepartmentSubjects", { departmentUuid });
   };
 
   if (loading) {
@@ -124,16 +115,16 @@ export function DepartmentsList() {
 
         {filteredDepartments.length > 0 ? (
           <View style={[styles.listContainer, { borderColor }]}>
-            {departments.map((department, index) => {
-              const isLast = index === departments.length - 1;
+            {filteredDepartments.map((department, index) => {
+              const isLast = index === filteredDepartments.length - 1;
               return (
                 <TouchableOpacity
-                  key={department.id}
+                  key={department.uuid}
                   style={[
                     styles.listItem,
                     !isLast && { borderBottomWidth: 1, borderBottomColor: borderColor }
                   ]}
-                  onPress={() => handleSelectDepartment(department.id)}
+                  onPress={() => handleSelectDepartment(department.uuid)}
                   activeOpacity={0.6}
                 >
                   <View style={styles.iconBox}>
@@ -144,7 +135,7 @@ export function DepartmentsList() {
                       {department.name}
                     </ThemedText>
                     <ThemedText style={styles.departmentDesc} numberOfLines={1}>
-                      Available course: {department.subjects_count}
+                      Available course: {department.subjects_count ?? 0}
                     </ThemedText>
                   </View>
                 </TouchableOpacity>

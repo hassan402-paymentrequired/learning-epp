@@ -60,24 +60,7 @@ interface AnalyticsData {
   }[];
 }
 
-interface InProgressAttempt {
-  id: number;
-  exam: {
-    id: number;
-    title: string;
-    type: string;
-  };
-  status: string;
-}
-
-export interface ExamCategory {
-  id: number;
-  name: string;
-  slug: string;
-  description: string;
-  flow_type: 'standard' | 'departmental';
-  is_active: boolean;
-}
+import type { ExamCategory, InProgressAttempt } from '@/types/exam';
 
 export function Home() {
   const navigation = useNavigation();
@@ -150,7 +133,7 @@ export function Home() {
   };
 
   const handleCategoryPress = (category: ExamCategory) => {
-    setExamType(category.id, category.slug, category.name, category.flow_type);
+    setExamType(category.uuid, category.slug, category.name, category.flow_type);
     if (category.flow_type === 'departmental') {
       // @ts-ignore
       navigation.navigate("DepartmentsList");
@@ -164,7 +147,7 @@ export function Home() {
     if (inProgressAttempt) {
       // @ts-ignore
       navigation.navigate("ExamScreen", {
-        attemptId: inProgressAttempt.id,
+        attemptUuid: inProgressAttempt.uuid,
         exam: inProgressAttempt.exam,
       });
     }

@@ -15,22 +15,9 @@ import { useExamSelection } from "@/contexts/ExamSelectionContext";
 import { useNavigation } from "@react-navigation/native";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { isJambExamSlug, resolveExamCategoryParam } from "@/utils/exam";
 import api from "@/services/api";
-
-interface Question {
-  id: number;
-  question_text: string;
-  question_type: string;
-  points: number;
-  order: number;
-  answers: Answer[];
-}
-
-interface Answer {
-  id: number;
-  answer_text: string;
-  order: string;
-}
+import type { Question } from "@/types/exam";
 
 export function TimeSelection() {
   const { selection, setTimeMinutes } = useExamSelection();
@@ -42,8 +29,10 @@ export function TimeSelection() {
 
   // Calculate default time based on number of subjects (30 min per subject)
   // For Standard categorical flows, allow standard time combinations (e.g. 30min - 120min)
+  const examType = resolveExamCategoryParam(selection);
   const isStandardFlow = selection.flowType === 'standard';
   const isDLI = selection.flowType === 'departmental';
+  const isJAMB = isJambExamSlug(selection.examTypeSlug);
   const defaultMinutes = selection.subjects.length * 30;
   const maxMinutes = isStandardFlow 
     ? 120 // Standard: maximum 2 hours (120 minutes)
@@ -97,7 +86,7 @@ export function TimeSelection() {
       Alert.alert(
         "Time Limit Exceeded",
         isStandardFlow
-          ? `For ${selection.examType}, maximum allowed time is 2 hours (120 minutes).`
+          ? `For ${selection.examTypeName}, maximum allowed time is 2 hours (120 minutes).`
           : `Maximum allowed time is ${maxMinutes} minutes (${formatTime(
               maxMinutes
             )}) for ${selection.subjects.length} ${
@@ -132,7 +121,7 @@ export function TimeSelection() {
 
       // Fetch questions for all subjects
       const subjectsQuestions: Record<string, Question[]> = {};
-      let firstExamId: number | null = null;
+      let firstExamUuid: string | null = null;
 
       for (const subject of selection.subjects) {
         try {
@@ -142,7 +131,7 @@ export function TimeSelection() {
             // For practice: Get random questions from questions table
             const questionsResponse = await api.get('/questions/practice', {
               params: {
-                exam_type: selection.examType,
+                exam_type: examType,
                 subject: subject,
                 count: questionCount,
               },
@@ -181,19 +170,16 @@ export function TimeSelection() {
             // For practice, we need an exam_id for the attempt
             // Since practice questions are standalone, we can use any exam of this type
             // Or handle this differently in the backend (maybe allow null exam_id for practice attempts)
-            if (!firstExamId) {
-              // Try to get any exam for this exam type (as a placeholder for the attempt)
+            if (!firstExamUuid) {
               const examResponse = await api.get('/exams', {
                 params: {
-                  exam_type: selection.examType,
+                  exam_type: examType,
                   subject: subject,
                 },
               });
 
               if (examResponse.data.success && examResponse.data.data.length > 0) {
-                // Use the first available exam as a placeholder
-                // Note: In the future, we might want to allow null exam_id for practice attempts
-                firstExamId = examResponse.data.data[0].id;
+                firstExamUuid = examResponse.data.data[0].uuid;
               } else {
                 // If no exam found, we'll need to handle this - maybe create a temporary exam
                 // For now, use a default or handle error
@@ -209,7 +195,7 @@ export function TimeSelection() {
             // For JAMB: Use selected year
             // For DLI: Use latest available year (no year selection)
             const params: any = {
-              exam_type: selection.examType,
+              exam_type: examType,
               subject: subject,
             };
 
@@ -240,12 +226,11 @@ export function TimeSelection() {
             } else {
               exam = exams[0]; // For standard flow, use the selected year exam
             }
-            if (!firstExamId) {
-              firstExamId = exam.id;
+            if (!firstExamUuid) {
+              firstExamUuid = exam.uuid;
             }
 
-            // Get questions for this subject's exam
-            const questionsResponse = await api.get(`/exams/${exam.id}/questions`);
+            const questionsResponse = await api.get(`/exams/${exam.uuid}/questions`);
 
             if (!questionsResponse.data.success) {
               Alert.alert('Error', `Failed to load questions for ${subject}. Please try again.`);
@@ -273,7 +258,7 @@ export function TimeSelection() {
         }
       }
 
-      if (!firstExamId) {
+      if (!firstExamUuid) {
         Alert.alert('Error', 'Failed to start exam. Please try again.');
         return;
       }
@@ -285,7 +270,7 @@ export function TimeSelection() {
       }));
 
       // Start exam attempt with subjects and duration
-      const attemptResponse = await api.post(`/exams/${firstExamId}/start`, {
+      const attemptResponse = await api.post(`/exams/${firstExamUuid}/start`, {
         subjects: subjectsData,
         duration_minutes: numMinutes,
       });
@@ -306,14 +291,14 @@ export function TimeSelection() {
       // Navigate to exam screen with all subjects' questions
       // @ts-ignore
       navigation.navigate('ExamScreen', {
-        attemptId: attempt.id,
-        examId: firstExamId,
-        subjectsQuestions: subjectsQuestions, // Pass all subjects' questions
+        attemptUuid: attempt.uuid,
+        examUuid: firstExamUuid,
+        subjectsQuestions: subjectsQuestions,
         exam: {
-          id: firstExamId,
+          uuid: firstExamUuid,
           title: `${selection.examTypeSlug} ${selection.subjects.join(', ')} ${
-            selection.questionMode === 'practice' 
-              ? 'Practice' 
+            selection.questionMode === 'practice'
+              ? 'Practice'
               : isStandardFlow
               ? `${selection.selectedYear} Past Questions`
               : 'Past Questions'
@@ -433,7 +418,7 @@ export function TimeSelection() {
           <View style={styles.summaryRow}>
             <ThemedText style={styles.summaryLabel}>Type:</ThemedText>
             <ThemedText style={styles.summaryValue}>
-              {selection.examType}
+              {selection.examTypeName}
             </ThemedText>
           </View>
           <View style={styles.summaryRow}>

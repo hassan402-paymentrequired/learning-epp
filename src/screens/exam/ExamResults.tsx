@@ -54,7 +54,7 @@ interface SubjectAnalytics {
 }
 
 interface RouteParams {
-  attemptId: number;
+  attemptUuid: string;
 }
 
 export function ExamResults() {
@@ -82,7 +82,7 @@ export function ExamResults() {
     try {
       setLoading(true);
       const response = await api.get(
-        `/exam-attempts/${params.attemptId}/results`
+        `/exam-attempts/${params.attemptUuid}/results`
       );
 
       if (response.data.success) {
@@ -251,7 +251,7 @@ export function ExamResults() {
                 onPress={() => {
                   // @ts-ignore
                   navigation.navigate("CorrectionsScreen", {
-                    attemptId: params.attemptId,
+                    attemptUuid: params.attemptUuid,
                     subjects:
                       subjectAnalytics.length > 0
                         ? subjectAnalytics.map((a) => a.subject)

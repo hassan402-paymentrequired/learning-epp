@@ -14,6 +14,7 @@ import { useExamSelection } from "@/contexts/ExamSelectionContext";
 import { useNavigation } from "@react-navigation/native";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import api from "@/services/api";
+import { resolveExamCategoryParam } from "@/utils/exam";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 export function YearSelection() {
@@ -35,12 +36,14 @@ export function YearSelection() {
     loadAvailableYears();
   }, []);
 
+  const examType = resolveExamCategoryParam(selection);
+
   const loadAvailableYears = async () => {
     try {
       setLoading(true);
       const response = await api.get("/exams/years", {
         params: {
-          exam_type: selection.examType,
+          exam_type: examType,
           subjects: selection.subjects, // Send subjects as array
         },
       });

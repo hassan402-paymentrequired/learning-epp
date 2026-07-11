@@ -223,9 +223,9 @@ export function DLIPracticeSelection() {
         },
       });
 
-      let examId: number;
+      let examUuid: string;
       if (examResponse.data.success && examResponse.data.data.length > 0) {
-        examId = examResponse.data.data[0].id;
+        examUuid = examResponse.data.data[0].uuid;
       } else {
         Alert.alert(
           "Error",
@@ -243,7 +243,7 @@ export function DLIPracticeSelection() {
       ];
 
       // Start exam attempt
-      const attemptResponse = await api.post(`/exams/${examId}/start`, {
+      const attemptResponse = await api.post(`/exams/${examUuid}/start`, {
         subjects: subjectsData,
         duration_minutes: timeMinutes,
       });
@@ -258,13 +258,13 @@ export function DLIPracticeSelection() {
       // Navigate to exam screen
       // @ts-ignore
       navigation.navigate("ExamScreen", {
-        attemptId: attempt.id,
-        examId: examId,
+        attemptUuid: attempt.uuid,
+        examUuid,
         subjectsQuestions: {
           [selectedSubject]: questionsWithSubject,
         },
         exam: {
-          id: examId,
+          uuid: examUuid,
           title: `DLI ${selectedSubject} Practice Questions`,
           duration: timeMinutes,
           total_questions: questionsWithSubject.length,

@@ -20,6 +20,7 @@ import { useThemeColor } from "@/hooks/useThemeColor";
 import { useExamSelection } from "@/contexts/ExamSelectionContext";
 import api from "@/services/api";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { resolveExamCategoryParam } from "@/utils/exam";
 import { Fonts } from "@/constants/Fonts";
 
 const { width } = Dimensions.get("window");
@@ -51,7 +52,7 @@ export function StandardPracticeQuestionsSelection() {
   const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
 
-  const examType = selection.examTypeSlug || "JAMB";
+  const examType = resolveExamCategoryParam(selection) || "JAMB";
   const examTypeLabel = selection.examTypeName || "JAMB";
 
   const tintColor = "#4800b2";
@@ -134,7 +135,7 @@ export function StandardPracticeQuestionsSelection() {
       const duration = selectedSubjects.length * 30;
 
       const attemptRes = await api.post("/practice/start", {
-        exam_type: selection.examTypeSlug || selection.examType, // Use slug if available for practice filtering
+        exam_type: examType,
         subjects: subjectsData,
         duration_minutes: duration,
       });
@@ -153,14 +154,14 @@ export function StandardPracticeQuestionsSelection() {
         setGlobalTime(duration);
 
         (navigation as any).navigate("ExamScreen", {
-          attemptId: attempt.id,
-          examId: attempt.exam_id || 0,
+          attemptUuid: attempt.uuid,
+          examUuid: attempt.exam_uuid || undefined,
           subjectsQuestions,
-          exam: { 
-            id: attempt.exam_id || 0, 
-            title: `${examTypeLabel} Practice`, 
-            duration, 
-            total_questions: Object.values(subjectsQuestions).flat().length 
+          exam: {
+            uuid: attempt.exam_uuid || undefined,
+            title: `${examTypeLabel} Practice`,
+            duration,
+            total_questions: Object.values(subjectsQuestions).flat().length
           },
           timeMinutes: duration,
           subjects: selectedSubjects,

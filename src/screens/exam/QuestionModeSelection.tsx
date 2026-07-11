@@ -66,7 +66,7 @@ export function QuestionModeSelection() {
             Select Question Mode
           </ThemedText>
           <ThemedText style={styles.subtitle}>
-            Choose how you want to practice {selection.examType} questions
+            Choose how you want to practice {selection.examTypeName} questions
           </ThemedText>
         </View>
 
