@@ -7,6 +7,11 @@ import React, {
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import api, { setLogoutCallback } from "../services/api";
+import {
+  registerForExpoPushNotifications,
+  syncExpoPushToken,
+  unregisterExpoPushNotifications,
+} from "../services/expo-push";
 
 interface User {
   id: number;
@@ -104,6 +109,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         // Verify token is still valid
         try {
           await api.get("/me");
+          void syncExpoPushToken().catch(() => {});
         } catch (error) {
           // Token invalid, clear storage
           await AsyncStorage.multiRemove(["auth_token", "user"]);
@@ -143,6 +149,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
       setToken(newToken);
       setUser(userData);
+      void registerForExpoPushNotifications().catch(() => {});
     } catch (error: any) {
       if (error.response?.data) {
         const customError: any = new Error(
@@ -196,10 +203,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     ]);
     setToken(token);
     setUser(user);
+    void registerForExpoPushNotifications().catch(() => {});
   };
 
   const logout = async () => {
     try {
+      try {
+        await unregisterExpoPushNotifications();
+      } catch {
+        // Best-effort token cleanup before session ends.
+      }
       if (token) {
         await api.post("/logout");
       }

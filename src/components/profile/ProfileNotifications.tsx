@@ -18,6 +18,10 @@ import {
   updateNotificationSettings,
   type NotificationSettings,
 } from '@/services/notifications';
+import {
+  registerForExpoPushNotifications,
+  unregisterExpoPushNotifications,
+} from '@/services/expo-push';
 
 const REMINDER_PRESETS = ['06:00', '07:00', '08:00', '09:00', '10:00'];
 
@@ -65,17 +69,30 @@ export function ProfileNotifications() {
   const handleToggleReminders = async (enabled: boolean) => {
     setUpdating(true);
     try {
-      const data = await updateNotificationSettings({
-        push_notifications_enabled: enabled,
-        timezone: getDeviceTimezone(),
-      });
-      setSettings(data);
+      if (enabled) {
+        await registerForExpoPushNotifications();
+        const data = await getNotificationSettings();
+        setSettings(data);
+        Alert.alert('Updated', 'Morning reminders enabled on this device.');
+      } else {
+        await updateNotificationSettings({
+          push_notifications_enabled: false,
+          timezone: getDeviceTimezone(),
+        });
+        try {
+          await unregisterExpoPushNotifications();
+        } catch {
+          // Local cleanup is best-effort after server disable.
+        }
+        const data = await getNotificationSettings();
+        setSettings(data);
+        Alert.alert('Updated', 'Morning reminders turned off.');
+      }
+    } catch (error) {
       Alert.alert(
-        'Updated',
-        enabled ? 'Morning reminders enabled.' : 'Morning reminders turned off.'
+        'Error',
+        error instanceof Error ? error.message : 'Could not update reminder settings.'
       );
-    } catch {
-      Alert.alert('Error', 'Could not update reminder settings.');
     } finally {
       setUpdating(false);
     }
@@ -145,7 +162,7 @@ export function ProfileNotifications() {
           <ThemedText style={styles.cardTitle}>Morning reminders</ThemedText>
         </View>
         <ThemedText style={styles.muted}>
-          Get a streak reminder at your preferred time. Turn them off if you prefer not to be notified.
+          Get a streak reminder on this phone at your preferred time. Requires notification permission.
         </ThemedText>
 
         <View style={styles.toggleRow}>
@@ -155,8 +172,8 @@ export function ProfileNotifications() {
             </ThemedText>
             <ThemedText style={styles.mutedSmall}>
               {settings?.has_push_subscription
-                ? 'Push subscription active on your account'
-                : 'Preference synced to your account'}
+                ? 'Device push token registered'
+                : 'Enable to register this device for push'}
             </ThemedText>
           </View>
           <Switch

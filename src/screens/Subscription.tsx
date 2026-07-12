@@ -19,7 +19,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { SubscriptionWebView } from "./SubscriptionWebView";
 
 type SubscriptionPlan = {
-  id: number;
+  uuid: string;
   name: string;
   description: string;
   price: number;
@@ -34,9 +34,10 @@ type SubscriptionStatus = {
   subscription_status: string;
   subscription_expires_at: string | null;
   subscription: {
-    id: number;
+    uuid: string;
     type: string;
     plan: {
+      uuid?: string;
       name: string;
       price: number;
     };
@@ -109,7 +110,7 @@ export function Subscription() {
       return;
     }
 
-    if (!plan) {
+    if (!plan?.uuid) {
       Alert.alert("Error", "Subscription plan not available");
       return;
     }
@@ -117,7 +118,7 @@ export function Subscription() {
     setProcessing(true);
     try {
       const response = await api.post("/subscriptions/initialize-payment", {
-        plan_id: plan.id,
+        plan_uuid: plan.uuid,
         referral_code: referralCode.trim() || undefined,
       });
 
@@ -135,10 +136,15 @@ export function Subscription() {
       }
     } catch (error: any) {
       console.error("Error initializing payment:", error);
+      const validationErrors = error.response?.data?.errors;
+      const validationMessage = validationErrors
+        ? Object.values(validationErrors).flat().join("\n")
+        : null;
       Alert.alert(
         "Payment Error",
-        error.response?.data?.message ||
-        "Failed to initialize payment. Please try again."
+        validationMessage ||
+          error.response?.data?.message ||
+          "Failed to initialize payment. Please try again."
       );
     } finally {
       setProcessing(false);

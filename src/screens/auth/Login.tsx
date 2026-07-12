@@ -196,7 +196,7 @@ export function Login() {
               </ThemedText>
             </View>
 
-            <View style={styles.aboutFooter}>
+            {/* <View style={styles.aboutFooter}>
               <ThemedText style={styles.aboutLabel}>
                 App {Constants.nativeApplicationVersion ?? "—"} (build{" "}
                 {Constants.nativeBuildVersion ?? "—"})
@@ -204,7 +204,7 @@ export function Login() {
               <ThemedText style={styles.aboutLabel} selectable>
                 API {API_BASE_URL}
               </ThemedText>
-            </View>
+            </View> */}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

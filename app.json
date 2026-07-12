@@ -18,7 +18,8 @@
       "bundleIdentifier": "com.oluwafemiomoope.stepra",
       "buildNumber": "1",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": ["remote-notification"]
       }
     },
     "android": {
@@ -62,7 +63,14 @@
           ]
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "color": "#4800b2",
+          "defaultChannel": "morning-reminders"
+        }
+      ]
     ],
     "extra": {
       "eas": {
