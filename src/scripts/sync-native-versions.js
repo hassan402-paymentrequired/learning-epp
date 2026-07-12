@@ -2,26 +2,60 @@
 /**
  * Keeps native iOS/Android version fields aligned with app.json (Expo).
  *
- * Source of truth:
+ * Source of truth (local bare / prebuild folders only):
  *   - expo.version              → iOS MARKETING_VERSION, Android versionName
- *   - expo.ios.buildNumber      → iOS CURRENT_PROJECT_VERSION (CFBundleVersion)
- *   - expo.android.versionCode  → Android versionCode (falls back to numeric ios.buildNumber)
+ *   - expo.ios.buildNumber      → iOS CURRENT_PROJECT_VERSION
+ *   - expo.android.versionCode  → Android versionCode (falls back to ios.buildNumber)
  *
- * Run before local archive or EAS: pnpm run sync-native-versions
+ * NOTE: If you use EAS Build with eas.json:
+ *   "cli.appVersionSource": "remote" + production.autoIncrement: true
+ * then EAS stores/increments the store build number on Expo's servers.
+ * This script will no-op when ios/ and android/ are not in the repo (managed workflow).
+ * Bump expo.version in app.json when you want a new user-facing version (e.g. 1.0.1 → 1.0.2).
+ *
+ * Usage:
+ *   npm run sync-native-versions
+ *   npm run sync-native-versions -- --bump   # increments ios.buildNumber (+ android.versionCode) in app.json
  */
 
 const fs = require("fs");
 const path = require("path");
 
-/** Repo root — script is invoked via pnpm run sync-native-versions / EAS from project root. */
 const root = process.cwd();
 const appJsonPath = path.join(root, "app.json");
 const pbxPath = path.join(root, "ios/stepra.xcodeproj/project.pbxproj");
 const gradlePath = path.join(root, "android/app/build.gradle");
+const shouldBump = process.argv.includes("--bump");
 
-function readApp() {
+function readAppJson() {
   const raw = fs.readFileSync(appJsonPath, "utf8");
-  const { expo } = JSON.parse(raw);
+  return JSON.parse(raw);
+}
+
+function bumpAppJson(app) {
+  const expo = app.expo;
+  const current = Number.parseInt(String(expo.ios?.buildNumber ?? "0"), 10);
+  const next = (Number.isFinite(current) ? current : 0) + 1;
+  expo.ios = expo.ios || {};
+  expo.ios.buildNumber = String(next);
+
+  const androidCode =
+    expo.android?.versionCode != null
+      ? Number(expo.android.versionCode)
+      : current;
+  expo.android = expo.android || {};
+  expo.android.versionCode =
+    (Number.isFinite(androidCode) ? androidCode : 0) + 1;
+
+  fs.writeFileSync(appJsonPath, `${JSON.stringify(app, null, 2)}\n`);
+  console.log(
+    `sync-native-versions: bumped app.json → ios.buildNumber=${expo.ios.buildNumber}, android.versionCode=${expo.android.versionCode}`,
+  );
+  return app;
+}
+
+function readApp(app) {
+  const { expo } = app;
   if (!expo?.version) {
     console.error("sync-native-versions: missing expo.version in app.json");
     process.exit(1);
@@ -30,7 +64,7 @@ function readApp() {
   const iosBuildRaw = expo.ios?.buildNumber;
   if (iosBuildRaw == null || String(iosBuildRaw).trim() === "") {
     console.error(
-      "sync-native-versions: set expo.ios.buildNumber in app.json (store build number; bump each App Store submission).",
+      "sync-native-versions: set expo.ios.buildNumber in app.json (or pass --bump).",
     );
     process.exit(1);
   }
@@ -53,8 +87,7 @@ function readApp() {
 
 function syncIos({ marketing, iosBuild }) {
   if (!fs.existsSync(pbxPath)) {
-    console.warn("sync-native-versions: skip iOS —", pbxPath, "not found");
-    return;
+    return false;
   }
   let pbx = fs.readFileSync(pbxPath, "utf8");
 
@@ -70,18 +103,16 @@ function syncIos({ marketing, iosBuild }) {
     process.exit(1);
   }
 
-  // MARKETING_VERSION may be quoted or unquoted in some projects — normalize to Expo style (unquoted, dots ok)
   pbx = pbx.replace(/^(\t\t\t\tMARKETING_VERSION = )[^;\n]+;/gm, `$1${marketing};`);
-  // Build number: integer segments only in pbx (e.g. 2 or 42); string build like "1.2.3" → Xcode accepts CURRENT_PROJECT_VERSION = 123 style — use iosBuild literally if alphanumeric
   pbx = pbx.replace(/^(\t\t\t\tCURRENT_PROJECT_VERSION = )[^;\n]+;/gm, `$1${iosBuild};`);
 
   fs.writeFileSync(pbxPath, pbx);
+  return true;
 }
 
 function syncAndroid({ marketing, versionCode }) {
   if (!fs.existsSync(gradlePath)) {
-    console.warn("sync-native-versions: skip Android —", gradlePath, "not found");
-    return;
+    return false;
   }
   let gradle = fs.readFileSync(gradlePath, "utf8");
 
@@ -101,11 +132,37 @@ function syncAndroid({ marketing, versionCode }) {
   );
 
   fs.writeFileSync(gradlePath, gradle);
+  return true;
 }
 
-const cfg = readApp();
-syncIos(cfg);
-syncAndroid(cfg);
+let app = readAppJson();
+if (shouldBump) {
+  app = bumpAppJson(app);
+}
+
+const cfg = readApp(app);
+const syncedIos = syncIos(cfg);
+const syncedAndroid = syncAndroid(cfg);
+
+if (!syncedIos && !syncedAndroid) {
+  console.log(
+    "sync-native-versions: no ios/ or android/ folders (EAS managed workflow).",
+  );
+  console.log(
+    "  → Store build number is managed by EAS (eas.json appVersionSource: remote + autoIncrement).",
+  );
+  console.log(
+    "  → User-facing version comes from app.json expo.version (currently " +
+      cfg.marketing +
+      ").",
+  );
+  console.log(
+    "  → Tip: bump expo.version before a release; EAS auto-increments CFBundleVersion remotely.",
+  );
+} else {
+  if (syncedIos) console.log("sync-native-versions: updated ios project.pbxproj");
+  if (syncedAndroid) console.log("sync-native-versions: updated android/app/build.gradle");
+}
 
 console.log(
   `sync-native-versions: expo.version=${cfg.marketing}, ios.buildNumber=${cfg.iosBuild}, android.versionCode=${cfg.versionCode}`,

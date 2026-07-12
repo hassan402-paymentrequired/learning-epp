@@ -114,7 +114,7 @@ export function Profile() {
                 color={tintColor}
                 style={styles.settingIcon}
               />
-              <ThemedText style={styles.settingLabel}>Referrals</ThemedText>
+              <ThemedText style={styles.settingLabel}>Refer & Earn</ThemedText>
             </View>
             <MaterialIcons name="chevron-right" size={20} color={tintColor} />
           </TouchableOpacity>

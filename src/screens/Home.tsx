@@ -47,7 +47,8 @@ interface AnalyticsData {
     total_time_spent: number;
   };
   recent_attempts: {
-    id: number;
+    uuid?: string;
+    id?: number;
     exam_title: string;
     score: number;
     percentage: number;
@@ -209,9 +210,9 @@ export function Home() {
         />
 
         {/* Recent Performance */}
-        {analytics && (
+        {analytics?.recent_attempts?.length ? (
           <RecentPerformance attempts={analytics.recent_attempts.slice(0, 5)} />
-        )}
+        ) : null}
       </ScrollView>
     </AppLayout>
   );

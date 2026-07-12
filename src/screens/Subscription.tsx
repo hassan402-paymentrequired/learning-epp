@@ -18,6 +18,11 @@ import { useFocusEffect } from "@react-navigation/native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { SubscriptionWebView } from "./SubscriptionWebView";
 
+/** Display price before discount (matches web). */
+function getCompareAtPrice(price: number): number {
+  return Math.ceil((price * 2) / 500) * 400;
+}
+
 type SubscriptionPlan = {
   uuid: string;
   name: string;
@@ -252,6 +257,7 @@ export function Subscription() {
   }
 
   const hasActiveSubscription = status?.has_active_subscription || false;
+  const compareAtPrice = plan ? getCompareAtPrice(plan.price) : null;
 
   return (
     <AppLayout showBackButton={true} headerTitle="Subscription">
@@ -296,14 +302,16 @@ export function Subscription() {
                 {plan.name}
               </ThemedText>
               <View style={styles.priceContainer}>
+                {compareAtPrice != null && compareAtPrice > plan.price && (
+                  <ThemedText style={styles.compareAtPrice}>
+                    ₦{compareAtPrice.toLocaleString()}
+                  </ThemedText>
+                )}
                 <ThemedText
                   type="title"
                   style={[styles.price, { color: tintColor }]}
                 >
                   ₦{plan.price.toLocaleString()}
-                </ThemedText>
-                <ThemedText style={styles.pricePeriod}>
-                  /{plan.interval}
                 </ThemedText>
               </View>
             </View>
@@ -396,6 +404,11 @@ export function Subscription() {
                     disabled={processing || pinProcessing || finalizingPayment}
                     style={styles.subscribeButton}
                   />
+                  {compareAtPrice != null && compareAtPrice > plan.price && (
+                    <ThemedText style={styles.discountHint}>
+                      Was ₦{compareAtPrice.toLocaleString()} — limited offer
+                    </ThemedText>
+                  )}
                   <ThemedText style={styles.secureText}>Secure payment powered by Paystack</ThemedText>
                 </View>
 
@@ -525,10 +538,23 @@ const styles = StyleSheet.create({
   priceContainer: {
     flexDirection: "row",
     alignItems: "baseline",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  compareAtPrice: {
+    fontSize: 22,
+    opacity: 0.55,
+    textDecorationLine: "line-through",
   },
   price: {
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: "bold",
+  },
+  discountHint: {
+    marginTop: 8,
+    textAlign: "center",
+    fontSize: 13,
+    opacity: 0.7,
   },
   pricePeriod: {
     fontSize: 16,

@@ -8,16 +8,15 @@ import {
   Alert,
   Share,
   Modal,
-  TextInput,
   Pressable,
 } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import { ThemedText } from "@/components/ThemedText";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import api from "@/services/api";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 type ReferralWithdrawal = {
   uuid: string;
@@ -96,13 +95,23 @@ export function Referral() {
     }
   };
 
+  const handleCopyCode = async () => {
+    if (!referralData) return;
+    try {
+      await Clipboard.setStringAsync(referralData.referral_code);
+      Alert.alert("Copied", "Referral code copied to clipboard.");
+    } catch {
+      Alert.alert("Error", "Failed to copy referral code.");
+    }
+  };
+
   const handleShare = async () => {
     if (!referralData) return;
 
     try {
       await Share.share({
         message: `Join Stepra and practice for your exams! Use my referral code: ${referralData.referral_code}\n\n${referralData.referral_url}`,
-        title: "Referral Code",
+        title: "Refer & Earn",
       });
     } catch {
       Alert.alert("Error", "Failed to share referral code");
@@ -157,7 +166,7 @@ export function Referral() {
 
   if (loading) {
     return (
-      <AppLayout showBackButton={true} headerTitle="Referrals">
+      <AppLayout showBackButton={true} headerTitle="Refer & Earn">
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={tintColor} />
         </View>
@@ -167,7 +176,7 @@ export function Referral() {
 
   if (!referralData) {
     return (
-      <AppLayout showBackButton={true} headerTitle="Referrals">
+      <AppLayout showBackButton={true} headerTitle="Refer & Earn">
         <View style={styles.emptyContainer}>
           <ThemedText>Failed to load referral data</ThemedText>
         </View>
@@ -179,7 +188,7 @@ export function Referral() {
   const canWithdraw = referralData.credit_balance >= minWithdrawal;
 
   return (
-    <AppLayout showBackButton={true} headerTitle="Referrals">
+    <AppLayout showBackButton={true} headerTitle="Refer & Earn">
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <View style={[styles.balanceCard, { backgroundColor: cardBackground, borderColor }]}>
           <ThemedText style={styles.balanceLabel}>Available Balance</ThemedText>
@@ -203,12 +212,21 @@ export function Referral() {
           <View style={styles.codeContainer}>
             <ThemedText style={styles.codeText}>{referralData.referral_code}</ThemedText>
           </View>
-          <Button
-            title="Share Referral Code"
-            onPress={handleShare}
-            style={styles.shareButton}
-            textStyle={styles.shareButtonText}
-          />
+          <View style={styles.codeActions}>
+            <Button
+              title="Copy Code"
+              onPress={handleCopyCode}
+              variant="outline"
+              style={styles.copyButton}
+              textStyle={styles.copyButtonText}
+            />
+            <Button
+              title="Share"
+              onPress={handleShare}
+              style={styles.shareButton}
+              textStyle={styles.shareButtonText}
+            />
+          </View>
         </View>
 
         <View style={[styles.statsCard, { backgroundColor: cardBackground, borderColor }]}>
@@ -252,7 +270,21 @@ export function Referral() {
                   <ThemedText style={styles.referralName}>₦{withdrawal.amount.toLocaleString()}</ThemedText>
                   <ThemedText style={styles.referralEmail}>{withdrawal.phone_number} · {withdrawal.network.toUpperCase()}</ThemedText>
                 </View>
-                <ThemedText style={styles.statusText}>{withdrawal.status}</ThemedText>
+                <ThemedText
+                  style={[
+                    styles.statusText,
+                    {
+                      color:
+                        withdrawal.status === "paid"
+                          ? "#16a34a"
+                          : withdrawal.status === "rejected"
+                            ? "#dc2626"
+                            : "#ca8a04",
+                    },
+                  ]}
+                >
+                  {withdrawal.status}
+                </ThemedText>
               </View>
             ))}
           </View>
@@ -272,10 +304,20 @@ export function Referral() {
                   <View style={styles.referralInfo}>
                     <ThemedText type="subtitle" style={styles.referralName}>{referral.referred_user.name}</ThemedText>
                     <ThemedText style={styles.referralEmail}>{referral.referred_user.email}</ThemedText>
+                    {!!referral.referred_user.signed_up_at && (
+                      <ThemedText style={styles.referralEmail}>
+                        Joined {new Date(referral.referred_user.signed_up_at).toLocaleDateString()}
+                      </ThemedText>
+                    )}
                   </View>
                 </View>
                 <View style={styles.referralItemRight}>
-                  <ThemedText style={styles.statusText}>
+                  <ThemedText
+                    style={[
+                      styles.statusText,
+                      { color: referral.status === "rewarded" ? "#16a34a" : "#ca8a04" },
+                    ]}
+                  >
                     {referral.status === "rewarded" ? "Rewarded" : "Pending"}
                   </ThemedText>
                   {referral.reward_amount > 0 && (
@@ -348,7 +390,23 @@ const styles = StyleSheet.create({
   codeLabel: { fontSize: 14, color: "#FFFFFF", opacity: 0.9, marginBottom: 12 },
   codeContainer: { backgroundColor: "rgba(255, 255, 255, 0.2)", padding: 16, borderRadius: 8, marginBottom: 16, width: "100%", alignItems: "center" },
   codeText: { fontSize: 24, fontWeight: "bold", color: "#FFFFFF", letterSpacing: 2 },
-  shareButton: { backgroundColor: "#FFFFFF", width: "100%" },
+  codeActions: { width: "100%", gap: 10 },
+  copyButton: {
+    width: "100%",
+    backgroundColor: "transparent",
+    borderColor: "#FFFFFF",
+    height: 44,
+    minHeight: 44,
+    paddingVertical: 0,
+  },
+  copyButtonText: { color: "#FFFFFF" },
+  shareButton: {
+    backgroundColor: "#FFFFFF",
+    width: "100%",
+    height: 44,
+    minHeight: 44,
+    paddingVertical: 0,
+  },
   shareButtonText: { color: "#000000" },
   statsCard: { padding: 20, borderRadius: 12, borderWidth: 1, marginBottom: 16 },
   sectionTitle: { fontSize: 18, marginBottom: 16 },
