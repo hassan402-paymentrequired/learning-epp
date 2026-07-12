@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   StyleSheet,
@@ -6,20 +6,19 @@ import {
   RefreshControl,
   TouchableOpacity,
   ActivityIndicator,
-} from 'react-native';
-import { ThemedView } from '@/components/ThemedView';
-import { ThemedText } from '@/components/ThemedText';
-import { AppLayout } from '@/components/AppLayout';
-import { useThemeColor } from '@/hooks/useThemeColor';
-import  api  from '@/services/api';
-import { useAuth } from '@/contexts/AuthContext';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Fonts } from '@/constants/Fonts';
+} from "react-native";
+import { ThemedText } from "@/components/ThemedText";
+import { AppLayout } from "@/components/AppLayout";
+import { useThemeColor } from "@/hooks/useThemeColor";
+import api from "@/services/api";
+import { useAuth } from "@/contexts/AuthContext";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { Fonts } from "@/constants/Fonts";
 
 type LeaderboardEntry = {
   rank: number;
   user: {
-    id: number;
+    uuid: string;
     name: string;
     email: string;
   };
@@ -34,22 +33,39 @@ type LeaderboardEntry = {
   };
 };
 
-type LeaderboardType = 'all_time' | 'monthly' | 'weekly';
-type ExamType = 'JAMB' | 'DLI' | 'UNILAG' | 'GENERAL' | null;
+type LeaderboardType = "all_time" | "monthly" | "weekly";
+type ExamType = "JAMB" | "DLI" | "UNILAG" | "GENERAL" | null;
 
-const leaderboardTypeOptions: { label: string; value: LeaderboardType }[] = [
-  { label: 'All Time', value: 'all_time' },
-  { label: 'This Month', value: 'monthly' },
-  { label: 'This Week', value: 'weekly' },
+const periodOptions: { label: string; value: LeaderboardType }[] = [
+  { label: "All Time", value: "all_time" },
+  { label: "Month", value: "monthly" },
+  { label: "Week", value: "weekly" },
 ];
 
 const examTypeOptions: { label: string; value: ExamType }[] = [
-  { label: 'All Exams', value: null },
-  { label: 'JAMB', value: 'JAMB' },
-  { label: 'DLI', value: 'DLI' },
-  { label: 'UNILAG', value: 'UNILAG' },
-  { label: 'GENERAL', value: 'GENERAL' },
+  { label: "All", value: null },
+  { label: "JAMB", value: "JAMB" },
+  { label: "DLI", value: "DLI" },
+  { label: "UNILAG", value: "UNILAG" },
+  { label: "GENERAL", value: "GENERAL" },
 ];
+
+const MEDAL_COLORS = {
+  1: "#D4A017",
+  2: "#8A8F98",
+  3: "#B87333",
+} as const;
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+function entryKey(entry: LeaderboardEntry): string {
+  return entry.user.uuid || entry.user.email;
+}
 
 export function Leaderboard() {
   const { user } = useAuth();
@@ -57,13 +73,14 @@ export function Leaderboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [userRank, setUserRank] = useState<LeaderboardEntry | null>(null);
-  const [type, setType] = useState<LeaderboardType>('all_time');
+  const [type, setType] = useState<LeaderboardType>("all_time");
   const [examType, setExamType] = useState<ExamType>(null);
 
-  const textColor = useThemeColor({}, 'text');
-  const tintColor = useThemeColor({}, 'tint');
-  const borderColor = useThemeColor({}, 'border');
-  const cardBackground = useThemeColor({}, 'cardBackground');
+  const textColor = useThemeColor({}, "text");
+  const tintColor = useThemeColor({}, "tint");
+  const borderColor = useThemeColor({}, "border");
+  const backgroundColor = useThemeColor({}, "background");
+  const cardBackground = useThemeColor({}, "cardBackground");
 
   useEffect(() => {
     fetchLeaderboard();
@@ -73,16 +90,16 @@ export function Leaderboard() {
     try {
       setLoading(true);
       const params = new URLSearchParams();
-      if (type) params.append('type', type);
-      if (examType) params.append('exam_type', examType);
+      if (type) params.append("type", type);
+      if (examType) params.append("exam_type", examType);
 
       const response = await api.get(`/leaderboard?${params.toString()}`);
       if (response.data.success) {
         setLeaderboard(response.data.data.leaderboard || []);
         setUserRank(response.data.data.current_user || null);
       }
-    } catch (error: any) {
-      console.error('Error fetching leaderboard:', error);
+    } catch (error) {
+      console.error("Error fetching leaderboard:", error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -94,44 +111,177 @@ export function Leaderboard() {
     fetchLeaderboard();
   };
 
-  const renderRankBadge = (rank: number) => {
-    if (rank === 1) {
-      return <MaterialIcons name="emoji-events" size={24} color="#FFD700" />;
-    } else if (rank === 2) {
-      return <MaterialIcons name="emoji-events" size={24} color="#C0C0C0" />;
-    } else if (rank === 3) {
-      return <MaterialIcons name="emoji-events" size={24} color="#CD7F32" />;
+  const isCurrentUser = (entry: LeaderboardEntry) => {
+    if (userRank?.user?.uuid && entry.user.uuid) {
+      return entry.user.uuid === userRank.user.uuid;
     }
+    if (user?.email) {
+      return entry.user.email === user.email;
+    }
+    return false;
+  };
+
+  const topThree = useMemo(() => leaderboard.slice(0, 3), [leaderboard]);
+  const rest = useMemo(() => leaderboard.slice(3), [leaderboard]);
+
+  const podiumOrder = useMemo(() => {
+    const byRank = (rank: number) => topThree.find((e) => e.rank === rank);
+    return [byRank(2), byRank(1), byRank(3)] as const;
+  }, [topThree]);
+
+  const renderPodiumColumn = (
+    entry: LeaderboardEntry | undefined,
+    place: 1 | 2 | 3
+  ) => {
+    const isFirst = place === 1;
+    const height = isFirst ? 88 : place === 2 ? 64 : 52;
+    const medal = MEDAL_COLORS[place];
+
     return (
-      <ThemedText style={[styles.rankNumber, { color: textColor }]}>
-        #{rank}
-      </ThemedText>
+      <View style={[styles.podiumCol, isFirst && styles.podiumColFirst]}>
+        {entry ? (
+          <>
+            <View
+              style={[
+                styles.avatar,
+                isFirst && styles.avatarFirst,
+                {
+                  borderColor: medal,
+                  backgroundColor: isFirst ? tintColor + "18" : cardBackground,
+                },
+              ]}
+            >
+              <ThemedText
+                style={[
+                  styles.avatarText,
+                  isFirst && styles.avatarTextFirst,
+                  { color: isFirst ? tintColor : textColor },
+                ]}
+              >
+                {getInitials(entry.user.name)}
+              </ThemedText>
+            </View>
+            <MaterialIcons
+              name="emoji-events"
+              size={isFirst ? 22 : 18}
+              color={medal}
+              style={styles.medalIcon}
+            />
+            <ThemedText
+              style={[styles.podiumName, isFirst && styles.podiumNameFirst]}
+              numberOfLines={1}
+            >
+              {entry.user.name}
+            </ThemedText>
+            <ThemedText style={[styles.podiumPoints, { color: tintColor }]}>
+              {entry.statistics.total_score.toLocaleString()}
+            </ThemedText>
+          </>
+        ) : (
+          <View style={styles.podiumEmptySlot}>
+            <ThemedText style={styles.podiumEmptyText}>—</ThemedText>
+          </View>
+        )}
+        <View
+          style={[
+            styles.podiumStand,
+            {
+              height,
+              backgroundColor: isFirst ? tintColor : tintColor + "22",
+            },
+          ]}
+        >
+          <ThemedText
+            style={[
+              styles.podiumPlace,
+              { color: isFirst ? "#FFFFFF" : tintColor },
+            ]}
+          >
+            {place}
+          </ThemedText>
+        </View>
+      </View>
+    );
+  };
+
+  const renderRow = (entry: LeaderboardEntry) => {
+    const mine = isCurrentUser(entry);
+    return (
+      <View
+        key={entryKey(entry)}
+        style={[
+          styles.row,
+          { borderBottomColor: borderColor },
+          mine && { backgroundColor: tintColor + "0D" },
+        ]}
+      >
+        <View
+          style={[
+            styles.rankCircle,
+            {
+              borderColor: mine ? tintColor : borderColor,
+              backgroundColor: cardBackground,
+            },
+          ]}
+        >
+          <ThemedText
+            style={[styles.rankCircleText, mine && { color: tintColor }]}
+          >
+            {entry.rank}
+          </ThemedText>
+        </View>
+        <View style={styles.rowInfo}>
+          <View style={styles.rowNameRow}>
+            <ThemedText
+              style={[styles.rowName, mine && { color: tintColor }]}
+              numberOfLines={1}
+            >
+              {entry.user.name}
+            </ThemedText>
+            {mine && (
+              <View style={[styles.youChip, { backgroundColor: tintColor + "18" }]}>
+                <ThemedText style={[styles.youChipText, { color: tintColor }]}>
+                  You
+                </ThemedText>
+              </View>
+            )}
+          </View>
+        </View>
+        <View style={styles.rowStats}>
+          <ThemedText style={styles.rowPoints}>
+            {entry.statistics.total_score.toLocaleString()}
+          </ThemedText>
+          {entry.statistics.accuracy > 0 && (
+            <ThemedText style={styles.rowAccuracy}>
+              {entry.statistics.accuracy.toFixed(0)}%
+            </ThemedText>
+          )}
+        </View>
+      </View>
     );
   };
 
   return (
     <AppLayout showBackButton={true} headerTitle="Leaderboard">
-      <View style={styles.container}>
-        {/* Filters */}
-        <View style={[styles.filtersContainer, { borderBottomColor: borderColor }]}>
-          <ThemedText style={styles.filterSectionLabel}>Period</ThemedText>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filters}>
-            {leaderboardTypeOptions.map((option) => {
-              const isSelected = type === option.value;
+      <View style={[styles.container, { backgroundColor }]}>
+        <View style={[styles.filtersBlock, { borderBottomColor: borderColor }]}>
+          <View style={[styles.segment, { backgroundColor: cardBackground, borderColor }]}>
+            {periodOptions.map((option) => {
+              const selected = type === option.value;
               return (
                 <TouchableOpacity
                   key={option.value}
                   style={[
-                    styles.filterButton,
-                    isSelected && { backgroundColor: tintColor, borderColor: tintColor },
-                    !isSelected && { borderColor },
+                    styles.segmentItem,
+                    selected && { backgroundColor: tintColor },
                   ]}
                   onPress={() => setType(option.value)}
+                  activeOpacity={0.85}
                 >
                   <ThemedText
                     style={[
-                      styles.filterText,
-                      isSelected && styles.filterTextSelected,
+                      styles.segmentText,
+                      selected && styles.segmentTextSelected,
                     ]}
                   >
                     {option.label}
@@ -139,30 +289,32 @@ export function Leaderboard() {
                 </TouchableOpacity>
               );
             })}
-          </ScrollView>
+          </View>
 
-          <ThemedText style={styles.filterSectionLabel}>Exam</ThemedText>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            style={styles.filters}
+            contentContainerStyle={styles.examChips}
           >
             {examTypeOptions.map((option) => {
-              const isSelected = examType === option.value;
+              const selected = examType === option.value;
               return (
                 <TouchableOpacity
                   key={option.label}
                   style={[
-                    styles.filterButton,
-                    isSelected && { backgroundColor: tintColor, borderColor: tintColor },
-                    !isSelected && { borderColor },
+                    styles.examChip,
+                    {
+                      borderColor: selected ? tintColor : borderColor,
+                      backgroundColor: selected ? tintColor : "transparent",
+                    },
                   ]}
                   onPress={() => setExamType(option.value)}
+                  activeOpacity={0.85}
                 >
                   <ThemedText
                     style={[
-                      styles.filterText,
-                      isSelected && styles.filterTextSelected,
+                      styles.examChipText,
+                      selected && styles.segmentTextSelected,
                     ]}
                   >
                     {option.label}
@@ -173,124 +325,101 @@ export function Leaderboard() {
           </ScrollView>
         </View>
 
-        {/* Current User Rank */}
-        {userRank && (
-          <View
-            style={[
-              styles.userRankCard,
-              {
-                backgroundColor: tintColor + '20',
-                borderColor: tintColor,
-              },
-            ]}
-          >
-            <ThemedText type="subtitle" style={styles.userRankTitle}>
-              Your Rank
-            </ThemedText>
-            <View style={styles.userRankContent}>
-              <View style={styles.userRankLeft}>
-                {renderRankBadge(userRank.rank)}
-                <View style={styles.userRankInfo}>
-                  <ThemedText type="subtitle" style={styles.userRankName}>
-                    {userRank.user.name}
-                  </ThemedText>
-                  <ThemedText style={styles.userRankStats} numberOfLines={1}>
-                    Rank #{userRank.rank} • {userRank.statistics.total_score} points
-                  </ThemedText>
-                </View>
-              </View>
-              <View style={styles.userRankStatsRight}>
-                <ThemedText style={styles.statValue}>
-                  {userRank.statistics.total_attempts}
-                </ThemedText>
-                <ThemedText style={styles.statLabel}>Attempts</ThemedText>
-              </View>
-            </View>
-          </View>
-        )}
-
-        {/* Leaderboard List */}
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={tintColor} />
+            <ThemedText style={styles.loadingText}>Loading performers...</ThemedText>
           </View>
         ) : (
-          <ScrollView
-            style={styles.scrollView}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            }
-          >
-            {leaderboard.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <MaterialIcons name="leaderboard" size={64} color={textColor} style={{ opacity: 0.3 }} />
-                <ThemedText style={styles.emptyText}>
-                  No rankings available yet
-                </ThemedText>
-                <ThemedText style={[styles.emptySubtext, { color: textColor, opacity: 0.6 }]}>
-                  Complete some exams to appear on the leaderboard
-                </ThemedText>
-              </View>
-            ) : (
-              leaderboard.map((entry) => (
+          <>
+            <ScrollView
+              style={styles.scrollView}
+              contentContainerStyle={styles.scrollContent}
+              refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+              }
+            >
+              {leaderboard.length === 0 ? (
+                <View style={[styles.emptyContainer, { borderColor }]}>
+                  <MaterialIcons
+                    name="emoji-events"
+                    size={40}
+                    color={textColor}
+                    style={{ opacity: 0.3 }}
+                  />
+                  <ThemedText style={styles.emptyText}>
+                    No rankings for this period yet
+                  </ThemedText>
+                  <ThemedText
+                    style={[styles.emptySubtext, { color: textColor }]}
+                  >
+                    Start practicing to see your name here!
+                  </ThemedText>
+                </View>
+              ) : (
+                <>
+                  {topThree.length > 0 && (
+                    <View style={styles.podium}>
+                      {renderPodiumColumn(podiumOrder[0], 2)}
+                      {renderPodiumColumn(podiumOrder[1], 1)}
+                      {renderPodiumColumn(podiumOrder[2], 3)}
+                    </View>
+                  )}
+
+                  {rest.length > 0 && (
+                    <View style={styles.listSection}>
+                      <ThemedText style={styles.sectionLabel}>
+                        Rankings
+                      </ThemedText>
+                      <View
+                        style={[
+                          styles.listCard,
+                          { backgroundColor: cardBackground, borderColor },
+                        ]}
+                      >
+                        {rest.map(renderRow)}
+                      </View>
+                    </View>
+                  )}
+                </>
+              )}
+            </ScrollView>
+
+            {userRank && (
+              <View
+                style={[
+                  styles.stickyYou,
+                  {
+                    backgroundColor: cardBackground,
+                    borderTopColor: borderColor,
+                  },
+                ]}
+              >
                 <View
-                  key={entry.user.id}
                   style={[
-                    styles.leaderboardCard,
-                    {
-                      backgroundColor: cardBackground,
-                      borderColor,
-                    },
-                    entry.user.id === user?.id && {
-                      backgroundColor: tintColor + '15',
-                      borderColor: tintColor,
-                    },
+                    styles.stickyRank,
+                    { backgroundColor: tintColor + "18" },
                   ]}
                 >
-                  <View style={styles.leaderboardLeft}>
-                    {renderRankBadge(entry.rank)}
-                    <View style={styles.leaderboardInfo}>
-                      <ThemedText
-                        type="subtitle"
-                        style={styles.leaderboardName}
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                      >
-                        {entry.user.name}
-                      </ThemedText>
-                      <ThemedText
-                        style={styles.leaderboardEmail}
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                      >
-                        {entry.user.email}
-                      </ThemedText>
-                    </View>
-                  </View>
-                  <View style={styles.leaderboardStats}>
-                    <View style={styles.statItem}>
-                      <ThemedText style={styles.statValue}>
-                        {entry.statistics.total_score}
-                      </ThemedText>
-                      <ThemedText style={styles.statLabel}>Points</ThemedText>
-                    </View>
-                    <View style={styles.statItem}>
-                      <ThemedText style={styles.statValue}>
-                        {entry.statistics.accuracy.toFixed(1)}%
-                      </ThemedText>
-                      <ThemedText style={styles.statLabel}>Accuracy</ThemedText>
-                    </View>
-                    <View style={styles.statItem}>
-                      <ThemedText style={styles.statValue}>
-                        {entry.statistics.total_attempts}
-                      </ThemedText>
-                      <ThemedText style={styles.statLabel}>Attempts</ThemedText>
-                    </View>
-                  </View>
+                  <ThemedText style={[styles.stickyRankText, { color: tintColor }]}>
+                    #{userRank.rank}
+                  </ThemedText>
                 </View>
-              ))
+                <View style={styles.stickyInfo}>
+                  <ThemedText style={styles.stickyName} numberOfLines={1}>
+                    You
+                  </ThemedText>
+                  <ThemedText style={styles.stickyMeta} numberOfLines={1}>
+                    {userRank.statistics.total_score.toLocaleString()} pts
+                    {userRank.statistics.accuracy > 0
+                      ? ` · ${userRank.statistics.accuracy.toFixed(0)}%`
+                      : ""}
+                  </ThemedText>
+                </View>
+                <MaterialIcons name="person" size={20} color={tintColor} />
+              </View>
             )}
-          </ScrollView>
+          </>
         )}
       </View>
     </AppLayout>
@@ -301,153 +430,265 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  filtersContainer: {
-    borderBottomWidth: 1,
-    paddingVertical: 12,
+  filtersBlock: {
     paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 12,
   },
-  filterSectionLabel: {
-    fontSize: 12,
-    marginTop: 4,
-    marginBottom: 6,
-    opacity: 0.7,
+  segment: {
+    flexDirection: "row",
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 3,
+  },
+  segmentItem: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 9,
+    alignItems: "center",
+  },
+  segmentText: {
+    fontSize: 13,
     fontFamily: Fonts.primary.medium,
   },
-  filters: {
-    marginBottom: 10,
+  segmentTextSelected: {
+    color: "#FFFFFF",
+    fontFamily: Fonts.primary.semiBold,
   },
-  filterButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+  examChips: {
+    gap: 8,
+    paddingRight: 8,
+  },
+  examChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
     borderRadius: 20,
-    marginRight: 8,
     borderWidth: 1,
   },
-  filterText: {
-    fontSize: 14,
+  examChipText: {
+    fontSize: 13,
     fontFamily: Fonts.primary.medium,
-  },
-  filterTextSelected: {
-    color: '#FFFFFF',
-    fontFamily: Fonts.primary.semiBold,
-  },
-  userRankCard: {
-    margin: 16,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-  },
-  userRankTitle: {
-    marginBottom: 12,
-    fontSize: 14,
-    opacity: 0.8,
-    fontFamily: Fonts.primary.medium,
-  },
-  userRankContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  userRankLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  userRankInfo: {
-    marginLeft: 12,
-    flex: 1,
-    minWidth: 0,
-  },
-  userRankName: {
-    fontSize: 18,
-    marginBottom: 4,
-    fontFamily: Fonts.primary.semiBold,
-  },
-  userRankStats: {
-    fontSize: 12,
-    opacity: 0.7,
-    fontFamily: Fonts.primary.regular,
-  },
-  userRankStatsRight: {
-    alignItems: 'flex-end',
   },
   scrollView: {
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: 24,
+  },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 13,
+    opacity: 0.5,
+    fontFamily: Fonts.primary.regular,
   },
   emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 64,
+    marginHorizontal: 16,
+    marginTop: 48,
+    paddingVertical: 48,
+    paddingHorizontal: 24,
+    alignItems: "center",
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderRadius: 16,
   },
   emptyText: {
-    fontSize: 18,
+    fontSize: 15,
     marginTop: 16,
-    marginBottom: 8,
+    marginBottom: 6,
     fontFamily: Fonts.primary.semiBold,
   },
   emptySubtext: {
-    fontSize: 14,
-    textAlign: 'center',
-    paddingHorizontal: 32,
+    fontSize: 13,
+    textAlign: "center",
+    opacity: 0.55,
     fontFamily: Fonts.primary.regular,
   },
-  leaderboardCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    marginHorizontal: 16,
-    marginBottom: 12,
-    borderRadius: 12,
-    borderWidth: 1,
+  podium: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingTop: 28,
+    paddingBottom: 8,
+    gap: 8,
   },
-  leaderboardLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  podiumCol: {
     flex: 1,
+    alignItems: "center",
+    maxWidth: 120,
   },
-  rankNumber: {
+  podiumColFirst: {
+    marginBottom: 0,
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarFirst: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+  },
+  avatarText: {
+    fontSize: 14,
+    fontFamily: Fonts.primary.bold,
+  },
+  avatarTextFirst: {
+    fontSize: 18,
+  },
+  medalIcon: {
+    marginTop: 6,
+  },
+  podiumName: {
+    fontSize: 12,
+    fontFamily: Fonts.primary.semiBold,
+    marginTop: 4,
+    textAlign: "center",
+    paddingHorizontal: 4,
+  },
+  podiumNameFirst: {
+    fontSize: 13,
+  },
+  podiumPoints: {
+    fontSize: 12,
+    fontFamily: Fonts.primary.bold,
+    marginTop: 2,
+    marginBottom: 8,
+  },
+  podiumEmptySlot: {
+    height: 80,
+    justifyContent: "center",
+  },
+  podiumEmptyText: {
+    opacity: 0.3,
+    fontSize: 18,
+  },
+  podiumStand: {
+    width: "100%",
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  podiumPlace: {
     fontSize: 20,
     fontFamily: Fonts.primary.bold,
-    width: 32,
-    textAlign: 'center',
   },
-  leaderboardInfo: {
-    marginLeft: 12,
+  listSection: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    opacity: 0.5,
+    marginBottom: 8,
+    marginLeft: 4,
+    fontFamily: Fonts.primary.semiBold,
+  },
+  listCard: {
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 12,
+  },
+  rankCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rankCircleText: {
+    fontSize: 13,
+    fontFamily: Fonts.primary.bold,
+  },
+  rowInfo: {
     flex: 1,
     minWidth: 0,
   },
-  leaderboardName: {
-    fontSize: 16,
-    marginBottom: 4,
+  rowNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  rowName: {
+    fontSize: 14,
     fontFamily: Fonts.primary.semiBold,
+    flexShrink: 1,
   },
-  leaderboardEmail: {
-    fontSize: 12,
-    opacity: 0.6,
-    fontFamily: Fonts.primary.regular,
+  youChip: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
-  leaderboardStats: {
-    flexDirection: 'row',
-    gap: 12,
+  youChipText: {
+    fontSize: 10,
+    fontFamily: Fonts.primary.bold,
+    textTransform: "uppercase",
   },
-  statItem: {
-    alignItems: 'center',
+  rowStats: {
+    alignItems: "flex-end",
   },
-  statValue: {
-    fontSize: 16,
-    marginBottom: 4,
+  rowPoints: {
+    fontSize: 14,
     fontFamily: Fonts.primary.bold,
   },
-  statLabel: {
-    fontSize: 10,
-    opacity: 0.6,
+  rowAccuracy: {
+    fontSize: 11,
+    opacity: 0.5,
+    marginTop: 2,
     fontFamily: Fonts.primary.medium,
+  },
+  stickyYou: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 12,
+  },
+  stickyRank: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  stickyRankText: {
+    fontSize: 14,
+    fontFamily: Fonts.primary.bold,
+  },
+  stickyInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  stickyName: {
+    fontSize: 14,
+    fontFamily: Fonts.primary.semiBold,
+  },
+  stickyMeta: {
+    fontSize: 12,
+    opacity: 0.55,
+    marginTop: 2,
+    fontFamily: Fonts.primary.regular,
   },
 });
