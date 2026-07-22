@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import {
   View,
   StyleSheet,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { ThemedText } from "@/components/ThemedText";
 import { AppLayout } from "@/components/AppLayout";
 import { useThemeColor } from "@/hooks/useThemeColor";
@@ -82,10 +83,6 @@ export function Leaderboard() {
   const backgroundColor = useThemeColor({}, "background");
   const cardBackground = useThemeColor({}, "cardBackground");
 
-  useEffect(() => {
-    fetchLeaderboard();
-  }, [type, examType]);
-
   const fetchLeaderboard = async () => {
     try {
       setLoading(true);
@@ -105,6 +102,13 @@ export function Leaderboard() {
       setRefreshing(false);
     }
   };
+
+  // Refetch on open and when returning from practice so ranks stay current.
+  useFocusEffect(
+    useCallback(() => {
+      fetchLeaderboard();
+    }, [type, examType])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
