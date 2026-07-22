@@ -186,14 +186,28 @@ export function ExamScreen() {
         });
       }
 
-      // Navigate to results screen
+      // Replace exam screen so back cannot reopen a completed attempt
       // @ts-ignore
-      navigation.navigate("ExamResults", {
+      navigation.replace("ExamResults", {
         attemptUuid: params.attemptUuid,
       });
     } catch (error: any) {
       console.error("Error submitting exam:", error);
-      Alert.alert("Error", "Failed to submit exam. Please try again.");
+      const message =
+        error?.response?.data?.message || "Failed to submit exam. Please try again.";
+
+      if (
+        typeof message === "string" &&
+        message.toLowerCase().includes("not in progress")
+      ) {
+        // @ts-ignore
+        navigation.replace("ExamResults", {
+          attemptUuid: params.attemptUuid,
+        });
+        return;
+      }
+
+      Alert.alert("Error", message);
       hasSubmittedRef.current = false;
     } finally {
       setLoading(false);

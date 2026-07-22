@@ -3,7 +3,6 @@ import {
   View,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   ActivityIndicator,
   Alert,
   Share,
@@ -21,8 +20,11 @@ import api from "@/services/api";
 type ReferralWithdrawal = {
   uuid: string;
   amount: number;
-  phone_number: string;
-  network: string;
+  account_name?: string | null;
+  account_number?: string | null;
+  bank_name?: string | null;
+  phone_number?: string | null;
+  network?: string | null;
   status: string;
   created_at: string;
 };
@@ -55,23 +57,26 @@ type ReferralData = {
   recent_withdrawals: ReferralWithdrawal[];
 };
 
-const NETWORKS = [
-  { value: "mtn", label: "MTN" },
-  { value: "airtel", label: "Airtel" },
-  { value: "glo", label: "Glo" },
-  { value: "9mobile", label: "9mobile" },
-];
+function formatWithdrawalDestination(withdrawal: ReferralWithdrawal): string {
+  if (withdrawal.account_number && withdrawal.bank_name) {
+    return `${withdrawal.account_name || "Account"} · ${withdrawal.bank_name} · ${withdrawal.account_number}`;
+  }
+  if (withdrawal.phone_number) {
+    return `${withdrawal.phone_number}${withdrawal.network ? ` · ${withdrawal.network.toUpperCase()}` : ""}`;
+  }
+  return "Payout details unavailable";
+}
 
 export function Referral() {
   const [loading, setLoading] = useState(true);
   const [referralData, setReferralData] = useState<ReferralData | null>(null);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [network, setNetwork] = useState("mtn");
+  const [accountName, setAccountName] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [bankName, setBankName] = useState("");
   const [amount, setAmount] = useState("");
 
-  const textColor = useThemeColor({}, "text");
   const tintColor = useThemeColor({}, "tint");
   const borderColor = useThemeColor({}, "border");
   const cardBackground = useThemeColor({}, "cardBackground");
@@ -123,9 +128,22 @@ export function Referral() {
 
     const parsedAmount = parseFloat(amount);
     const minAmount = referralData.min_withdrawal_amount || 1000;
+    const trimmedName = accountName.trim();
+    const trimmedBank = bankName.trim();
+    const trimmedAccount = accountNumber.trim();
 
-    if (!phoneNumber || phoneNumber.length < 10) {
-      Alert.alert("Invalid phone", "Please enter a valid phone number.");
+    if (!trimmedName || trimmedName.length < 2) {
+      Alert.alert("Invalid details", "Please enter the account name.");
+      return;
+    }
+
+    if (!/^\d{10}$/.test(trimmedAccount)) {
+      Alert.alert("Invalid account number", "Account number must be exactly 10 digits.");
+      return;
+    }
+
+    if (!trimmedBank || trimmedBank.length < 2) {
+      Alert.alert("Invalid bank", "Please enter your bank name.");
       return;
     }
 
@@ -135,24 +153,26 @@ export function Referral() {
     }
 
     if (parsedAmount > referralData.credit_balance) {
-      Alert.alert("Insufficient balance", "You do not have enough credit for this withdrawal.");
+      Alert.alert("Insufficient balance", "You do not have enough balance for this withdrawal.");
       return;
     }
 
     try {
       setWithdrawing(true);
       const response = await api.post("/referrals/withdraw", {
-        phone_number: phoneNumber,
-        network,
+        account_name: trimmedName,
+        account_number: trimmedAccount,
+        bank_name: trimmedBank,
         amount: parsedAmount,
       });
 
       if (response.data.success) {
         Alert.alert("Success", "Withdrawal request submitted. You will be notified when it is processed.");
         setShowWithdrawModal(false);
-        setPhoneNumber("");
+        setAccountName("");
+        setAccountNumber("");
+        setBankName("");
         setAmount("");
-        setNetwork("mtn");
         await fetchReferralData();
       } else {
         Alert.alert("Error", response.data.message || "Failed to submit withdrawal.");
@@ -257,7 +277,7 @@ export function Referral() {
             <ThemedText style={styles.infoText}>1. Share your referral code with friends</ThemedText>
             <ThemedText style={styles.infoText}>2. They sign up using your code</ThemedText>
             <ThemedText style={styles.infoText}>3. When they subscribe, you earn ₦{referralData.reward_amount.toLocaleString()}</ThemedText>
-            <ThemedText style={styles.infoText}>4. Withdraw to your phone once you reach ₦{minWithdrawal.toLocaleString()}</ThemedText>
+            <ThemedText style={styles.infoText}>4. Withdraw to your bank once you reach ₦{minWithdrawal.toLocaleString()}</ThemedText>
           </View>
         </View>
 
@@ -268,7 +288,9 @@ export function Referral() {
               <View key={withdrawal.uuid} style={[styles.referralItem, { borderBottomColor: borderColor }]}>
                 <View>
                   <ThemedText style={styles.referralName}>₦{withdrawal.amount.toLocaleString()}</ThemedText>
-                  <ThemedText style={styles.referralEmail}>{withdrawal.phone_number} · {withdrawal.network.toUpperCase()}</ThemedText>
+                  <ThemedText style={styles.referralEmail}>
+                    {formatWithdrawalDestination(withdrawal)}
+                  </ThemedText>
                 </View>
                 <ThemedText
                   style={[
@@ -336,29 +358,31 @@ export function Referral() {
         <View style={styles.modalOverlay}>
           <Pressable style={styles.modalBackdrop} onPress={() => setShowWithdrawModal(false)} />
           <View style={[styles.modalContent, { backgroundColor: cardBackground }]}>
-            <ThemedText type="subtitle" style={styles.sectionTitle}>Withdraw Credits</ThemedText>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>Withdraw to Bank</ThemedText>
             <ThemedText style={styles.balanceHint}>Available: ₦{referralData.credit_balance.toLocaleString()}</ThemedText>
 
             <Input
-              label="Phone Number"
-              placeholder="08012345678"
-              value={phoneNumber}
-              onChangeText={setPhoneNumber}
-              keyboardType="phone-pad"
+              label="Account Name"
+              placeholder="Name on the account"
+              value={accountName}
+              onChangeText={setAccountName}
             />
 
-            <ThemedText style={styles.inputLabel}>Network</ThemedText>
-            <View style={styles.networkRow}>
-              {NETWORKS.map((item) => (
-                <TouchableOpacity
-                  key={item.value}
-                  style={[styles.networkChip, network === item.value && { backgroundColor: tintColor }]}
-                  onPress={() => setNetwork(item.value)}
-                >
-                  <ThemedText style={{ color: network === item.value ? "#fff" : textColor }}>{item.label}</ThemedText>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <Input
+              label="Account Number"
+              placeholder="0123456789"
+              value={accountNumber}
+              onChangeText={(text) => setAccountNumber(text.replace(/[^0-9]/g, "").slice(0, 10))}
+              keyboardType="number-pad"
+              maxLength={10}
+            />
+
+            <Input
+              label="Bank Name"
+              placeholder="e.g. GTBank, Access Bank"
+              value={bankName}
+              onChangeText={setBankName}
+            />
 
             <Input
               label="Amount (₦)"
@@ -431,7 +455,4 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, justifyContent: "flex-end" },
   modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.5)" },
   modalContent: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, gap: 12 },
-  inputLabel: { fontSize: 14, fontWeight: "600", marginBottom: 8 },
-  networkRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 8 },
-  networkChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, backgroundColor: "#eee" },
 });

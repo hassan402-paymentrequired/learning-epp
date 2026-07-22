@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import { DarkTheme, DefaultTheme } from "@react-navigation/native";
 import { useFonts } from "expo-font";
 import {
@@ -12,12 +12,14 @@ import { Colors } from "@/constants/Colors";
 import { useTheme } from "@/contexts/ThemeContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ExamSelectionProvider } from "@/contexts/ExamSelectionContext";
+import { CustomSplashScreen } from "@/components/CustomSplashScreen";
 import { Navigation } from "@/navigation";
 
-SplashScreen.preventAutoHideAsync();
+const SPLASH_FALLBACK_MS = 8000;
 
 export function AppContent() {
   const { colorScheme } = useTheme();
+  const splashHiddenRef = useRef(false);
   const [loaded, fontError] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
@@ -26,8 +28,20 @@ export function AppContent() {
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
 
+  const hideSplash = useCallback(() => {
+    if (splashHiddenRef.current) return;
+    splashHiddenRef.current = true;
+    SplashScreen.hideAsync().catch(() => {});
+  }, []);
+
+  // Safety net: never leave the native splash stuck if onReady never fires.
+  useEffect(() => {
+    const timeout = setTimeout(hideSplash, SPLASH_FALLBACK_MS);
+    return () => clearTimeout(timeout);
+  }, [hideSplash]);
+
   if (!loaded && !fontError) {
-    return null;
+    return <CustomSplashScreen />;
   }
 
   const palette = Colors[colorScheme ?? "light"];
@@ -79,9 +93,7 @@ export function AppContent() {
               },
             },
           }}
-          onReady={() => {
-            SplashScreen.hideAsync();
-          }}
+          onReady={hideSplash}
         />
       </ExamSelectionProvider>
     </AuthProvider>

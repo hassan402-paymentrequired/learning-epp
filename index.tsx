@@ -2,8 +2,12 @@ import './gesture-handler';
 
 import '@expo/metro-runtime'; // Necessary for Fast Refresh on Web
 import { registerRootComponent } from 'expo';
+import * as SplashScreen from 'expo-splash-screen';
 
 import { App } from './src/App';
+
+// Keep the native splash up until Navigation is ready (release builds race otherwise).
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 // registerRootComponent calls AppRegistry.registerComponent('main', () => App);
 // It also ensures that whether you load the app in Expo Go or in a native build,

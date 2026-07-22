@@ -1,7 +1,6 @@
 import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { ActivityIndicator } from "react-native";
 import { StatusBar } from 'expo-status-bar';
 
 
@@ -40,7 +39,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Colors } from "@/constants/Colors";
-import { ThemedView } from "@/components/ThemedView";
+import { CustomSplashScreen } from "@/components/CustomSplashScreen";
 
 const AuthStack = createNativeStackNavigator();
 const AppStack = createNativeStackNavigator();
@@ -111,14 +110,10 @@ export function Navigation({ theme, linking, onReady }: any) {
   // Email verified check: null means not verified
   const emailVerified = !!user?.email_verified_at;
 
+  // Match native splash while auth hydrates — avoids a white/blue flash if
+  // the native splash already hid before NavigationContainer mounts.
   if (isLoading) {
-    return (
-      <ThemedView
-        style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
-      >
-        <ActivityIndicator size="large" />
-      </ThemedView>
-    );
+    return <CustomSplashScreen />;
   }
 
   return (

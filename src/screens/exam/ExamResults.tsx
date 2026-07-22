@@ -1,15 +1,16 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
   Alert,
+  BackHandler,
 } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/Button";
-import { useNavigation, useRoute } from "@react-navigation/native";
+import { useNavigation, useRoute, useFocusEffect } from "@react-navigation/native";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import api from "@/services/api";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -74,6 +75,30 @@ export function ExamResults() {
   const successColor = "#10B981";
   const errorColor = "#EF4444";
 
+  const goHome = useCallback(() => {
+    // @ts-ignore
+    navigation.reset({
+      index: 0,
+      routes: [{ name: "Home" }],
+    });
+  }, [navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        goHome();
+        return true;
+      };
+
+      const backHandler = BackHandler.addEventListener(
+        "hardwareBackPress",
+        onBackPress
+      );
+
+      return () => backHandler.remove();
+    }, [goHome])
+  );
+
   useEffect(() => {
     loadResults();
   }, []);
@@ -115,7 +140,11 @@ export function ExamResults() {
 
   if (loading) {
     return (
-      <AppLayout showBackButton={true} headerTitle="Results">
+      <AppLayout
+        showBackButton={true}
+        headerTitle="Results"
+        onBackPress={goHome}
+      >
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={tintColor} />
           <ThemedText style={styles.loadingText}>Loading results...</ThemedText>
@@ -126,12 +155,16 @@ export function ExamResults() {
 
   if (!attempt) {
     return (
-      <AppLayout showBackButton={true} headerTitle="Results">
+      <AppLayout
+        showBackButton={true}
+        headerTitle="Results"
+        onBackPress={goHome}
+      >
         <View style={styles.centerContainer}>
           <ThemedText style={styles.errorText}>No results found</ThemedText>
           <Button
             title="Go Back"
-            onPress={() => navigation.goBack()}
+            onPress={goHome}
             style={{ marginTop: 16 }}
           />
         </View>
@@ -146,10 +179,7 @@ export function ExamResults() {
     <AppLayout
       showBackButton={true}
       headerTitle="Exam Results"
-      onBackPress={() => {
-        // @ts-ignore
-        navigation.navigate("Home");
-      }}
+      onBackPress={goHome}
     >
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Overview */}
@@ -269,10 +299,7 @@ export function ExamResults() {
               />
               <Button
                 title="Back to Home"
-                onPress={() => {
-                  // @ts-ignore
-                  navigation.navigate("Home");
-                }}
+                onPress={goHome}
                 style={styles.actionButton}
               />
             </View>
