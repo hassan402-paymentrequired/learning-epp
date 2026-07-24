@@ -32,11 +32,8 @@ export function QuickActionCards({ categories, onCategoryPress }: QuickActionCar
     <View style={styles.container}>
       <View style={styles.headerRow}>
         <ThemedText type="subtitle" style={styles.sectionTitle}>
-          Practice Subjects
+        Quick Practice
         </ThemedText>
-        <TouchableOpacity>
-          <ThemedText style={styles.viewAllBtn}>View all</ThemedText>
-        </TouchableOpacity>
       </View>
       
       <View style={[styles.listContainer, { borderColor }]}>

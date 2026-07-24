@@ -67,7 +67,7 @@ export function AppHeader({
             {/* <MaterialIcons name="code" size={24} color={tintColor} /> */}
             <Image source={logo} style={styles.image} />
             <ThemedText type="subtitle" style={styles.appName}>
-              Stepra
+              Stepra Prep
             </ThemedText>
           </>
         )}

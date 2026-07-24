@@ -73,7 +73,34 @@ export function Profile() {
             <ThemedText style={styles.value}>{user?.email || "N/A"}</ThemedText>
           </View>
 
-         
+          <View style={styles.infoRow}>
+            <ThemedText style={styles.label}>Phone</ThemedText>
+            <ThemedText style={styles.value}>
+              {user?.phone?.trim() || "Not set"}
+            </ThemedText>
+          </View>
+
+          <View style={styles.infoRow}>
+            <ThemedText style={styles.label}>Verified</ThemedText>
+            <View style={styles.verifiedRow}>
+              <MaterialIcons
+                name={user?.email_verified_at ? "verified" : "cancel"}
+                size={18}
+                color={user?.email_verified_at ? "#16a34a" : "#dc2626"}
+              />
+              <ThemedText
+                style={[
+                  styles.value,
+                  {
+                    color: user?.email_verified_at ? "#16a34a" : "#dc2626",
+                    opacity: 1,
+                  },
+                ]}
+              >
+                {user?.email_verified_at ? "Verified" : "Not verified"}
+              </ThemedText>
+            </View>
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -228,6 +255,11 @@ const styles = StyleSheet.create({
   },
   value: {
     opacity: 0.7,
+  },
+  verifiedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
   settingItem: {
     flexDirection: "row",
