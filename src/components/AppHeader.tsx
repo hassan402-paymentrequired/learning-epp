@@ -54,7 +54,7 @@ export function AppHeader({
     <View
       style={[
         styles.header,
-        { backgroundColor, borderBottomColor: borderColor },
+        { backgroundColor },
       ]}
     >
       <View style={styles.leftSection}>
@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomWidth: 1,
+    // borderBottomWidth: 1,
     minHeight: 56,
   },
   leftSection: {

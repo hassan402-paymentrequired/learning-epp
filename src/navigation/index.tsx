@@ -134,6 +134,7 @@ export function Navigation({ theme, linking, onReady }: any) {
               name="EmailVerification"
               component={EmailVerification}
               initialParams={{ email: user?.email }}
+              options={{ gestureEnabled: false }}
             />
           </AuthStack.Navigator>
         ) : hasSeenOnboarding ? (

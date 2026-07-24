@@ -34,6 +34,15 @@ export function Login() {
   const navigation = useNavigation();
   const tintColor = useThemeColor({}, "tint");
 
+  const clearFieldError = (field: keyof typeof errors) => {
+    setErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
   const validate = () => {
     const newErrors: { email?: string; password?: string } = {};
 
@@ -59,7 +68,6 @@ export function Login() {
     try {
       await login(email.trim(), password);
     } catch (error: any) {
-      console.log(error, 'in login');
       // Check if error is due to unverified email
       if (error.response?.status === 403 && error.response?.data?.data?.email_verified === false) {
         Alert.alert(
@@ -74,25 +82,47 @@ export function Login() {
               text: "Verify Email",
               onPress: () => {
                 // @ts-ignore
-                navigation.navigate("EmailVerification", { email: email.trim() });
+                navigation.navigate("EmailVerification", {
+                  email: email.trim(),
+                  source: "login",
+                });
               },
             },
           ]
         );
-      } else {
-        const code = error?.code;
-        const noHttpResponse =
-          !error?.response &&
-          (code === "ECONNABORTED" ||
-            code === "ERR_NETWORK" ||
-            (typeof error?.message === "string" &&
-              error.message.toLowerCase().includes("network")));
-        const message = noHttpResponse
-          ? "Network error. Please check your connection and try again."
-          : error?.response?.data?.message ||
-            error?.message ||
-            "Invalid email or password. Please try again.";
+        return;
+      }
+
+      const apiErrors = error?.response?.data?.errors;
+
+      if (apiErrors && typeof apiErrors === "object" && !Array.isArray(apiErrors)) {
+        const firstMessage = (value: unknown) =>
+          Array.isArray(value) ? value[0] : typeof value === "string" ? value : undefined;
+
+        setErrors({
+          email: firstMessage(apiErrors.email),
+          password: firstMessage(apiErrors.password),
+        });
+        return;
+      }
+
+      const code = error?.code;
+      const noHttpResponse =
+        !error?.response &&
+        (code === "ECONNABORTED" ||
+          code === "ERR_NETWORK" ||
+          (typeof error?.message === "string" &&
+            error.message.toLowerCase().includes("network")));
+      const message = noHttpResponse
+        ? "Network error. Please check your connection and try again."
+        : error?.response?.data?.message ||
+          error?.message ||
+          "Invalid email or password. Please try again.";
+
+      if (noHttpResponse) {
         Alert.alert("Login Failed", message);
+      } else {
+        setErrors({ password: message });
       }
     } finally {
       setLoading(false);
@@ -133,7 +163,10 @@ export function Login() {
               label="Email Address"
               placeholder="Enter your email"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(text) => {
+                setEmail(text);
+                clearFieldError("email");
+              }}
               keyboardType="email-address"
               autoCapitalize="none"
               autoComplete="email"
@@ -145,7 +178,10 @@ export function Login() {
               label="Password"
               placeholder="Enter your password"
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(text) => {
+                setPassword(text);
+                clearFieldError("password");
+              }}
               secureTextEntry={!showPassword}
               autoCapitalize="none"
               autoComplete="password"

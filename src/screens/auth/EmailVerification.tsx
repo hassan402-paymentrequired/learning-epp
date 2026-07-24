@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   StyleSheet,
@@ -7,21 +7,23 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  BackHandler,
+  TouchableOpacity,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { ThemedText } from "@/components/ThemedText";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/Button";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import api from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigation, useRoute } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 export function EmailVerification() {
   const navigation = useNavigation();
   const route = useRoute();
-  const { activateSession, refreshUser, token: currentToken } = useAuth();
+  const { activateSession, refreshUser, token: currentToken, logout, isAuthenticated } =
+    useAuth();
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
@@ -31,16 +33,11 @@ export function EmailVerification() {
   const [pendingUser, setPendingUser] = useState<any>(null);
 
   const inputRefs = useRef<(TextInput | null)[]>([]);
-  const gradientStart = useThemeColor({}, "gradientStart");
-  const gradientEnd = useThemeColor({}, "gradientEnd");
   const tintColor = useThemeColor({}, "tint");
   const textColor = useThemeColor({}, "text");
   const backgroundColor = useThemeColor({}, "background");
 
-  // console.log(user);
-
   useEffect(() => {
-    // Get email and pending session from route params
     const params = route.params as any;
     const routeEmail = params?.email;
     if (routeEmail) {
@@ -53,6 +50,35 @@ export function EmailVerification() {
       setPendingUser(params.pendingUser);
     }
   }, [route]);
+
+  const handleSignInWithDifferentAccount = useCallback(async () => {
+    const wasAuthenticated = isAuthenticated;
+    await logout();
+    if (!wasAuthenticated) {
+      // Pending signup session — clear stack and land on login
+      // @ts-ignore
+      navigation.replace("Login");
+    }
+  }, [isAuthenticated, logout, navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      // @ts-ignore
+      navigation.setOptions?.({ gestureEnabled: false });
+
+      const onHardwareBack = () => {
+        void handleSignInWithDifferentAccount();
+        return true;
+      };
+
+      const subscription = BackHandler.addEventListener(
+        "hardwareBackPress",
+        onHardwareBack
+      );
+
+      return () => subscription.remove();
+    }, [handleSignInWithDifferentAccount, navigation])
+  );
 
   useEffect(() => {
     if (countdown > 0) {
@@ -70,7 +96,6 @@ export function EmailVerification() {
 
   const handleOtpChange = (value: string, index: number) => {
     if (value.length > 1) {
-      // Handle paste
       const pastedOtp = value.slice(0, 6).split("");
       const newOtp = [...otp];
       pastedOtp.forEach((digit, i) => {
@@ -79,7 +104,6 @@ export function EmailVerification() {
         }
       });
       setOtp(newOtp);
-      // Focus last input
       if (index + pastedOtp.length < 6) {
         inputRefs.current[index + pastedOtp.length]?.focus();
       }
@@ -90,7 +114,6 @@ export function EmailVerification() {
     newOtp[index] = value;
     setOtp(newOtp);
 
-    // Auto-focus next input
     if (value && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
@@ -131,9 +154,8 @@ export function EmailVerification() {
       Alert.alert(
         "Verification Failed",
         error.response?.data?.message ||
-        "Invalid verification code. Please try again.",
+          "Invalid verification code. Please try again.",
       );
-      // Clear OTP on error
       setOtp(["", "", "", "", "", ""]);
       inputRefs.current[0]?.focus();
     } finally {
@@ -158,7 +180,7 @@ export function EmailVerification() {
       });
 
       if (response.data.success) {
-        setCountdown(60); // 60 second countdown
+        setCountdown(60);
         Alert.alert("Success", "Verification code resent to your email");
         setOtp(["", "", "", "", "", ""]);
         inputRefs.current[0]?.focus();
@@ -167,7 +189,7 @@ export function EmailVerification() {
       Alert.alert(
         "Error",
         error.response?.data?.message ||
-        "Failed to resend code. Please try again.",
+          "Failed to resend code. Please try again.",
       );
     } finally {
       setResending(false);
@@ -176,7 +198,6 @@ export function EmailVerification() {
 
   return (
     <AppLayout showHeader={false}>
-
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardView}
@@ -185,13 +206,26 @@ export function EmailVerification() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
+          <TouchableOpacity
+            onPress={() => void handleSignInWithDifferentAccount()}
+            style={styles.backButton}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Sign in with a different account"
+          >
+            <MaterialIcons name="arrow-back" size={24} color={textColor} />
+            <ThemedText style={styles.backLabel}>
+              Sign in with a different account
+            </ThemedText>
+          </TouchableOpacity>
+
           <View style={styles.container}>
             <View style={styles.iconContainer}>
               <MaterialIcons name="email" size={64} color={tintColor} />
             </View>
 
             <ThemedText type="title" style={styles.title}>
-              Verify Your Email
+              Verify Your Account
             </ThemedText>
 
             <ThemedText style={styles.description}>
@@ -264,7 +298,18 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     padding: 24,
-    paddingTop: 60,
+    paddingTop: 16,
+  },
+  backButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 6,
+    marginBottom: 24,
+    paddingVertical: 4,
+  },
+  backLabel: {
+    fontSize: 14,
   },
   container: {
     flex: 1,

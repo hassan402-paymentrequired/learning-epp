@@ -41,6 +41,7 @@ export function Input({
   
   // Use conditional logic only for values, not hooks
   const borderColor = error ? errorColor : borderColorValue;
+  const hasTrailingIcon = Boolean(error || rightIcon);
 
   return (
     <View style={[styles.container, containerStyle]}>
@@ -69,20 +70,40 @@ export function Input({
               color: textColor,
             },
             leftIcon && styles.inputWithLeftIcon,
-            rightIcon && styles.inputWithRightIcon,
+            hasTrailingIcon && styles.inputWithRightIcon,
             style,
           ]}
           placeholderTextColor={placeholderColor}
           {...props}
         />
-        {rightIcon && (
-          <TouchableOpacity
-            onPress={onRightIconPress}
-            style={styles.rightIcon}
-            activeOpacity={0.7}
-          >
-            <Ionicons name={rightIcon} size={15} color={iconColor} />
-          </TouchableOpacity>
+        {error ? (
+          <View style={styles.trailingIcons}>
+            <Ionicons
+              name="close-circle"
+              size={18}
+              color={errorColor}
+              style={styles.errorIcon}
+            />
+            {rightIcon && (
+              <TouchableOpacity
+                onPress={onRightIconPress}
+                style={styles.rightIconButton}
+                activeOpacity={0.7}
+              >
+                <Ionicons name={rightIcon} size={15} color={iconColor} />
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : (
+          rightIcon && (
+            <TouchableOpacity
+              onPress={onRightIconPress}
+              style={styles.rightIcon}
+              activeOpacity={0.7}
+            >
+              <Ionicons name={rightIcon} size={15} color={iconColor} />
+            </TouchableOpacity>
+          )
         )}
       </View>
       {error && <Text style={[styles.error, { color: errorColor }]}>{error}</Text>}
@@ -136,6 +157,18 @@ const styles = StyleSheet.create({
   },
   rightIcon: {
     marginRight: 16,
+    padding: 4,
+  },
+  trailingIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 12,
+    gap: 4,
+  },
+  errorIcon: {
+    marginRight: 2,
+  },
+  rightIconButton: {
     padding: 4,
   },
   error: {

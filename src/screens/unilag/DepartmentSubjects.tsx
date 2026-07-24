@@ -254,7 +254,6 @@ export function DepartmentSubjects() {
                 >
                   {subject.description}
                 </ThemedText>
-                <ThemedText style={styles.subjectAvailable}>Total questions : {subject.questions_count}</ThemedText>
               </View>
             </TouchableOpacity>
           ))}

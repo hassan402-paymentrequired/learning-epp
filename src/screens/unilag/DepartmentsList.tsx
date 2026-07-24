@@ -135,7 +135,7 @@ export function DepartmentsList() {
                       {department.name}
                     </ThemedText>
                     <ThemedText style={styles.departmentDesc} numberOfLines={1}>
-                      Available course: {department.subjects_count ?? 0}
+                      {department.description}
                     </ThemedText>
                   </View>
                 </TouchableOpacity>

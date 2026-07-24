@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -16,12 +16,14 @@ import { Input } from "@/components/ui/Input";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { IconButton } from "@/components/ui/IconButton";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import { useThemeColor } from "@/hooks/useThemeColor";
 
 export function Signup() {
+  const route = useRoute();
+  const routeEmail = (route.params as { email?: string } | undefined)?.email;
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(routeEmail ?? "");
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [referralCode, setReferralCode] = useState("");
@@ -42,6 +44,12 @@ export function Signup() {
   const navigation = useNavigation();
   const tintColor = useThemeColor({}, "tint");
   const errorColor = useThemeColor({}, "error");
+
+  useEffect(() => {
+    if (routeEmail) {
+      setEmail(routeEmail);
+    }
+  }, [routeEmail]);
 
   const validate = () => {
     const newErrors: {
@@ -82,6 +90,15 @@ export function Signup() {
     return Object.keys(newErrors).length === 0;
   };
 
+  const clearFieldError = (field: keyof typeof errors) => {
+    setErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
   const handleSignup = async () => {
     if (!validate()) return;
 
@@ -95,14 +112,39 @@ export function Signup() {
         referralCode.trim() || undefined
       );
 
+      // Replace so the register form is not left under verification in the stack
       // @ts-ignore
-      navigation.navigate("EmailVerification", {
+      navigation.replace("EmailVerification", {
         email: email.trim(),
         pendingToken: pendingSession.token,
         pendingUser: pendingSession.user,
+        source: "signup",
       });
     } catch (error: any) {
-      Alert.alert("Registration Failed", error.message || "Please try again");
+      const apiErrors = error?.response?.data?.errors;
+
+      if (apiErrors && typeof apiErrors === "object" && !Array.isArray(apiErrors)) {
+        const firstMessage = (value: unknown) =>
+          Array.isArray(value) ? value[0] : typeof value === "string" ? value : undefined;
+
+        setErrors({
+          name: firstMessage(apiErrors.name),
+          email: firstMessage(apiErrors.email),
+          password: firstMessage(apiErrors.password),
+          passwordConfirmation: firstMessage(apiErrors.password_confirmation),
+          referralCode: firstMessage(apiErrors.referral_code),
+        });
+        return;
+      }
+
+      const message =
+        error?.response?.data?.message ||
+        (error?.code === "ECONNABORTED" || !error?.response
+          ? "Network error. Please check your connection and try again."
+          : error?.message) ||
+        "Please try again";
+
+      Alert.alert("Registration Failed", message);
     } finally {
       setLoading(false);
     }
@@ -138,7 +180,10 @@ export function Signup() {
               label="Name"
               placeholder="Enter your full name"
               value={name}
-              onChangeText={setName}
+              onChangeText={(text) => {
+                setName(text);
+                clearFieldError("name");
+              }}
               autoCapitalize="words"
               error={errors.name}
               leftIcon="person-outline"
@@ -148,7 +193,10 @@ export function Signup() {
               label="Email Address"
               placeholder="Enter your email"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(text) => {
+                setEmail(text);
+                clearFieldError("email");
+              }}
               keyboardType="email-address"
               autoCapitalize="none"
               autoComplete="email"
@@ -160,7 +208,10 @@ export function Signup() {
               label="Password"
               placeholder="Enter your password"
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(text) => {
+                setPassword(text);
+                clearFieldError("password");
+              }}
               secureTextEntry={!showPassword}
               autoCapitalize="none"
               autoComplete="password-new"
@@ -174,7 +225,10 @@ export function Signup() {
               label="Confirm Password"
               placeholder="Confirm your password"
               value={passwordConfirmation}
-              onChangeText={setPasswordConfirmation}
+              onChangeText={(text) => {
+                setPasswordConfirmation(text);
+                clearFieldError("passwordConfirmation");
+              }}
               secureTextEntry={!showPasswordConfirmation}
               autoCapitalize="none"
               autoComplete="password-new"
@@ -192,7 +246,10 @@ export function Signup() {
               label="Referral Code (Optional)"
               placeholder="Enter referral code if you have one"
               value={referralCode}
-              onChangeText={setReferralCode}
+              onChangeText={(text) => {
+                setReferralCode(text);
+                clearFieldError("referralCode");
+              }}
               autoCapitalize="characters"
               error={errors.referralCode}
               leftIcon="gift-outline"

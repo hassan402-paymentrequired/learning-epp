@@ -279,13 +279,6 @@ export function Subscription() {
                 Active Subscription
               </ThemedText>
             </View>
-            <ThemedText style={styles.statusText}>
-              Plan: {status.subscription.plan.name}
-            </ThemedText>
-            <ThemedText style={styles.statusText}>
-              Expires:{" "}
-              {new Date(status.subscription.expires_at).toLocaleDateString()}
-            </ThemedText>
           </View>
         )}
 
@@ -511,7 +504,7 @@ const styles = StyleSheet.create({
   statusHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
+    // marginBottom: 12,
   },
   statusTitle: {
     marginLeft: 8,
