@@ -7,13 +7,11 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { useThemeColor } from "@/hooks/useThemeColor";
-import  api from "@/services/api";
+import api from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigation } from "@react-navigation/native";
 
@@ -22,6 +20,7 @@ export function EditProfile() {
   const navigation = useNavigation();
   const [name, setName] = useState(user?.name || "");
   const [email, setEmail] = useState(user?.email || "");
+  const [phone, setPhone] = useState(user?.phone || "");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -29,13 +28,19 @@ export function EditProfile() {
   const [errors, setErrors] = useState<{
     name?: string;
     email?: string;
+    phone?: string;
     currentPassword?: string;
     password?: string;
   }>({});
 
-  const backgroundColor = useThemeColor({}, "background");
-  const textColor = useThemeColor({}, "text");
-  const tintColor = useThemeColor({}, "tint");
+  const clearFieldError = (field: keyof typeof errors) => {
+    setErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
 
   const validate = () => {
     const newErrors: typeof errors = {};
@@ -71,9 +76,10 @@ export function EditProfile() {
 
     setLoading(true);
     try {
-      const payload: any = {
+      const payload: Record<string, string> = {
         name: name.trim(),
         email: email.trim(),
+        phone: phone.trim(),
       };
 
       if (newPassword) {
@@ -94,11 +100,36 @@ export function EditProfile() {
         ]);
       }
     } catch (error: any) {
-      const errorMessage =
-        error.response?.data?.message ||
-        error.response?.data?.errors ||
+      const apiErrors = error?.response?.data?.errors;
+
+      if (apiErrors && typeof apiErrors === "object" && !Array.isArray(apiErrors)) {
+        const firstMessage = (value: unknown) =>
+          Array.isArray(value)
+            ? value[0]
+            : typeof value === "string"
+              ? value
+              : undefined;
+
+        setErrors({
+          name: firstMessage(apiErrors.name),
+          email: firstMessage(apiErrors.email),
+          phone: firstMessage(apiErrors.phone),
+          currentPassword: firstMessage(apiErrors.current_password),
+          password:
+            firstMessage(apiErrors.password) ||
+            firstMessage(apiErrors.password_confirmation),
+        });
+        return;
+      }
+
+      const message =
+        error?.response?.data?.message ||
+        (error?.code === "ECONNABORTED" || !error?.response
+          ? "Network error. Please check your connection and try again."
+          : error?.message) ||
         "Failed to update profile";
-      Alert.alert("Update Failed", errorMessage);
+
+      Alert.alert("Update Failed", message);
     } finally {
       setLoading(false);
     }
@@ -124,11 +155,10 @@ export function EditProfile() {
             value={name}
             onChangeText={(text) => {
               setName(text);
-              setErrors({ ...errors, name: undefined });
+              clearFieldError("name");
             }}
             error={errors.name}
             leftIcon="person-outline"
-            
           />
 
           <Input
@@ -137,13 +167,26 @@ export function EditProfile() {
             value={email}
             onChangeText={(text) => {
               setEmail(text);
-              setErrors({ ...errors, email: undefined });
+              clearFieldError("email");
             }}
             keyboardType="email-address"
             autoCapitalize="none"
             error={errors.email}
             leftIcon="mail-outline"
-            
+          />
+
+          <Input
+            label="Phone Number"
+            placeholder="Enter your phone number"
+            value={phone}
+            onChangeText={(text) => {
+              setPhone(text);
+              clearFieldError("phone");
+            }}
+            keyboardType="phone-pad"
+            autoComplete="tel"
+            error={errors.phone}
+            leftIcon="call-outline"
           />
 
           <ThemedText type="subtitle" style={[styles.sectionTitle, styles.marginTop]}>
@@ -160,12 +203,11 @@ export function EditProfile() {
             value={currentPassword}
             onChangeText={(text) => {
               setCurrentPassword(text);
-              setErrors({ ...errors, currentPassword: undefined });
+              clearFieldError("currentPassword");
             }}
             secureTextEntry
             error={errors.currentPassword}
             leftIcon="lock-closed-outline"
-            
           />
 
           <Input
@@ -174,12 +216,11 @@ export function EditProfile() {
             value={newPassword}
             onChangeText={(text) => {
               setNewPassword(text);
-              setErrors({ ...errors, password: undefined });
+              clearFieldError("password");
             }}
             secureTextEntry
             error={errors.password}
             leftIcon="lock-closed-outline"
-            
           />
 
           <Input
@@ -188,12 +229,11 @@ export function EditProfile() {
             value={confirmPassword}
             onChangeText={(text) => {
               setConfirmPassword(text);
-              setErrors({ ...errors, password: undefined });
+              clearFieldError("password");
             }}
             secureTextEntry
             error={errors.password}
             leftIcon="lock-closed-outline"
-            
           />
 
           <Button
@@ -226,9 +266,6 @@ const styles = StyleSheet.create({
   hint: {
     fontSize: 12,
     opacity: 0.7,
-    marginBottom: 16,
-  },
-  input: {
     marginBottom: 16,
   },
   button: {

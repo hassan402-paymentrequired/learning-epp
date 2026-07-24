@@ -15,6 +15,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useThemeColor } from "@/hooks/useThemeColor";
+import { useAuth } from "@/contexts/AuthContext";
 import api from "@/services/api";
 
 type ReferralWithdrawal = {
@@ -68,10 +69,15 @@ function formatWithdrawalDestination(withdrawal: ReferralWithdrawal): string {
 }
 
 export function Referral() {
+  const { user, refreshUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [referralData, setReferralData] = useState<ReferralData | null>(null);
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [savingPhone, setSavingPhone] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
+  const [phone, setPhone] = useState(user?.phone || "");
+  const [phoneError, setPhoneError] = useState<string | undefined>();
   const [accountName, setAccountName] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [bankName, setBankName] = useState("");
@@ -84,6 +90,10 @@ export function Referral() {
   useEffect(() => {
     fetchReferralData();
   }, []);
+
+  useEffect(() => {
+    setPhone(user?.phone || "");
+  }, [user?.phone]);
 
   const fetchReferralData = async () => {
     try {
@@ -120,6 +130,55 @@ export function Referral() {
       });
     } catch {
       Alert.alert("Error", "Failed to share referral code");
+    }
+  };
+
+  const openWithdrawFlow = () => {
+    if (!user?.phone?.trim()) {
+      setPhone(user?.phone || "");
+      setPhoneError(undefined);
+      setShowPhoneModal(true);
+      return;
+    }
+    setShowWithdrawModal(true);
+  };
+
+  const handleSavePhone = async () => {
+    const trimmedPhone = phone.trim();
+    if (!trimmedPhone) {
+      setPhoneError("Phone number is required to withdraw");
+      return;
+    }
+
+    try {
+      setSavingPhone(true);
+      setPhoneError(undefined);
+      const response = await api.put("/profile", { phone: trimmedPhone });
+
+      if (response.data.success) {
+        await refreshUser();
+        setShowPhoneModal(false);
+        setShowWithdrawModal(true);
+      }
+    } catch (error: any) {
+      const apiErrors = error?.response?.data?.errors;
+      const phoneMessage = Array.isArray(apiErrors?.phone)
+        ? apiErrors.phone[0]
+        : typeof apiErrors?.phone === "string"
+          ? apiErrors.phone
+          : undefined;
+
+      if (phoneMessage) {
+        setPhoneError(phoneMessage);
+        return;
+      }
+
+      Alert.alert(
+        "Error",
+        error?.response?.data?.message || "Failed to save phone number."
+      );
+    } finally {
+      setSavingPhone(false);
     }
   };
 
@@ -219,7 +278,7 @@ export function Referral() {
             Total earned: ₦{referralData.total_earnings.toLocaleString()}
           </ThemedText>
           {canWithdraw ? (
-            <Button title="Withdraw" onPress={() => setShowWithdrawModal(true)} style={styles.withdrawButton} />
+            <Button title="Withdraw" onPress={openWithdrawFlow} style={styles.withdrawButton} />
           ) : (
             <ThemedText style={styles.balanceHint}>
               Minimum withdrawal is ₦{minWithdrawal.toLocaleString()}
@@ -353,6 +412,45 @@ export function Referral() {
           </View>
         )}
       </ScrollView>
+
+      <Modal
+        visible={showPhoneModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowPhoneModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setShowPhoneModal(false)} />
+          <View style={[styles.modalContent, { backgroundColor: cardBackground }]}>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>
+              Add Phone Number
+            </ThemedText>
+            <ThemedText style={styles.balanceHint}>
+              Please add your phone number before requesting a withdrawal.
+            </ThemedText>
+
+            <Input
+              label="Phone Number"
+              placeholder="Enter your phone number"
+              value={phone}
+              onChangeText={(text) => {
+                setPhone(text);
+                setPhoneError(undefined);
+              }}
+              keyboardType="phone-pad"
+              autoComplete="tel"
+              error={phoneError}
+              leftIcon="call-outline"
+            />
+
+            <Button
+              title={savingPhone ? "Saving..." : "Continue"}
+              onPress={handleSavePhone}
+              disabled={savingPhone}
+            />
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={showWithdrawModal} transparent animationType="slide" onRequestClose={() => setShowWithdrawModal(false)}>
         <View style={styles.modalOverlay}>

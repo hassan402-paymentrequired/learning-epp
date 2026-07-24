@@ -17,6 +17,7 @@ interface User {
   id: number;
   name: string;
   email: string;
+  phone?: string | null;
   email_verified_at?: string | null;
   subscription_status?: string;
   subscription_expires_at?: string | null;
