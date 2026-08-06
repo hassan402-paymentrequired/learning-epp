@@ -21,12 +21,26 @@ import { useThemeColor } from "@/hooks/useThemeColor";
 
 export function Signup() {
   const route = useRoute();
-  const routeEmail = (route.params as { email?: string } | undefined)?.email;
+  const routeParams = route.params as
+    | {
+        email?: string;
+        ref?: string;
+        referralCode?: string;
+        referral_code?: string;
+      }
+    | undefined;
+  const routeEmail = routeParams?.email;
+  const routeReferralCode = (
+    routeParams?.ref ||
+    routeParams?.referralCode ||
+    routeParams?.referral_code ||
+    ""
+  ).trim();
   const [name, setName] = useState("");
   const [email, setEmail] = useState(routeEmail ?? "");
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
-  const [referralCode, setReferralCode] = useState("");
+  const [referralCode, setReferralCode] = useState(routeReferralCode);
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirmation, setShowPasswordConfirmation] =
     useState(false);
@@ -50,6 +64,12 @@ export function Signup() {
       setEmail(routeEmail);
     }
   }, [routeEmail]);
+
+  useEffect(() => {
+    if (routeReferralCode) {
+      setReferralCode(routeReferralCode);
+    }
+  }, [routeReferralCode]);
 
   const validate = () => {
     const newErrors: {

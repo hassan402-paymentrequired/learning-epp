@@ -56,7 +56,6 @@ export function Subscription() {
   const [processing, setProcessing] = useState(false);
   const [plan, setPlan] = useState<SubscriptionPlan | null>(null);
   const [status, setStatus] = useState<SubscriptionStatus | null>(null);
-  const [referralCode, setReferralCode] = useState("");
   const [showWebView, setShowWebView] = useState(false);
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const [callbackUrl, setCallbackUrl] = useState<string | null>(null);
@@ -124,7 +123,6 @@ export function Subscription() {
     try {
       const response = await api.post("/subscriptions/initialize-payment", {
         plan_uuid: plan.uuid,
-        referral_code: referralCode.trim() || undefined,
       });
 
       if (response.data.success) {
@@ -382,14 +380,6 @@ export function Subscription() {
               <>
                 <View style={styles.optionContainer}>
                   <ThemedText type="subtitle" style={styles.optionTitle}>Pay Online</ThemedText>
-                  <Input
-                    label="Referral Code (Optional)"
-                    placeholder="Enter referral code for discount"
-                    value={referralCode}
-                    onChangeText={setReferralCode}
-                    autoCapitalize="characters"
-                    leftIcon="gift-outline"
-                  />
                   <Button
                     title={`Subscribe for ₦${plan.price.toLocaleString()}`}
                     onPress={handleSubscribe}
@@ -457,7 +447,6 @@ export function Subscription() {
           <ThemedText style={styles.infoText}>
             • Payments are processed securely through Paystack{"\n"}• Your
             subscription will be activated immediately after successful payment
-            {"\n"}• Use a referral code to get 5% off your subscription
           </ThemedText>
         </View>
       </ScrollView>

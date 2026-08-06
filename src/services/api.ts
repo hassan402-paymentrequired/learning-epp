@@ -1,5 +1,9 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
+import Constants from 'expo-constants';
+import type { ForceUpdatePayload } from '@/types/app-version';
+import { getStoreUrlForPlatform } from '@/constants/store-urls';
 
 const DEFAULT_PRODUCTION_API_BASE_URL = 'https://admin.stepra.com.ng/api';
 const DEFAULT_DEV_API_BASE_URL = 'https://admin.stepra.com.ng/api';
@@ -35,9 +39,23 @@ let failedQueue: {
 // Callback for logout - will be set by AuthContext
 let onLogoutCallback: (() => void) | null = null;
 
+let onForceUpdateCallback: ((payload: ForceUpdatePayload) => void) | null = null;
+
 export const setLogoutCallback = (callback: () => void) => {
   onLogoutCallback = callback;
 };
+
+export const setForceUpdateCallback = (
+  callback: (payload: ForceUpdatePayload) => void
+) => {
+  onForceUpdateCallback = callback;
+};
+
+const getAppPlatformHeader = (): 'ios' | 'android' =>
+  Platform.OS === 'ios' ? 'ios' : 'android';
+
+const getAppVersionHeader = (): string =>
+  Constants.nativeApplicationVersion ?? '0.0.0';
 
 const processQueue = (error: any, token: string | null = null) => {
   failedQueue.forEach((prom) => {
@@ -64,6 +82,8 @@ api.interceptors.request.use(
       await AsyncStorage.setItem('device_id', deviceId);
     }
     config.headers['X-Device-Id'] = deviceId;
+    config.headers['X-App-Platform'] = getAppPlatformHeader();
+    config.headers['X-App-Version'] = getAppVersionHeader();
 
     return config;
   },
@@ -80,6 +100,33 @@ api.interceptors.response.use(
       _retry?: boolean;
       url?: string;
     };
+
+    if (error.response?.status === 426) {
+      const responseData = error.response.data as {
+        message?: string;
+        data?: {
+          min_version?: string;
+          store_url?: string;
+        };
+      };
+      const platform = getAppPlatformHeader();
+
+      if (onForceUpdateCallback) {
+        onForceUpdateCallback({
+          message:
+            responseData?.message ??
+            'A new version of Stepra is available. Please update to continue.',
+          minVersion: responseData?.data?.min_version ?? null,
+          storeUrl:
+            responseData?.data?.store_url ?? getStoreUrlForPlatform(platform),
+        });
+      }
+
+      return Promise.reject({
+        ...error,
+        isForceUpdateError: true,
+      });
+    }
 
     // Skip refresh logic for auth endpoints
     const isAuthEndpoint =

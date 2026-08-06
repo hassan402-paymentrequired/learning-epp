@@ -2,7 +2,7 @@
   "expo": {
     "name": "Stepra",
     "slug": "stepra",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "src/assets/images/logo.png",
     "userInterfaceStyle": "light",
@@ -10,13 +10,16 @@
     "scheme": "stepra",
     "splash": {
       "image": "src/assets/images/logo.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#1E1B4B"
+      "resizeMode": "contain"
     },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.oluwafemiomoope.stepra",
       "buildNumber": "1",
+      "associatedDomains": [
+        "applinks:stepra.com.ng",
+        "applinks:www.stepra.com.ng"
+      ],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "UIBackgroundModes": ["remote-notification"]
@@ -24,18 +27,35 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "src/assets/images/logo.png",
-        "backgroundColor": "#1E1B4B"
+        "foregroundImage": "src/assets/images/logo.png"
       },
       "package": "com.oluwafemiomoope.stepra",
-      "softwareKeyboardLayoutMode": "resize"
+      "softwareKeyboardLayoutMode": "resize",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "category": ["BROWSABLE", "DEFAULT"],
+          "data": [
+            {
+              "scheme": "https",
+              "host": "stepra.com.ng",
+              "pathPrefix": "/authenticate/register"
+            },
+            {
+              "scheme": "https",
+              "host": "www.stepra.com.ng",
+              "pathPrefix": "/authenticate/register"
+            }
+          ]
+        }
+      ]
     },
     "web": {
       "favicon": "src/assets/images/favicon.png"
     },
     "androidStatusBar": {
       "barStyle": "light-content",
-      "backgroundColor": "#1E1B4B",
       "translucent": false
     },
     "plugins": [
@@ -44,7 +64,6 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#1E1B4B",
           "image": "src/assets/images/logo.png",
           "resizeMode": "contain",
           "imageWidth": 220,

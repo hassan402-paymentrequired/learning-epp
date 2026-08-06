@@ -81,9 +81,36 @@ export function AppContent() {
           theme={theme}
           linking={{
             enabled: "auto",
-            prefixes: ["stepra://"],
+            prefixes: [
+              "stepra://",
+              "https://stepra.com.ng",
+              "https://www.stepra.com.ng",
+            ],
             config: {
               screens: {
+                // Auth stack (logged out, onboarding complete)
+                Signup: {
+                  path: "authenticate/register",
+                  parse: {
+                    ref: (ref: string) => ref,
+                    referral_code: (code: string) => code,
+                    email: (email: string) => email,
+                  },
+                },
+                // Nested under Onboarding navigator when onboarding not complete
+                Auth: {
+                  path: "authenticate",
+                  screens: {
+                    Signup: {
+                      path: "register",
+                      parse: {
+                        ref: (ref: string) => ref,
+                        referral_code: (code: string) => code,
+                        email: (email: string) => email,
+                      },
+                    },
+                  },
+                },
                 Subscription: {
                   path: "subscription/callback",
                   parse: {

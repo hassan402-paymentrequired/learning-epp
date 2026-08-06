@@ -94,3 +94,7 @@ const API_BASE_URL = __DEV__
 - Automatic token refresh on 401 errors
 - Form validation on client side
 - Error messages displayed via Alert
+
+
+check this on the .env on prod:
+REFERRAL_DISCOUNT_PERCENT
