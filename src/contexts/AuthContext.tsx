@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import api, { setLogoutCallback } from "../services/api";
+import { getAuthToken, setAuthToken, removeAuthToken } from "../services/token-storage";
 import {
   registerForExpoPushNotifications,
   syncExpoPushToken,
@@ -79,23 +80,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
   const loadStoredAuth = async (isMounted: boolean) => {
     try {
-      const [storedToken, storedUser, onboardingStatus] =
-        await AsyncStorage.multiGet([
-          "auth_token",
-          "user",
-          "hasSeenOnboarding",
-        ]);
+      const storedToken = await getAuthToken();
+      const [storedUser, onboardingStatus] = await AsyncStorage.multiGet([
+        "user",
+        "hasSeenOnboarding",
+      ]);
 
       if (isMounted) {
         setHasSeenOnboardingState(onboardingStatus[1] === "true");
       }
 
-      if (storedToken[1] && storedUser[1]) {
+      if (storedToken && storedUser[1]) {
         let parsedUser: User | null = null;
         try {
           parsedUser = JSON.parse(storedUser[1]) as User;
         } catch {
-          await AsyncStorage.multiRemove(["auth_token", "user"]);
+          await removeAuthToken();
+          await AsyncStorage.removeItem("user");
         }
 
         if (!parsedUser) {
@@ -103,7 +104,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         }
 
         if (isMounted) {
-          setToken(storedToken[1]);
+          setToken(storedToken);
           setUser(parsedUser);
         }
 
@@ -113,7 +114,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
           void syncExpoPushToken().catch(() => {});
         } catch (error) {
           // Token invalid, clear storage
-          await AsyncStorage.multiRemove(["auth_token", "user"]);
+          await removeAuthToken();
+          await AsyncStorage.removeItem("user");
           if (isMounted) {
             setToken(null);
             setUser(null);
@@ -136,17 +138,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
   const login = async (email: string, password: string) => {
     try {
-      console.log(api.defaults.baseURL, 'in auth context');
       const response = await api.post("/login", { email, password });
       const { token: newToken, user: userData } = response.data.data;
       if (!newToken || !userData) {
         throw new Error("Invalid login response. Please try again.");
       }
 
-      await AsyncStorage.multiSet([
-        ["auth_token", newToken],
-        ["user", JSON.stringify(userData)],
-      ]);
+      await setAuthToken(newToken);
+      await AsyncStorage.setItem("user", JSON.stringify(userData));
 
       setToken(newToken);
       setUser(userData);
@@ -184,7 +183,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         throw new Error("Invalid registration response. Please try again.");
       }
 
-      await AsyncStorage.setItem("auth_token", newToken);
+      await setAuthToken(newToken);
 
       return { token: newToken, user: userData };
     } catch (error: any) {
@@ -198,10 +197,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   const activateSession = async (token: string, user: User) => {
-    await AsyncStorage.multiSet([
-      ["auth_token", token],
-      ["user", JSON.stringify(user)],
-    ]);
+    await setAuthToken(token);
+    await AsyncStorage.setItem("user", JSON.stringify(user));
     setToken(token);
     setUser(user);
     void registerForExpoPushNotifications().catch(() => {});
@@ -220,7 +217,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     } catch (error) {
       console.error("Logout error:", error);
     } finally {
-      await AsyncStorage.multiRemove(["auth_token", "user"]);
+      await removeAuthToken();
+      await AsyncStorage.removeItem("user");
       setToken(null);
       setUser(null);
     }

@@ -3,7 +3,7 @@ import { View, StyleSheet, Image, useWindowDimensions } from "react-native";
 import { StatusBar } from "expo-status-bar";
 
 /** Must stay in sync with app.json splash.backgroundColor */
-export const SPLASH_BACKGROUND = "#1E1B4B";
+export const SPLASH_BACKGROUND = "#FFFFFF";
 
 export function CustomSplashScreen() {
   const { width } = useWindowDimensions();
@@ -11,7 +11,7 @@ export function CustomSplashScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <Image
         source={require("../assets/images/logo.png")}
         style={{ width: logoSize, height: logoSize }}

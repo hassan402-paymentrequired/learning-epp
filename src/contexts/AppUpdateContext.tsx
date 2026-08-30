@@ -41,7 +41,7 @@ export function AppUpdateProvider({ children }: { children: ReactNode }) {
 
   const requireUpdate = useCallback((payload: ForceUpdatePayload) => {
     setUpdateRequired(payload);
-    setChecking(false);
+    setChecking(false); // Ensure we are not showing splashscreen any longer
   }, []);
 
   const recheckUpdate = useCallback(async () => {
@@ -82,7 +82,8 @@ export function AppUpdateProvider({ children }: { children: ReactNode }) {
     [requireUpdate, recheckUpdate]
   );
 
-  if (checking) {
+  // Do NOT show CustomSplashScreen if a force update is required.
+  if (checking && !updateRequired) {
     return <CustomSplashScreen />;
   }
 

@@ -1,9 +1,10 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
-import Constants from 'expo-constants';
+import * as Application from 'expo-application';
 import type { ForceUpdatePayload } from '@/types/app-version';
 import { getStoreUrlForPlatform } from '@/constants/store-urls';
+import { getAuthToken, setAuthToken, removeAuthToken } from '@/services/token-storage';
 
 const DEFAULT_PRODUCTION_API_BASE_URL = 'https://admin.stepra.com.ng/api';
 const DEFAULT_DEV_API_BASE_URL = 'https://admin.stepra.com.ng/api';
@@ -55,7 +56,7 @@ const getAppPlatformHeader = (): 'ios' | 'android' =>
   Platform.OS === 'ios' ? 'ios' : 'android';
 
 const getAppVersionHeader = (): string =>
-  Constants.nativeApplicationVersion ?? '0.0.0';
+  Application.nativeApplicationVersion ?? '0.0.0';
 
 const processQueue = (error: any, token: string | null = null) => {
   failedQueue.forEach((prom) => {
@@ -71,7 +72,7 @@ const processQueue = (error: any, token: string | null = null) => {
 // Request interceptor to add token and device id
 api.interceptors.request.use(
   async (config) => {
-    const token = await AsyncStorage.getItem('auth_token');
+    const token = await getAuthToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -137,7 +138,8 @@ api.interceptors.response.use(
     if (originalRequest?.url?.includes('/refresh') && error.response?.status === 401) {
       isRefreshing = false;
       processQueue(error);
-      await AsyncStorage.multiRemove(['auth_token', 'user']);
+      await removeAuthToken();
+      await AsyncStorage.removeItem('user');
 
       // Trigger logout callback
       if (onLogoutCallback) {
@@ -178,7 +180,7 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const currentToken = await AsyncStorage.getItem('auth_token');
+        const currentToken = await getAuthToken();
         if (!currentToken) {
           throw new Error('No token found');
         }
@@ -198,7 +200,7 @@ api.interceptors.response.use(
 
         if (refreshResponse.data.success && refreshResponse.data.data?.token) {
           const newToken = refreshResponse.data.data.token;
-          await AsyncStorage.setItem('auth_token', newToken);
+          await setAuthToken(newToken);
 
           // Process queued requests
           processQueue(null, newToken);
@@ -215,7 +217,8 @@ api.interceptors.response.use(
         // Refresh failed, clear tokens and process queue with error
         processQueue(refreshError);
 
-        await AsyncStorage.multiRemove(['auth_token', 'user']);
+        await removeAuthToken();
+        await AsyncStorage.removeItem('user');
 
         // Trigger logout callback
         if (onLogoutCallback) {

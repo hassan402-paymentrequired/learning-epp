@@ -2,7 +2,6 @@ import React from 'react';
 import {
   View,
   StyleSheet,
-  Image,
   Linking,
   useWindowDimensions,
 } from 'react-native';
@@ -29,7 +28,7 @@ export function ForceUpdateScreen({
   retrying = false,
 }: ForceUpdateScreenProps) {
   const { width } = useWindowDimensions();
-  const logoSize = Math.min(width * 0.42, 220);
+  // const logoSize = Math.min(width * 0.42, 220);
 
   const handleUpdate = () => {
     Linking.openURL(storeUrl).catch(() => {});
@@ -38,19 +37,21 @@ export function ForceUpdateScreen({
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
-      <Image
+      {/* <Image
         source={require('../assets/images/logo.png')}
         style={{ width: logoSize, height: logoSize }}
         resizeMode="contain"
-      />
-      <ThemedText type="title" style={styles.title}>
-        Update required
-      </ThemedText>
-      <ThemedText style={styles.message}>{message}</ThemedText>
-      <ThemedText style={styles.versionText}>
-        Your version: {currentVersion}
-        {minVersion ? ` · Required: ${minVersion}` : ''}
-      </ThemedText>
+      /> */}
+      <View style={styles.content}>
+        <ThemedText type="title" style={styles.title}>
+          Update required
+        </ThemedText>
+        <ThemedText style={styles.message}>{message}</ThemedText>
+        <ThemedText style={styles.versionText}>
+          Your version: {currentVersion}
+          {minVersion ? ` · Required: ${minVersion}` : ''}
+        </ThemedText>
+      </View>
       <View style={styles.actions}>
         <Button title="Update now" onPress={handleUpdate} />
         {onRetry ? (
@@ -70,17 +71,24 @@ export function ForceUpdateScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: SPLASH_BACKGROUND,
-    justifyContent: 'center',
+    // backgroundColor: SPLASH_BACKGROUND,
+    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 32,
+    paddingTop: 54,
+    paddingBottom: 32,
+  },
+  content: {
+    width: '100%',
+    alignItems: 'center',
   },
   title: {
-    marginTop: 24,
     textAlign: 'center',
+    marginBottom: 16,
+    marginTop: 50,
   },
   message: {
-    marginTop: 12,
+    marginTop: 0,
     textAlign: 'center',
     lineHeight: 22,
     opacity: 0.85,
@@ -92,10 +100,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   actions: {
-    marginTop: 32,
     width: '100%',
     maxWidth: 320,
     gap: 12,
+    alignSelf: 'center',
   },
   secondaryButton: {
     marginTop: 4,

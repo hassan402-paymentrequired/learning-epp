@@ -15,6 +15,9 @@ import { QuickActionCards } from "@/components/home/QuickActionCards";
 import { ContinuePracticeCard } from "@/components/home/ContinuePracticeCard";
 import { RecentPerformance } from "@/components/home/RecentPerformance";
 import { useExamSelection } from "@/contexts/ExamSelectionContext";
+import { useCampaigns } from "@/contexts/CampaignContext";
+import { MarqueeBanner } from "@/components/campaigns/MarqueeBanner";
+import { CountdownBanner } from "@/components/campaigns/CountdownBanner";
 import api from "@/services/api";
 
 interface StreakData {
@@ -66,6 +69,7 @@ import type { ExamCategory, InProgressAttempt } from '@/types/exam';
 export function Home() {
   const navigation = useNavigation();
   const { setExamType } = useExamSelection();
+  const { marquee, countdown } = useCampaigns();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -166,6 +170,9 @@ export function Home() {
 
   return (
     <AppLayout showHeader={true} headerTitle="">
+      {/* Marquee Campaign — full-bleed, sits right under the header */}
+      {marquee && <MarqueeBanner campaign={marquee} />}
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -174,6 +181,9 @@ export function Home() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
+        {/* Countdown Campaign */}
+        {countdown && <CountdownBanner campaign={countdown} />}
+
         {/* Streak Carousel */}
         {streakData && (
           <StreakCarousel

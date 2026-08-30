@@ -18,7 +18,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNavigation } from "@react-navigation/native";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { Fonts } from "@/constants/Fonts";
-import Constants from "expo-constants";
+import * as Application from "expo-application";
 import { API_BASE_URL } from "@/services/api";
 
 export function Login() {
@@ -234,8 +234,8 @@ export function Login() {
 
             {/* <View style={styles.aboutFooter}>
               <ThemedText style={styles.aboutLabel}>
-                App {Constants.nativeApplicationVersion ?? "—"} (build{" "}
-                {Constants.nativeBuildVersion ?? "—"})
+                App {Application.nativeApplicationVersion ?? "—"} (build{" "}
+                {Application.nativeBuildVersion ?? "—"})
               </ThemedText>
               <ThemedText style={styles.aboutLabel} selectable>
                 API {API_BASE_URL}

@@ -12,6 +12,7 @@ import { Colors } from "@/constants/Colors";
 import { useTheme } from "@/contexts/ThemeContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ExamSelectionProvider } from "@/contexts/ExamSelectionContext";
+import { CampaignProvider } from "@/contexts/CampaignContext";
 import { CustomSplashScreen } from "@/components/CustomSplashScreen";
 import { Navigation } from "@/navigation";
 
@@ -76,6 +77,7 @@ export function AppContent() {
 
   return (
     <AuthProvider>
+      <CampaignProvider>
       <ExamSelectionProvider>
         <Navigation
           theme={theme}
@@ -123,6 +125,7 @@ export function AppContent() {
           onReady={hideSplash}
         />
       </ExamSelectionProvider>
+      </CampaignProvider>
     </AuthProvider>
   );
 }

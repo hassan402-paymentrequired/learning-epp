@@ -1,13 +1,14 @@
 import { Platform } from 'react-native';
-import Constants from 'expo-constants';
+import * as Application from 'expo-application';
 import api from '@/services/api';
 import { getStoreUrlForPlatform } from '@/constants/store-urls';
 import { isVersionLessThan } from '@/utils/version';
 import type { AppVersionPolicy, ForceUpdatePayload } from '@/types/app-version';
 
 export function getNativeAppVersion(): string {
-  return Constants.nativeApplicationVersion ?? '0.0.0';
+  return Application.nativeApplicationVersion ?? '0.0.0';
 }
+
 
 export function getNativeAppPlatform(): 'ios' | 'android' {
   return Platform.OS === 'ios' ? 'ios' : 'android';

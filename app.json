@@ -10,7 +10,8 @@
     "scheme": "stepra",
     "splash": {
       "image": "src/assets/images/logo.png",
-      "resizeMode": "contain"
+      "resizeMode": "contain",
+      "backgroundColor": "#FFFFFF"
     },
     "ios": {
       "supportsTablet": true,
@@ -22,7 +23,9 @@
       ],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "UIBackgroundModes": ["remote-notification"]
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       }
     },
     "android": {
@@ -35,7 +38,10 @@
         {
           "action": "VIEW",
           "autoVerify": true,
-          "category": ["BROWSABLE", "DEFAULT"],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ],
           "data": [
             {
               "scheme": "https",
@@ -67,7 +73,8 @@
           "image": "src/assets/images/logo.png",
           "resizeMode": "contain",
           "imageWidth": 220,
-          "enableFullScreenImage_legacy": true
+          "enableFullScreenImage_legacy": true,
+          "backgroundColor": "#FFFFFF"
         }
       ],
       [
@@ -89,7 +96,8 @@
           "color": "#4800b2",
           "defaultChannel": "morning-reminders"
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "extra": {
       "eas": {
